@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = 'http://localhost:5230/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -72,43 +72,43 @@ export interface Publication {
 
 // Auth API
 export const authApi = {
-  register: (data: RegisterData) => 
+  register: (data: RegisterData) =>
     api.post<AuthResponse>('/auth/register', data),
-  
-  login: (data: LoginData) => 
+
+  login: (data: LoginData) =>
     api.post<AuthResponse>('/auth/login', data),
 };
 
 // Users API
 export const usersApi = {
-  getAll: () => 
+  getAll: () =>
     api.get<User[]>('/users'),
-  
-  getById: (id: string) => 
+
+  getById: (id: string) =>
     api.get<User>(`/users/${id}`),
-  
-  update: (id: string, data: UpdateUserData) => 
+
+  update: (id: string, data: UpdateUserData) =>
     api.put<User>(`/users/${id}`, data),
-  
-  delete: (id: string) => 
+
+  delete: (id: string) =>
     api.delete(`/users/${id}`),
 };
 
 // Publications API
 export const publicationsApi = {
-  getAll: () => 
+  getAll: () =>
     api.get<Publication[]>('/publications'),
-  
-  getById: (id: string) => 
+
+  getById: (id: string) =>
     api.get<Publication>(`/publications/${id}`),
-  
-  getByAuthor: (authorId: string) => 
+
+  getByAuthor: (authorId: string) =>
     api.get<Publication[]>(`/publications/author/${authorId}`),
-  
-  create: (data: Partial<Publication>) => 
+
+  create: (data: Partial<Publication>) =>
     api.post<Publication>('/publications', data),
-  
-  delete: (id: string) => 
+
+  delete: (id: string) =>
     api.delete(`/publications/${id}`),
 };
 
