@@ -41,9 +41,9 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// Database - Using InMemory for development (no PostgreSQL required)
+// Database
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseInMemoryDatabase("ResearchNetworkDb"));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Repositories
 builder.Services.AddScoped<IUserRepository, UserRepository>();
