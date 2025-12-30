@@ -1,0 +1,17 @@
+.tag {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.tag-default {
+    background: #edf2f7;
+    color: #4a5568;
+}
+
+.tag-primary {
+    background: rgba(85, 120, 69, 0.15);
+    color: #557845;
+}

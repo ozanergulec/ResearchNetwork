@@ -1,0 +1,13 @@
+.card {
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+}
+
+.card-default {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.card-elevated {
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+}
