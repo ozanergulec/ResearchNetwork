@@ -291,13 +291,6 @@ uvicorn main:app --reload --port 8000
 | GET | `/api/publications` | Tüm yayınları listele | ❌ |
 | POST | `/api/publications` | Yeni yayın ekle | ✅ |
 
-### JWT Kullanımı
-
-Login sonrası dönen token'ı her istekte header'a ekleyin:
-
-```
-Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
-```
 
 ---
 
@@ -354,17 +347,19 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 
 ---
 
-## 🎨 Renk Paleti
+## 📸 Ekran Görüntüleri
 
-Uygulama yeşil tonlarında bir renk paletine sahiptir:
+| Giriş | Kayıt |
+|:-----:|:-----:|
+| ![Login](docs/screenshots/01-login.png) | ![Register](docs/screenshots/02-register.png) |
 
-| Renk | Hex | Kullanım |
-|------|-----|----------|
-| Primary Darkest | `#1a3a25` | Arka plan gradientleri |
-| Primary Dark | `#325330` | Buton gradientleri |
-| Primary | `#557845` | Ana tema rengi |
-| Primary Light | `#86a863` | Hover efektleri |
-| Primary Lightest | `#cce986` | Açık arka planlar |
+| Profil | Profil Düzenleme |
+|:------:|:----------------:|
+| ![Profile](docs/screenshots/03-profile.png) | ![Profile Edit](docs/screenshots/04-profile-edit.png) |
+
+| Araştırmacı Önerileri |
+|:---------------------:|
+| ![Recommendations](docs/screenshots/05-recommendations.png) |
 
 ---
 
@@ -378,16 +373,5 @@ Uygulama yeşil tonlarında bir renk paletine sahiptir:
 
 ---
 
-## 📜 Lisans
 
-Bu proje TÜBİTAK-2209-A Üniversite Öğrencileri Araştırma Projeleri Desteği Programı kapsamında geliştirilmektedir.
 
----
-
-## 📞 İletişim
-
-Sorularınız için: [proje e-posta adresi]
-
----
-
-*Son güncelleme: Aralık 2025*
