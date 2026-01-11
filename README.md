@@ -15,8 +15,7 @@ Bu proje, TÜBİTAK-2209-A Üniversite Öğrencileri Araştırma Projeleri kapsa
 5. [Kurulum](#-kurulum)
 6. [API Dokümantasyonu](#-api-dokümantasyonu)
 7. [Veritabanı Şeması](#-veritabanı-şeması)
-8. [Ekran Görüntüleri](#-ekran-görüntüleri)
-9. [Proje Ekibi](#-proje-ekibi)
+8. [Proje Ekibi](#-proje-ekibi)
 
 ---
 
@@ -347,21 +346,6 @@ uvicorn main:app --reload --port 8000
 
 ---
 
-## 📸 Ekran Görüntüleri
-
-| Giriş | Kayıt |
-|:-----:|:-----:|
-| ![Login](docs/screenshots/01-login.png) | ![Register](docs/screenshots/02-register.png) |
-
-| Profil | Profil Düzenleme |
-|:------:|:----------------:|
-| ![Profile](docs/screenshots/03-profile.png) | ![Profile Edit](docs/screenshots/04-profile-edit.png) |
-
-| Araştırmacı Önerileri |
-|:---------------------:|
-| ![Recommendations](docs/screenshots/05-recommendations.png) |
-
----
 
 ## 👥 Proje Ekibi
 
