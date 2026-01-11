@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: researchnetwork-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: researchnetwork
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - researchnetwork-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d researchnetwork"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # PgAdmin - Database Management UI
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: researchnetwork-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - researchnetwork-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # .NET 8 Backend API
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: researchnetwork-backend
+    restart: unless-stopped
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=researchnetwork;Username=postgres;Password=postgres
+      - Jwt__Key=YourSuperSecretKeyForJwtTokenGeneration123456789!
+      - Jwt__Issuer=ResearchNetwork
+      - ASPNETCORE_ENVIRONMENT=Development
+    ports:
+      - "5230:5230"
+    networks:
+      - researchnetwork-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Python AI Service
+  ai-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.ai-service
+    container_name: researchnetwork-ai-service
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    networks:
+      - researchnetwork-net
+
+networks:
+  researchnetwork-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  pgadmin_data:

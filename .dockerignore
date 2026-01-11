@@ -1,0 +1,39 @@
+# .NET
+**/bin/
+**/obj/
+**/.vs/
+*.user
+*.userosscache
+*.suo
+
+# Python
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/.pytest_cache/
+**/.venv/
+**/venv/
+
+# Node
+**/node_modules/
+**/dist/
+
+# IDE
+**/.idea/
+**/.vscode/
+
+# Git
+.git/
+.gitignore
+
+# Docker
+**/Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Documentation
+*.md
+docs/
+
+# Frontend (not needed for backend/ai-service containers)
+frontend/
