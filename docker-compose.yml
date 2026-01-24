@@ -58,19 +58,6 @@ services:
     networks:
       - research-net
 
-  # --- Frontend ---
-  frontend:
-    build:
-      context: .
-      dockerfile: Dockerfile.frontend
-    container_name: research_network_frontend
-    ports:
-      - "3000:80"
-    depends_on:
-      - api
-    networks:
-      - research-net
-
 networks:
   research-net:
     driver: bridge
