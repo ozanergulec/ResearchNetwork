@@ -1,6 +1,6 @@
 .rec-container {
     min-height: 100vh;
-    background: #f0f5ec;
+    background: #f0f2f5;
 }
 
 .rec-nav {
@@ -16,7 +16,7 @@
     margin: 0;
     font-size: 20px;
     font-weight: 700;
-    color: #557845;
+    color: #667eea;
 }
 
 .rec-nav-links {
@@ -36,8 +36,8 @@
 }
 
 .rec-nav-button.active {
-    background: #e8f0e4;
-    color: #557845;
+    background: #f0f0f0;
+    color: #667eea;
     font-weight: 600;
 }
 
@@ -109,7 +109,7 @@
     width: 64px;
     height: 64px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #1a3a25 0%, #557845 100%);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
     display: flex;
     align-items: center;
@@ -129,7 +129,7 @@
 .rec-card-title {
     margin: 0;
     font-size: 14px;
-    color: #557845;
+    color: #667eea;
 }
 
 .rec-card-institution {
@@ -157,7 +157,7 @@
 .rec-connect-button {
     padding: 10px 24px;
     border: none;
-    background: linear-gradient(135deg, #325330 0%, #557845 100%);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
     font-size: 14px;
     font-weight: 600;
@@ -168,12 +168,12 @@
 .rec-ai-note {
     margin-top: 48px;
     padding: 24px;
-    background: linear-gradient(135deg, rgba(85, 120, 69, 0.1) 0%, rgba(134, 168, 99, 0.1) 100%);
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%);
     border-radius: 16px;
     display: flex;
     align-items: flex-start;
     gap: 20px;
-    border: 1px solid rgba(85, 120, 69, 0.25);
+    border: 1px solid rgba(102, 126, 234, 0.2);
 }
 
 .rec-ai-icon {
@@ -185,7 +185,7 @@
     margin: 0 0 8px;
     font-size: 16px;
     font-weight: 600;
-    color: #557845;
+    color: #667eea;
 }
 
 .rec-ai-text {

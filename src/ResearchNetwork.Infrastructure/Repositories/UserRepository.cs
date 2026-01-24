@@ -34,8 +34,7 @@ public class UserRepository : IUserRepository
 
     public async Task<User> CreateAsync(User user)
     {
-        user.Id = Guid.NewGuid();
-        user.CreatedAt = DateTime.UtcNow;
+        // Id and CreatedAt are set in User constructor
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
         return user;
@@ -43,7 +42,7 @@ public class UserRepository : IUserRepository
 
     public async Task<User> UpdateAsync(User user)
     {
-        user.UpdatedAt = DateTime.UtcNow;
+        // Update logic should be handled by domain methods or tracking
         _context.Users.Update(user);
         await _context.SaveChangesAsync();
         return user;

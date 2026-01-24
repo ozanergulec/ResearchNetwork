@@ -1,82 +1,79 @@
-version: '3.8'
-
 services:
-  # PostgreSQL Database
+  # --- Veritabanı ---
   postgres:
-    image: postgres:15-alpine
-    container_name: researchnetwork-postgres
-    restart: unless-stopped
+    image: postgres:17
+    container_name: research_network_db
     environment:
-      POSTGRES_DB: researchnetwork
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: researchnetwork
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
-      - researchnetwork-net
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d researchnetwork"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - research-net
+    restart: always
 
-  # PgAdmin - Database Management UI
   pgadmin:
     image: dpage/pgadmin4:latest
-    container_name: researchnetwork-pgadmin
-    restart: unless-stopped
+    container_name: research_network_pgadmin
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@admin.com
       PGADMIN_DEFAULT_PASSWORD: admin
-      PGADMIN_CONFIG_SERVER_MODE: 'False'
     ports:
       - "5050:80"
-    volumes:
-      - pgadmin_data:/var/lib/pgadmin
-    networks:
-      - researchnetwork-net
     depends_on:
-      postgres:
-        condition: service_healthy
+      - postgres
+    networks:
+      - research-net
+    restart: always
 
-  # .NET 8 Backend API
-  backend:
+  # --- Backend API ---
+  api:
     build:
       context: .
       dockerfile: Dockerfile.backend
-    container_name: researchnetwork-backend
-    restart: unless-stopped
+    container_name: research_network_api
     environment:
-      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=researchnetwork;Username=postgres;Password=postgres
-      - Jwt__Key=YourSuperSecretKeyForJwtTokenGeneration123456789!
-      - Jwt__Issuer=ResearchNetwork
       - ASPNETCORE_ENVIRONMENT=Development
+      # Docker içinde host 'postgres' olarak görünür
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=researchnetwork;Username=postgres;Password=postgres
     ports:
-      - "5230:5230"
-    networks:
-      - researchnetwork-net
+      - "5051:8080"
     depends_on:
-      postgres:
-        condition: service_healthy
+      - postgres
+    networks:
+      - research-net
+    restart: on-failure
 
-  # Python AI Service
+  # --- AI Service ---
   ai-service:
     build:
       context: .
       dockerfile: Dockerfile.ai-service
-    container_name: researchnetwork-ai-service
-    restart: unless-stopped
+    container_name: research_network_ai
     ports:
       - "8000:8000"
     networks:
-      - researchnetwork-net
+      - research-net
+
+  # --- Frontend ---
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: research_network_frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+    networks:
+      - research-net
 
 networks:
-  researchnetwork-net:
+  research-net:
     driver: bridge
 
 volumes:
   postgres_data:
-  pgadmin_data:

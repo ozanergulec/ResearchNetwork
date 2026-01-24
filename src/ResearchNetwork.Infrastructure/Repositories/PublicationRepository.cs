@@ -37,8 +37,7 @@ public class PublicationRepository : IPublicationRepository
 
     public async Task<Publication> CreateAsync(Publication publication)
     {
-        publication.Id = Guid.NewGuid();
-        publication.CreatedAt = DateTime.UtcNow;
+        // Id and CreatedAt are set in Constructor
         _context.Publications.Add(publication);
         await _context.SaveChangesAsync();
         return publication;

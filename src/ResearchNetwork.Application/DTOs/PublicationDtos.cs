@@ -4,17 +4,19 @@ public record PublicationDto(
     Guid Id,
     string Title,
     string? Abstract,
-    string? DOI,
     DateTime? PublishedDate,
-    List<string> Keywords,
-    Guid AuthorId,
+    List<string> Tags,
+    UserSummaryDto Author,
+    double AverageRating,
+    int CitationCount,
+    int SaveCount,
+    int ShareCount,
     DateTime CreatedAt
 );
 
 public record CreatePublicationDto(
     string Title,
     string? Abstract,
-    string? DOI,
     DateTime? PublishedDate,
-    List<string>? Keywords
+    List<string>? Tags
 );

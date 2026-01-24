@@ -8,15 +8,28 @@ public record UserDto(
     string? Institution,
     string? Department,
     string? Bio,
-    List<string> InterestTags,
+    string? ProfileImageUrl,
+    bool IsVerified,
+    int FollowerCount,
+    int FollowingCount,
+    double AvgScore,
     DateTime CreatedAt
 );
 
-public record UpdateUserDto(
-    string? FullName,
+public record UserSummaryDto(
+    Guid Id,
+    string FullName,
+    string? Title,
+    string? Institution,
+    string? ProfileImageUrl,
+    bool IsVerified
+);
+
+public record UpdateUserProfileDto(
+    string FullName,
     string? Title,
     string? Institution,
     string? Department,
     string? Bio,
-    List<string>? InterestTags
+    string? ProfileImageUrl
 );

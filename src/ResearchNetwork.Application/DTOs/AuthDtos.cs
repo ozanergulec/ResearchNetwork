@@ -1,15 +1,12 @@
 namespace ResearchNetwork.Application.DTOs;
 
-public record RegisterDto(
+public record LoginDto(
     string Email,
-    string Password,
-    string FullName,
-    string? Title = null,
-    string? Institution = null,
-    string? Department = null
+    string Password
 );
 
-public record LoginDto(
+public record RegisterDto(
+    string FullName,
     string Email,
     string Password
 );
@@ -17,4 +14,9 @@ public record LoginDto(
 public record AuthResponseDto(
     string Token,
     UserDto User
+);
+
+public record VerifyEmailDto(
+    string Email,
+    string Code
 );

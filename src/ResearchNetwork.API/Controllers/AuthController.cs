@@ -30,15 +30,8 @@ public class AuthController : ControllerBase
             return BadRequest(new { Message = "Email already exists" });
         }
 
-        var user = new User
-        {
-            Email = dto.Email,
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
-            FullName = dto.FullName,
-            Title = dto.Title,
-            Institution = dto.Institution,
-            Department = dto.Department
-        };
+        var user = new User(dto.Email, dto.FullName);
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
 
         await _userRepository.CreateAsync(user);
 
@@ -53,7 +46,12 @@ public class AuthController : ControllerBase
     {
         var user = await _userRepository.GetByEmailAsync(dto.Email);
 
-        if (user == null || !BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
+        if (user == null)
+        {
+            return Unauthorized(new { Message = "Invalid email or password" });
+        }
+        
+        if (string.IsNullOrEmpty(user.PasswordHash) || !BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
         {
             return Unauthorized(new { Message = "Invalid email or password" });
         }
@@ -102,7 +100,11 @@ public class AuthController : ControllerBase
             user.Institution,
             user.Department,
             user.Bio,
-            user.InterestTags,
+            user.ProfileImageUrl,
+            user.IsVerified,
+            user.FollowerCount,
+            user.FollowingCount,
+            user.AvgScore,
             user.CreatedAt
         );
     }

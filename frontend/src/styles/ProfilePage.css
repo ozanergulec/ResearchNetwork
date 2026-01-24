@@ -1,6 +1,6 @@
 .profile-container {
     min-height: 100vh;
-    background: #f0f5ec;
+    background: #f0f2f5;
 }
 
 .profile-nav {
@@ -16,7 +16,7 @@
     margin: 0;
     font-size: 20px;
     font-weight: 700;
-    color: #557845;
+    color: #667eea;
 }
 
 .profile-nav-links {
@@ -71,7 +71,7 @@
     width: 80px;
     height: 80px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #1a3a25 0%, #557845 100%);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
     display: flex;
     align-items: center;
@@ -114,7 +114,7 @@
     margin-top: 16px;
     padding: 12px 24px;
     border: none;
-    background: linear-gradient(135deg, #325330 0%, #557845 100%);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
     font-size: 14px;
     font-weight: 600;
@@ -160,7 +160,7 @@
 .profile-save-button {
     padding: 12px 24px;
     border: none;
-    background: linear-gradient(135deg, #325330 0%, #557845 100%);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
     font-size: 14px;
     font-weight: 600;

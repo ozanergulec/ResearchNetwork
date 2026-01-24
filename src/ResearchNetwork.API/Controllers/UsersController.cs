@@ -28,7 +28,11 @@ public class UsersController : ControllerBase
             u.Institution,
             u.Department,
             u.Bio,
-            u.InterestTags,
+            u.ProfileImageUrl,
+            u.IsVerified,
+            u.FollowerCount,
+            u.FollowingCount,
+            u.AvgScore,
             u.CreatedAt
         ));
         return Ok(userDtos);
@@ -51,14 +55,18 @@ public class UsersController : ControllerBase
             user.Institution,
             user.Department,
             user.Bio,
-            user.InterestTags,
+            user.ProfileImageUrl,
+            user.IsVerified,
+            user.FollowerCount,
+            user.FollowingCount,
+            user.AvgScore,
             user.CreatedAt
         ));
     }
 
     [Authorize]
     [HttpPut("{id:guid}")]
-    public async Task<ActionResult<UserDto>> Update(Guid id, [FromBody] UpdateUserDto dto)
+    public async Task<ActionResult<UserDto>> Update(Guid id, [FromBody] UpdateUserProfileDto dto)
     {
         var user = await _userRepository.GetByIdAsync(id);
         if (user == null)
@@ -72,7 +80,7 @@ public class UsersController : ControllerBase
         if (dto.Institution != null) user.Institution = dto.Institution;
         if (dto.Department != null) user.Department = dto.Department;
         if (dto.Bio != null) user.Bio = dto.Bio;
-        if (dto.InterestTags != null) user.InterestTags = dto.InterestTags;
+        if (dto.ProfileImageUrl != null) user.ProfileImageUrl = dto.ProfileImageUrl;
 
         await _userRepository.UpdateAsync(user);
 
@@ -84,7 +92,11 @@ public class UsersController : ControllerBase
             user.Institution,
             user.Department,
             user.Bio,
-            user.InterestTags,
+            user.ProfileImageUrl,
+            user.IsVerified,
+            user.FollowerCount,
+            user.FollowingCount,
+            user.AvgScore,
             user.CreatedAt
         ));
     }
