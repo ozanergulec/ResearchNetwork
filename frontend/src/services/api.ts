@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:5001/api';
+const API_BASE_URL = 'http://localhost:5051/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -27,7 +27,11 @@ export interface User {
   institution?: string;
   department?: string;
   bio?: string;
-  interestTags: string[];
+  profileImageUrl?: string;
+  isVerified: boolean;
+  followerCount: number;
+  followingCount: number;
+  avgScore: number;
   createdAt: string;
 }
 
@@ -56,7 +60,7 @@ export interface UpdateUserData {
   institution?: string;
   department?: string;
   bio?: string;
-  interestTags?: string[];
+  profileImageUrl?: string;
 }
 
 export interface Publication {

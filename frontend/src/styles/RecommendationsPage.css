@@ -1,54 +1,6 @@
 .rec-container {
     min-height: 100vh;
-    background: #f0f2f5;
-}
-
-.rec-nav {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 16px 32px;
-    background: white;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.rec-logo {
-    margin: 0;
-    font-size: 20px;
-    font-weight: 700;
-    color: #667eea;
-}
-
-.rec-nav-links {
-    display: flex;
-    gap: 8px;
-}
-
-.rec-nav-button {
-    padding: 8px 16px;
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    font-size: 14px;
-    color: #666;
-    border-radius: 6px;
-    transition: background 0.2s;
-}
-
-.rec-nav-button.active {
-    background: #f0f0f0;
-    color: #667eea;
-    font-weight: 600;
-}
-
-.rec-logout-button {
-    padding: 8px 16px;
-    border: 1px solid #ddd;
-    background: transparent;
-    cursor: pointer;
-    font-size: 14px;
-    color: #666;
-    border-radius: 6px;
+    background: var(--bg-primary);
 }
 
 .rec-content {
@@ -61,28 +13,34 @@
     margin: 0;
     font-size: 28px;
     font-weight: 700;
-    color: #333;
+    color: var(--heading-color);
 }
 
 .rec-subtitle {
     margin: 8px 0 32px;
-    color: #666;
+    color: var(--text-primary);
     font-size: 14px;
-}
-
-.rec-loading-box {
-    text-align: center;
-    padding: 60px;
-    color: #666;
-    font-size: 16px;
+    opacity: 0.7;
 }
 
 .rec-empty-state {
     text-align: center;
     padding: 60px;
-    background: white;
+    background: #fff;
     border-radius: 16px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 20px rgba(42, 31, 29, 0.08);
+    border: 1px solid var(--ui-detail);
+}
+
+.rec-empty-state h3 {
+    color: var(--heading-color);
+    margin: 0 0 8px;
+}
+
+.rec-empty-state p {
+    color: var(--text-primary);
+    opacity: 0.7;
+    margin: 0;
 }
 
 .rec-empty-icon {
@@ -96,84 +54,15 @@
     gap: 24px;
 }
 
-.rec-card {
-    background: white;
-    border-radius: 16px;
-    padding: 24px;
-    text-align: center;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-    transition: transform 0.2s;
-}
-
-.rec-avatar {
-    width: 64px;
-    height: 64px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 24px;
-    font-weight: 700;
-    margin: 0 auto 16px;
-}
-
-.rec-card-name {
-    margin: 0 0 4px;
-    font-size: 18px;
-    font-weight: 600;
-    color: #333;
-}
-
-.rec-card-title {
-    margin: 0;
-    font-size: 14px;
-    color: #667eea;
-}
-
-.rec-card-institution {
-    margin: 4px 0 12px;
-    font-size: 13px;
-    color: #888;
-}
-
-.rec-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    justify-content: center;
-    margin-bottom: 16px;
-}
-
-.rec-tag {
-    padding: 4px 10px;
-    background: #f0f0f0;
-    border-radius: 12px;
-    font-size: 12px;
-    color: #666;
-}
-
-.rec-connect-button {
-    padding: 10px 24px;
-    border: none;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    font-size: 14px;
-    font-weight: 600;
-    border-radius: 8px;
-    cursor: pointer;
-}
-
 .rec-ai-note {
     margin-top: 48px;
     padding: 24px;
-    background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%);
+    background: rgba(122, 31, 43, 0.05);
     border-radius: 16px;
     display: flex;
     align-items: flex-start;
     gap: 20px;
-    border: 1px solid rgba(102, 126, 234, 0.2);
+    border: 1px solid rgba(122, 31, 43, 0.15);
 }
 
 .rec-ai-icon {
@@ -185,12 +74,12 @@
     margin: 0 0 8px;
     font-size: 16px;
     font-weight: 600;
-    color: #667eea;
+    color: var(--heading-color);
 }
 
 .rec-ai-text {
     margin: 0;
     font-size: 14px;
-    color: #555;
+    color: var(--text-primary);
     line-height: 1.6;
 }

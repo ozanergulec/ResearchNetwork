@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usersApi } from '../services/api';
 import type { User, UpdateUserData } from '../services/api';
+import { Navbar, Avatar, Loading, FormInput } from '../components';
 import '../styles/ProfilePage.css';
 
 const ProfilePage: React.FC = () => {
@@ -22,18 +23,11 @@ const ProfilePage: React.FC = () => {
                 institution: parsed.institution || '',
                 department: parsed.department || '',
                 bio: parsed.bio || '',
-                interestTags: parsed.interestTags || [],
             });
         } else {
             navigate('/login');
         }
     }, [navigate]);
-
-    const handleLogout = () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        navigate('/login');
-    };
 
     const handleSave = async () => {
         if (!user) return;
@@ -51,24 +45,17 @@ const ProfilePage: React.FC = () => {
     };
 
     if (!user) {
-        return <div className="profile-loading">Loading...</div>;
+        return <Loading message="Loading profile..." />;
     }
 
     return (
         <div className="profile-container">
-            <nav className="profile-nav">
-                <h2 className="profile-logo">Research Network</h2>
-                <div className="profile-nav-links">
-                    <button onClick={() => navigate('/profile')} className="profile-nav-button">Profile</button>
-                    <button onClick={() => navigate('/recommendations')} className="profile-nav-button">Recommendations</button>
-                    <button onClick={handleLogout} className="profile-logout-button">Logout</button>
-                </div>
-            </nav>
+            <Navbar currentPage="profile" />
 
             <div className="profile-content">
                 <div className="profile-card">
                     <div className="profile-header">
-                        <div className="profile-avatar">{user.fullName.charAt(0).toUpperCase()}</div>
+                        <Avatar name={user.fullName} size="large" />
                         <div>
                             <h1 className="profile-name">{user.fullName}</h1>
                             <p className="profile-email">{user.email}</p>
@@ -77,50 +64,32 @@ const ProfilePage: React.FC = () => {
 
                     {editing ? (
                         <div className="profile-edit-form">
-                            <label className="profile-label">
-                                Full Name
-                                <input
-                                    type="text"
-                                    value={updateData.fullName || ''}
-                                    onChange={(e) => setUpdateData({ ...updateData, fullName: e.target.value })}
-                                    className="profile-input"
-                                />
-                            </label>
-                            <label className="profile-label">
-                                Title
-                                <input
-                                    type="text"
-                                    value={updateData.title || ''}
-                                    onChange={(e) => setUpdateData({ ...updateData, title: e.target.value })}
-                                    className="profile-input"
-                                />
-                            </label>
-                            <label className="profile-label">
-                                Institution
-                                <input
-                                    type="text"
-                                    value={updateData.institution || ''}
-                                    onChange={(e) => setUpdateData({ ...updateData, institution: e.target.value })}
-                                    className="profile-input"
-                                />
-                            </label>
-                            <label className="profile-label">
-                                Department
-                                <input
-                                    type="text"
-                                    value={updateData.department || ''}
-                                    onChange={(e) => setUpdateData({ ...updateData, department: e.target.value })}
-                                    className="profile-input"
-                                />
-                            </label>
-                            <label className="profile-label">
-                                Bio
-                                <textarea
-                                    value={updateData.bio || ''}
-                                    onChange={(e) => setUpdateData({ ...updateData, bio: e.target.value })}
-                                    className="profile-input profile-textarea"
-                                />
-                            </label>
+                            <FormInput
+                                label="Full Name"
+                                value={updateData.fullName || ''}
+                                onChange={(e) => setUpdateData({ ...updateData, fullName: e.target.value })}
+                            />
+                            <FormInput
+                                label="Title"
+                                value={updateData.title || ''}
+                                onChange={(e) => setUpdateData({ ...updateData, title: e.target.value })}
+                            />
+                            <FormInput
+                                label="Institution"
+                                value={updateData.institution || ''}
+                                onChange={(e) => setUpdateData({ ...updateData, institution: e.target.value })}
+                            />
+                            <FormInput
+                                label="Department"
+                                value={updateData.department || ''}
+                                onChange={(e) => setUpdateData({ ...updateData, department: e.target.value })}
+                            />
+                            <FormInput
+                                label="Bio"
+                                value={updateData.bio || ''}
+                                onChange={(e) => setUpdateData({ ...updateData, bio: e.target.value })}
+                                multiline
+                            />
                             <div className="profile-button-group">
                                 <button onClick={handleSave} className="profile-save-button" disabled={loading}>
                                     {loading ? 'Saving...' : 'Save Changes'}
@@ -149,8 +118,8 @@ const ProfilePage: React.FC = () => {
                                 <span>{user.bio || 'No bio yet'}</span>
                             </div>
                             <div className="profile-detail-row">
-                                <span className="profile-detail-label">Interest Tags:</span>
-                                <span>{user.interestTags.length > 0 ? user.interestTags.join(', ') : 'None'}</span>
+                                <span className="profile-detail-label">Verified:</span>
+                                <span>{user.isVerified ? 'Yes' : 'No'}</span>
                             </div>
                             <button onClick={() => setEditing(true)} className="profile-edit-button">
                                 Edit Profile

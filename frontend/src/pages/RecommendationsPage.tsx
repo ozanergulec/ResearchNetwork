@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usersApi } from '../services/api';
 import type { User } from '../services/api';
+import { Navbar, Loading, UserCard } from '../components';
 import '../styles/RecommendationsPage.css';
 
 const RecommendationsPage: React.FC = () => {
@@ -33,22 +34,9 @@ const RecommendationsPage: React.FC = () => {
         fetchUsers();
     }, [navigate]);
 
-    const handleLogout = () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        navigate('/login');
-    };
-
     return (
         <div className="rec-container">
-            <nav className="rec-nav">
-                <h2 className="rec-logo">Research Network</h2>
-                <div className="rec-nav-links">
-                    <button onClick={() => navigate('/profile')} className="rec-nav-button">Profile</button>
-                    <button onClick={() => navigate('/recommendations')} className="rec-nav-button active">Recommendations</button>
-                    <button onClick={handleLogout} className="rec-logout-button">Logout</button>
-                </div>
-            </nav>
+            <Navbar currentPage="recommendations" />
 
             <div className="rec-content">
                 <h1 className="rec-title">Recommended Researchers</h1>
@@ -57,7 +45,7 @@ const RecommendationsPage: React.FC = () => {
                 </p>
 
                 {loading ? (
-                    <div className="rec-loading-box">Loading recommendations...</div>
+                    <Loading message="Loading recommendations..." />
                 ) : users.length === 0 ? (
                     <div className="rec-empty-state">
                         <div className="rec-empty-icon">👥</div>
@@ -67,20 +55,11 @@ const RecommendationsPage: React.FC = () => {
                 ) : (
                     <div className="rec-grid">
                         {users.map((user) => (
-                            <div key={user.id} className="rec-card">
-                                <div className="rec-avatar">{user.fullName.charAt(0).toUpperCase()}</div>
-                                <h3 className="rec-card-name">{user.fullName}</h3>
-                                <p className="rec-card-title">{user.title || 'Researcher'}</p>
-                                <p className="rec-card-institution">{user.institution || 'No institution'}</p>
-                                {user.interestTags.length > 0 && (
-                                    <div className="rec-tags">
-                                        {user.interestTags.slice(0, 3).map((tag, i) => (
-                                            <span key={i} className="rec-tag">{tag}</span>
-                                        ))}
-                                    </div>
-                                )}
-                                <button className="rec-connect-button">Connect</button>
-                            </div>
+                            <UserCard
+                                key={user.id}
+                                user={user}
+                                onConnect={() => console.log('Connect to', user.fullName)}
+                            />
                         ))}
                     </div>
                 )}
