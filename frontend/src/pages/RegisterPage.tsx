@@ -4,7 +4,7 @@ import { authApi } from '../services/api';
 import type { RegisterData } from '../services/api';
 import '../styles/LoginPage.css';
 
-// Kabul edilen akademik email domain'leri
+// Accepted academic email domains
 const ACADEMIC_DOMAINS = ['.edu.tr', '.ac.uk', '.edu'];
 
 const isAcademicEmail = (email: string): boolean => {
@@ -29,7 +29,7 @@ const RegisterPage: React.FC = () => {
 
     const validateEmail = (email: string) => {
         if (email && !isAcademicEmail(email)) {
-            setEmailError('Sadece akademik email adresleri kabul edilmektedir (.edu.tr, .ac.uk, .edu)');
+            setEmailError('Only academic email addresses are accepted (.edu.tr, .ac.uk, .edu)');
         } else {
             setEmailError(null);
         }
@@ -45,7 +45,7 @@ const RegisterPage: React.FC = () => {
         e.preventDefault();
 
         if (!isAcademicEmail(registerData.email)) {
-            setError('Sadece akademik email adresleri kabul edilmektedir (.edu.tr, .ac.uk, .edu)');
+            setError('Only academic email addresses are accepted (.edu.tr, .ac.uk, .edu)');
             return;
         }
 
@@ -54,7 +54,7 @@ const RegisterPage: React.FC = () => {
 
         try {
             const response = await authApi.register(registerData);
-            // Doğrulama sayfasına yönlendir
+            // Redirect to verification page
             navigate('/verify-email', {
                 state: {
                     email: registerData.email,
@@ -62,7 +62,7 @@ const RegisterPage: React.FC = () => {
                 }
             });
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Kayıt başarısız.');
+            setError(err.response?.data?.message || 'Registration failed.');
         } finally {
             setLoading(false);
         }
@@ -71,15 +71,15 @@ const RegisterPage: React.FC = () => {
     return (
         <div className="login-container">
             <div className="login-card">
-                <h1 className="login-title">Hesap Oluştur</h1>
-                <p className="login-subtitle">Akademik topluluğumuza katılın</p>
+                <h1 className="login-title">Create Account</h1>
+                <p className="login-subtitle">Join our academic community</p>
 
                 {error && <div className="login-error">{error}</div>}
 
                 <form onSubmit={handleRegister} className="login-form">
                     <input
                         type="text"
-                        placeholder="Ad Soyad"
+                        placeholder="Full Name"
                         value={registerData.fullName}
                         onChange={(e) => setRegisterData({ ...registerData, fullName: e.target.value })}
                         className="login-input"
@@ -88,7 +88,7 @@ const RegisterPage: React.FC = () => {
                     <div className="input-wrapper">
                         <input
                             type="email"
-                            placeholder="Akademik Email (.edu.tr, .ac.uk, .edu)"
+                            placeholder="Academic Email (.edu.tr, .ac.uk, .edu)"
                             value={registerData.email}
                             onChange={handleEmailChange}
                             className={`login-input ${emailError ? 'input-error' : ''}`}
@@ -98,7 +98,7 @@ const RegisterPage: React.FC = () => {
                     </div>
                     <input
                         type="password"
-                        placeholder="Şifre"
+                        placeholder="Password"
                         value={registerData.password}
                         onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
                         className="login-input"
@@ -107,21 +107,21 @@ const RegisterPage: React.FC = () => {
                     />
                     <input
                         type="text"
-                        placeholder="Akademik Unvan (isteğe bağlı)"
+                        placeholder="Academic Title (optional)"
                         value={registerData.title || ''}
                         onChange={(e) => setRegisterData({ ...registerData, title: e.target.value })}
                         className="login-input"
                     />
                     <input
                         type="text"
-                        placeholder="Kurum (isteğe bağlı)"
+                        placeholder="Institution (optional)"
                         value={registerData.institution || ''}
                         onChange={(e) => setRegisterData({ ...registerData, institution: e.target.value })}
                         className="login-input"
                     />
                     <input
                         type="text"
-                        placeholder="Bölüm (isteğe bağlı)"
+                        placeholder="Department (optional)"
                         value={registerData.department || ''}
                         onChange={(e) => setRegisterData({ ...registerData, department: e.target.value })}
                         className="login-input"
@@ -131,17 +131,17 @@ const RegisterPage: React.FC = () => {
                         className="login-button"
                         disabled={loading || !!emailError}
                     >
-                        {loading ? 'Kayıt yapılıyor...' : 'Kayıt Ol'}
+                        {loading ? 'Signing up...' : 'Sign Up'}
                     </button>
                 </form>
 
                 <div className="login-footer">
-                    Zaten hesabınız var mı?{' '}
+                    Already have an account?{' '}
                     <button
                         className="login-footer-link"
                         onClick={() => navigate('/login')}
                     >
-                        Giriş Yap
+                        Sign In
                     </button>
                 </div>
             </div>

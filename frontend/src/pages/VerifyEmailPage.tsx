@@ -70,7 +70,7 @@ const VerifyEmailPage: React.FC = () => {
         const fullCode = code.join('');
 
         if (fullCode.length !== 6) {
-            setError('Lütfen 6 haneli kodu girin.');
+            setError('Please enter the 6-digit code.');
             return;
         }
 
@@ -81,10 +81,10 @@ const VerifyEmailPage: React.FC = () => {
             const response = await authApi.verifyEmail({ email, code: fullCode });
             localStorage.setItem('token', response.data.token);
             localStorage.setItem('user', JSON.stringify(response.data.user));
-            setSuccess('Email doğrulandı! Yönlendiriliyorsunuz...');
+            setSuccess('Email verified! Redirecting...');
             setTimeout(() => navigate('/profile'), 1500);
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Doğrulama başarısız.');
+            setError(err.response?.data?.message || 'Verification failed.');
         } finally {
             setLoading(false);
         }
@@ -95,20 +95,20 @@ const VerifyEmailPage: React.FC = () => {
 
         try {
             await authApi.resendVerificationCode(email);
-            setSuccess('Yeni doğrulama kodu gönderildi.');
+            setSuccess('New verification code sent.');
             setResendCooldown(60);
             setError(null);
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Kod gönderilemedi.');
+            setError(err.response?.data?.message || 'Failed to send code.');
         }
     };
 
     return (
         <div className="login-container">
             <div className="login-card">
-                <h1 className="login-title">Email Doğrulama</h1>
+                <h1 className="login-title">Email Verification</h1>
                 <p className="login-subtitle">
-                    <strong>{email}</strong> adresine gönderilen 6 haneli kodu girin
+                    Enter the 6-digit code sent to <strong>{email}</strong>
                 </p>
 
                 {error && <div className="login-error">{error}</div>}
@@ -134,18 +134,18 @@ const VerifyEmailPage: React.FC = () => {
                     </div>
 
                     <button type="submit" className="login-button" disabled={loading}>
-                        {loading ? 'Doğrulanıyor...' : 'Doğrula'}
+                        {loading ? 'Verifying...' : 'Verify'}
                     </button>
                 </form>
 
                 <div className="login-footer">
-                    Kod gelmedi mi?{' '}
+                    Didn't receive the code?{' '}
                     <button
                         className="login-footer-link"
                         onClick={handleResend}
                         disabled={resendCooldown > 0}
                     >
-                        {resendCooldown > 0 ? `Tekrar gönder (${resendCooldown}s)` : 'Tekrar gönder'}
+                        {resendCooldown > 0 ? `Resend (${resendCooldown}s)` : 'Resend'}
                     </button>
                 </div>
 
@@ -154,7 +154,7 @@ const VerifyEmailPage: React.FC = () => {
                         className="login-footer-link"
                         onClick={() => navigate('/register')}
                     >
-                        ← Kayıt sayfasına dön
+                        ← Back to registration
                     </button>
                 </div>
             </div>
