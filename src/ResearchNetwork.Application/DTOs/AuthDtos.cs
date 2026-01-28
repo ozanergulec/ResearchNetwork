@@ -8,7 +8,10 @@ public record LoginDto(
 public record RegisterDto(
     string FullName,
     string Email,
-    string Password
+    string Password,
+    string? Title = null,
+    string? Institution = null,
+    string? Department = null
 );
 
 public record AuthResponseDto(

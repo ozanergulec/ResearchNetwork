@@ -32,6 +32,14 @@ public class AuthController : ControllerBase
 
         var user = new User(dto.Email, dto.FullName);
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
+        
+        // Optional alanları ata
+        if (!string.IsNullOrWhiteSpace(dto.Title))
+            user.Title = dto.Title;
+        if (!string.IsNullOrWhiteSpace(dto.Institution))
+            user.Institution = dto.Institution;
+        if (!string.IsNullOrWhiteSpace(dto.Department))
+            user.Department = dto.Department;
 
         await _userRepository.CreateAsync(user);
 
