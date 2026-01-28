@@ -6,6 +6,7 @@ using Microsoft.OpenApi.Models;
 using ResearchNetwork.Application.Interfaces;
 using ResearchNetwork.Infrastructure.Data;
 using ResearchNetwork.Infrastructure.Repositories;
+using ResearchNetwork.Infrastructure.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -48,6 +49,10 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // Repositories
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IPublicationRepository, PublicationRepository>();
+builder.Services.AddScoped<IVerificationCodeRepository, VerificationCodeRepository>();
+
+// Services
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 // JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "DefaultSecretKeyForDevelopment123456";

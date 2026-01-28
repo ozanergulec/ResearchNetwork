@@ -25,7 +25,13 @@ const LoginPage: React.FC = () => {
             localStorage.setItem('user', JSON.stringify(response.data.user));
             navigate('/profile');
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Login failed');
+            const errorData = err.response?.data;
+            // Email doğrulanmamışsa doğrulama sayfasına yönlendir
+            if (errorData?.requiresVerification) {
+                navigate('/verify-email', { state: { email: errorData.email } });
+                return;
+            }
+            setError(errorData?.message || 'Giriş başarısız.');
         } finally {
             setLoading(false);
         }

@@ -19,7 +19,18 @@ public record AuthResponseDto(
     UserDto User
 );
 
+public record RegisterResponseDto(
+    Guid UserId,
+    string Email,
+    string Message,
+    bool IsVerified
+);
+
 public record VerifyEmailDto(
     string Email,
     string Code
+);
+
+public record ResendCodeDto(
+    string Email
 );

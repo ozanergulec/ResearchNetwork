@@ -21,10 +21,19 @@ services:
       context: .
       dockerfile: Dockerfile.backend
     container_name: research_network_api
+    env_file:
+      - .env
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      # Docker içinde host 'postgres' olarak görünür
+      # Docker içinde host 'postgres' olarak görünür (iç port 5432)
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=researchnetwork;Username=postgres;Password=postgres
+      # Email SMTP Ayarları (.env dosyasından okunur)
+      - Email__SmtpHost=${SMTP_HOST:-smtp.gmail.com}
+      - Email__SmtpPort=${SMTP_PORT:-587}
+      - Email__SmtpUser=${SMTP_USER}
+      - Email__SmtpPass=${SMTP_PASS}
+      - Email__FromEmail=${SMTP_USER}
+      - Email__FromName=Research Network
     ports:
       - "5051:8080"
     depends_on:

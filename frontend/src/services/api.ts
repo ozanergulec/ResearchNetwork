@@ -74,13 +74,31 @@ export interface Publication {
   createdAt: string;
 }
 
+export interface RegisterResponse {
+  userId: string;
+  email: string;
+  message: string;
+  isVerified: boolean;
+}
+
+export interface VerifyEmailData {
+  email: string;
+  code: string;
+}
+
 // Auth API
 export const authApi = {
   register: (data: RegisterData) =>
-    api.post<AuthResponse>('/auth/register', data),
+    api.post<RegisterResponse>('/auth/register', data),
 
   login: (data: LoginData) =>
     api.post<AuthResponse>('/auth/login', data),
+
+  verifyEmail: (data: VerifyEmailData) =>
+    api.post<AuthResponse>('/auth/verify-email', data),
+
+  resendVerificationCode: (email: string) =>
+    api.post('/auth/resend-code', { email }),
 };
 
 // Users API

@@ -6,6 +6,7 @@ using Microsoft.IdentityModel.Tokens;
 using ResearchNetwork.Application.DTOs;
 using ResearchNetwork.Application.Interfaces;
 using ResearchNetwork.Domain.Entities;
+using ResearchNetwork.Domain.Enums;
 
 namespace ResearchNetwork.API.Controllers;
 
@@ -14,24 +15,42 @@ namespace ResearchNetwork.API.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IUserRepository _userRepository;
+    private readonly IVerificationCodeRepository _verificationCodeRepository;
+    private readonly IEmailService _emailService;
     private readonly IConfiguration _configuration;
 
-    public AuthController(IUserRepository userRepository, IConfiguration configuration)
+    // Kabul edilen akademik email domain'leri
+    private static readonly string[] AcademicDomains = { ".edu.tr", ".ac.uk", ".edu" };
+
+    public AuthController(
+        IUserRepository userRepository,
+        IVerificationCodeRepository verificationCodeRepository,
+        IEmailService emailService,
+        IConfiguration configuration)
     {
         _userRepository = userRepository;
+        _verificationCodeRepository = verificationCodeRepository;
+        _emailService = emailService;
         _configuration = configuration;
     }
 
     [HttpPost("register")]
-    public async Task<ActionResult<AuthResponseDto>> Register([FromBody] RegisterDto dto)
+    public async Task<ActionResult<RegisterResponseDto>> Register([FromBody] RegisterDto dto)
     {
+        // Akademik email domain kontrolü
+        if (!IsAcademicEmail(dto.Email))
+        {
+            return BadRequest(new { Message = "Sadece akademik email adresleri (.edu.tr, .ac.uk, .edu) kabul edilmektedir." });
+        }
+
         if (await _userRepository.ExistsAsync(dto.Email))
         {
-            return BadRequest(new { Message = "Email already exists" });
+            return BadRequest(new { Message = "Bu email adresi zaten kayıtlı." });
         }
 
         var user = new User(dto.Email, dto.FullName);
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
+        user.IsVerified = false; // Email doğrulanana kadar false
         
         // Optional alanları ata
         if (!string.IsNullOrWhiteSpace(dto.Title))
@@ -43,10 +62,105 @@ public class AuthController : ControllerBase
 
         await _userRepository.CreateAsync(user);
 
+        // 6 haneli doğrulama kodu oluştur
+        var verificationCode = GenerateVerificationCode();
+        var codeEntity = new VerificationCode(
+            user.Id,
+            verificationCode,
+            DateTime.UtcNow.AddMinutes(15), // 15 dakika geçerli
+            VerificationType.EmailVerification
+        );
+
+        await _verificationCodeRepository.CreateAsync(codeEntity);
+
+        // Email gönder
+        try
+        {
+            await _emailService.SendVerificationEmailAsync(dto.Email, verificationCode);
+        }
+        catch (Exception)
+        {
+            // Email gönderilemese bile kayıt başarılı sayılsın, tekrar gönderme seçeneği var
+        }
+
+        return Ok(new RegisterResponseDto(
+            user.Id,
+            user.Email,
+            "Doğrulama kodu email adresinize gönderildi. Lütfen gelen kutunuzu kontrol edin.",
+            false
+        ));
+    }
+
+    [HttpPost("verify-email")]
+    public async Task<ActionResult<AuthResponseDto>> VerifyEmail([FromBody] VerifyEmailDto dto)
+    {
+        var user = await _userRepository.GetByEmailAsync(dto.Email);
+        if (user == null)
+        {
+            return BadRequest(new { Message = "Kullanıcı bulunamadı." });
+        }
+
+        if (user.IsVerified)
+        {
+            return BadRequest(new { Message = "Bu email adresi zaten doğrulanmış." });
+        }
+
+        var verificationCode = await _verificationCodeRepository.GetByCodeAsync(dto.Code);
+        if (verificationCode == null || verificationCode.UserId != user.Id)
+        {
+            return BadRequest(new { Message = "Geçersiz veya süresi dolmuş doğrulama kodu." });
+        }
+
+        // Kodu kullanıldı olarak işaretle
+        verificationCode.MarkAsUsed();
+        await _verificationCodeRepository.UpdateAsync(verificationCode);
+
+        // Kullanıcıyı doğrulanmış olarak işaretle
+        user.IsVerified = true;
+        await _userRepository.UpdateAsync(user);
+
+        // JWT token oluştur ve döndür
         var token = GenerateJwtToken(user);
         var userDto = MapToUserDto(user);
 
         return Ok(new AuthResponseDto(token, userDto));
+    }
+
+    [HttpPost("resend-code")]
+    public async Task<ActionResult> ResendVerificationCode([FromBody] ResendCodeDto dto)
+    {
+        var user = await _userRepository.GetByEmailAsync(dto.Email);
+        if (user == null)
+        {
+            return BadRequest(new { Message = "Kullanıcı bulunamadı." });
+        }
+
+        if (user.IsVerified)
+        {
+            return BadRequest(new { Message = "Bu email adresi zaten doğrulanmış." });
+        }
+
+        // Yeni kod oluştur
+        var verificationCode = GenerateVerificationCode();
+        var codeEntity = new VerificationCode(
+            user.Id,
+            verificationCode,
+            DateTime.UtcNow.AddMinutes(15),
+            VerificationType.EmailVerification
+        );
+
+        await _verificationCodeRepository.CreateAsync(codeEntity);
+
+        // Email gönder
+        try
+        {
+            await _emailService.SendVerificationEmailAsync(dto.Email, verificationCode);
+            return Ok(new { Message = "Yeni doğrulama kodu gönderildi." });
+        }
+        catch (Exception)
+        {
+            return StatusCode(500, new { Message = "Email gönderilemedi. Lütfen daha sonra tekrar deneyin." });
+        }
     }
 
     [HttpPost("login")]
@@ -56,18 +170,43 @@ public class AuthController : ControllerBase
 
         if (user == null)
         {
-            return Unauthorized(new { Message = "Invalid email or password" });
+            return Unauthorized(new { Message = "Geçersiz email veya şifre." });
         }
         
         if (string.IsNullOrEmpty(user.PasswordHash) || !BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
         {
-            return Unauthorized(new { Message = "Invalid email or password" });
+            return Unauthorized(new { Message = "Geçersiz email veya şifre." });
+        }
+
+        // Email doğrulanmamışsa uyar
+        if (!user.IsVerified)
+        {
+            return Unauthorized(new { 
+                Message = "Email adresiniz henüz doğrulanmamış. Lütfen email adresinize gönderilen kodu girin.",
+                RequiresVerification = true,
+                Email = user.Email
+            });
         }
 
         var token = GenerateJwtToken(user);
         var userDto = MapToUserDto(user);
 
         return Ok(new AuthResponseDto(token, userDto));
+    }
+
+    private static bool IsAcademicEmail(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return false;
+
+        var lowerEmail = email.ToLowerInvariant();
+        return AcademicDomains.Any(domain => lowerEmail.EndsWith(domain));
+    }
+
+    private static string GenerateVerificationCode()
+    {
+        var random = new Random();
+        return random.Next(100000, 999999).ToString();
     }
 
     private string GenerateJwtToken(User user)
