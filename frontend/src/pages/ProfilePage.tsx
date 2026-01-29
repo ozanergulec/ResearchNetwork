@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { usersApi } from '../services/api';
-import type { User, UpdateUserData } from '../services/api';
+import { usersApi } from '../services/userService';
+import type { User, UpdateUserData } from '../services/userService';
 import { Navbar, Avatar, Loading, FormInput } from '../components';
 import '../styles/ProfilePage.css';
 

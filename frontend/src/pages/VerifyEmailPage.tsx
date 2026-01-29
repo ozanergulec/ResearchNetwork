@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { authApi } from '../services/api';
+import { authApi } from '../services/authService';
 import '../styles/LoginPage.css';
 
 const VerifyEmailPage: React.FC = () => {

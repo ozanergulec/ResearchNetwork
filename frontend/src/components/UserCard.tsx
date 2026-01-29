@@ -1,6 +1,6 @@
 import React from 'react';
 import Avatar from './Avatar';
-import type { User } from '../services/api';
+import type { User } from '../services/userService';
 import '../styles/Components.css';
 
 interface UserCardProps {

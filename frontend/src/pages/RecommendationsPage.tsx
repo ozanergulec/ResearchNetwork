@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { usersApi } from '../services/api';
-import type { User } from '../services/api';
+import { usersApi } from '../services/userService';
+import type { User } from '../services/userService';
 import { Navbar, Loading, UserCard } from '../components';
 import '../styles/RecommendationsPage.css';
 

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { authApi } from '../services/api';
+import { authApi } from '../services/authService';
 import '../styles/LoginPage.css';
 
 type Step = 'email' | 'code' | 'password';

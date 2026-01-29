@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { authApi } from '../services/api';
-import type { RegisterData } from '../services/api';
+import { authApi } from '../services/authService';
+import type { RegisterData } from '../services/authService';
 import '../styles/LoginPage.css';
 
 // Accepted academic email domains
