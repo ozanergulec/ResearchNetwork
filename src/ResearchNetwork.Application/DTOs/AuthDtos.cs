@@ -34,3 +34,19 @@ public record VerifyEmailDto(
 public record ResendCodeDto(
     string Email
 );
+
+// Şifremi unuttum akışı için DTO'lar
+public record ForgotPasswordDto(
+    string Email
+);
+
+public record VerifyResetCodeDto(
+    string Email,
+    string Code
+);
+
+public record ResetPasswordDto(
+    string Email,
+    string Code,
+    string NewPassword
+);

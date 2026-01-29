@@ -194,6 +194,93 @@ public class AuthController : ControllerBase
         return Ok(new AuthResponseDto(token, userDto));
     }
 
+    // Şifremi unuttum - İlk adım: Email ile istek gönderme
+    [HttpPost("forgot-password")]
+    public async Task<ActionResult> ForgotPassword([FromBody] ForgotPasswordDto dto)
+    {
+        var user = await _userRepository.GetByEmailAsync(dto.Email);
+        if (user == null)
+        {
+            // Güvenlik için kullanıcı bulunamasa bile aynı mesajı döndür
+            return Ok(new { Message = "If your email is registered, you will receive a password reset code." });
+        }
+
+        // Yeni kod oluştur
+        var verificationCode = GenerateVerificationCode();
+        var codeEntity = new VerificationCode(
+            user.Id,
+            verificationCode,
+            DateTime.UtcNow.AddMinutes(15),
+            VerificationType.PasswordReset
+        );
+
+        await _verificationCodeRepository.CreateAsync(codeEntity);
+
+        // Email gönder
+        try
+        {
+            await _emailService.SendPasswordResetEmailAsync(dto.Email, verificationCode);
+        }
+        catch (Exception)
+        {
+            // Email gönderilemese bile güvenlik için aynı mesajı döndür
+        }
+
+        return Ok(new { Message = "If your email is registered, you will receive a password reset code." });
+    }
+
+    // Şifremi unuttum - İkinci adım: Kodu doğrulama
+    [HttpPost("verify-reset-code")]
+    public async Task<ActionResult> VerifyResetCode([FromBody] VerifyResetCodeDto dto)
+    {
+        var user = await _userRepository.GetByEmailAsync(dto.Email);
+        if (user == null)
+        {
+            return BadRequest(new { Message = "Invalid email or code." });
+        }
+
+        var verificationCode = await _verificationCodeRepository.GetByCodeAsync(dto.Code);
+        if (verificationCode == null || 
+            verificationCode.UserId != user.Id || 
+            verificationCode.Type != VerificationType.PasswordReset ||
+            verificationCode.IsUsed)
+        {
+            return BadRequest(new { Message = "Invalid or expired code." });
+        }
+
+        return Ok(new { Message = "Code verified successfully.", Valid = true });
+    }
+
+    // Şifremi unuttum - Üçüncü adım: Yeni şifre belirleme
+    [HttpPost("reset-password")]
+    public async Task<ActionResult> ResetPassword([FromBody] ResetPasswordDto dto)
+    {
+        var user = await _userRepository.GetByEmailAsync(dto.Email);
+        if (user == null)
+        {
+            return BadRequest(new { Message = "Invalid email or code." });
+        }
+
+        var verificationCode = await _verificationCodeRepository.GetByCodeAsync(dto.Code);
+        if (verificationCode == null || 
+            verificationCode.UserId != user.Id || 
+            verificationCode.Type != VerificationType.PasswordReset ||
+            verificationCode.IsUsed)
+        {
+            return BadRequest(new { Message = "Invalid or expired code." });
+        }
+
+        // Kodu kullanıldı olarak işaretle
+        verificationCode.MarkAsUsed();
+        await _verificationCodeRepository.UpdateAsync(verificationCode);
+
+        // Yeni şifreyi hashle ve kaydet
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
+        await _userRepository.UpdateAsync(user);
+
+        return Ok(new { Message = "Password reset successfully. You can now login with your new password." });
+    }
+
     private static bool IsAcademicEmail(string email)
     {
         if (string.IsNullOrWhiteSpace(email))

@@ -172,3 +172,25 @@
     margin-top: 0.25rem;
     padding-left: 1rem;
 }
+
+/* Forgot Password Link */
+.forgot-password-container {
+    width: 100%;
+    text-align: right;
+    margin-top: -0.5rem;
+}
+
+.forgot-password-link {
+    color: var(--link-color);
+    text-decoration: none;
+    font-weight: 500;
+    cursor: pointer;
+    background: none;
+    border: none;
+    font-size: 0.85rem;
+    padding: 0;
+}
+
+.forgot-password-link:hover {
+    text-decoration: underline;
+}

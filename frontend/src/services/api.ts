@@ -86,6 +86,21 @@ export interface VerifyEmailData {
   code: string;
 }
 
+export interface ForgotPasswordData {
+  email: string;
+}
+
+export interface VerifyResetCodeData {
+  email: string;
+  code: string;
+}
+
+export interface ResetPasswordData {
+  email: string;
+  code: string;
+  newPassword: string;
+}
+
 // Auth API
 export const authApi = {
   register: (data: RegisterData) =>
@@ -99,6 +114,15 @@ export const authApi = {
 
   resendVerificationCode: (email: string) =>
     api.post('/auth/resend-code', { email }),
+
+  forgotPassword: (data: ForgotPasswordData) =>
+    api.post('/auth/forgot-password', data),
+
+  verifyResetCode: (data: VerifyResetCodeData) =>
+    api.post('/auth/verify-reset-code', data),
+
+  resetPassword: (data: ResetPasswordData) =>
+    api.post('/auth/reset-password', data),
 };
 
 // Users API

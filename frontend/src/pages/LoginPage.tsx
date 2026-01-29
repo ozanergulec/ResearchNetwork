@@ -62,6 +62,15 @@ const LoginPage: React.FC = () => {
                         className="login-input"
                         required
                     />
+                    <div className="forgot-password-container">
+                        <button
+                            type="button"
+                            className="forgot-password-link"
+                            onClick={() => navigate('/forgot-password')}
+                        >
+                            Forgot Password?
+                        </button>
+                    </div>
                     <button type="submit" className="login-button" disabled={loading}>
                         {loading ? 'Signing in...' : 'Sign In'}
                     </button>
