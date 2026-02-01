@@ -339,7 +339,8 @@ public class AuthController : ControllerBase
             user.FollowerCount,
             user.FollowingCount,
             user.AvgScore,
-            user.CreatedAt
+            user.CreatedAt,
+            new List<TagDto>() // AuthController doesn't load tags
         );
     }
 }

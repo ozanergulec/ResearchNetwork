@@ -2,50 +2,98 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usersApi } from '../services/userService';
 import type { User, UpdateUserData } from '../services/userService';
-import { Navbar, Avatar, Loading, FormInput } from '../components';
+import {
+    Navbar,
+    Loading,
+    ProfileHeader,
+    ProfileInfo,
+    ProfileEditForm
+} from '../components';
 import '../styles/ProfilePage.css';
 
 const ProfilePage: React.FC = () => {
     const navigate = useNavigate();
     const [user, setUser] = useState<User | null>(null);
     const [editing, setEditing] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [updateData, setUpdateData] = useState<UpdateUserData>({});
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-            const parsed = JSON.parse(storedUser);
-            setUser(parsed);
-            setUpdateData({
-                fullName: parsed.fullName,
-                title: parsed.title || '',
-                institution: parsed.institution || '',
-                department: parsed.department || '',
-                bio: parsed.bio || '',
-            });
-        } else {
-            navigate('/login');
-        }
+        const fetchProfile = async () => {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                navigate('/login');
+                return;
+            }
+
+            try {
+                setLoading(true);
+                const response = await usersApi.getProfile();
+                setUser(response.data);
+                setError(null);
+            } catch (err: any) {
+                console.error('Failed to fetch profile', err);
+                if (err.response?.status === 401) {
+                    // Unauthorized - redirect to login
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    navigate('/login');
+                } else {
+                    setError('Failed to load profile. Please try again.');
+                }
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchProfile();
     }, [navigate]);
 
-    const handleSave = async () => {
-        if (!user) return;
-        setLoading(true);
+    const handleSave = async (data: UpdateUserData) => {
+        setSaving(true);
+        setError(null);
+
         try {
-            const response = await usersApi.update(user.id, updateData);
+            const response = await usersApi.updateProfile(data);
             setUser(response.data);
+            // Update localStorage with new user data
             localStorage.setItem('user', JSON.stringify(response.data));
             setEditing(false);
-        } catch (err) {
+        } catch (err: any) {
             console.error('Update failed', err);
+            setError('Failed to update profile. Please try again.');
         } finally {
-            setLoading(false);
+            setSaving(false);
         }
     };
 
-    if (!user) {
+    const handleEditClick = () => {
+        setEditing(true);
+        setError(null);
+    };
+
+    const handleCancel = () => {
+        setEditing(false);
+        setError(null);
+    };
+
+    if (loading) {
         return <Loading message="Loading profile..." />;
+    }
+
+    if (!user) {
+        return (
+            <div className="profile-container">
+                <Navbar currentPage="profile" />
+                <div className="profile-content">
+                    <div className="profile-error">
+                        <p>{error || 'Failed to load profile'}</p>
+                        <button onClick={() => navigate('/login')}>Go to Login</button>
+                    </div>
+                </div>
+            </div>
+        );
     }
 
     return (
@@ -54,77 +102,43 @@ const ProfilePage: React.FC = () => {
 
             <div className="profile-content">
                 <div className="profile-card">
-                    <div className="profile-header">
-                        <Avatar name={user.fullName} size="large" />
-                        <div>
-                            <h1 className="profile-name">{user.fullName}</h1>
-                            <p className="profile-email">{user.email}</p>
+                    {error && (
+                        <div className="profile-error-message">
+                            {error}
                         </div>
-                    </div>
+                    )}
 
                     {editing ? (
-                        <div className="profile-edit-form">
-                            <FormInput
-                                label="Full Name"
-                                value={updateData.fullName || ''}
-                                onChange={(e) => setUpdateData({ ...updateData, fullName: e.target.value })}
+                        <>
+                            <ProfileHeader
+                                fullName={user.fullName}
+                                email={user.email}
+                                isVerified={user.isVerified}
+                                onEditClick={() => setEditing(false)}
                             />
-                            <FormInput
-                                label="Title"
-                                value={updateData.title || ''}
-                                onChange={(e) => setUpdateData({ ...updateData, title: e.target.value })}
+                            <ProfileEditForm
+                                initialData={{
+                                    fullName: user.fullName,
+                                    title: user.title || '',
+                                    institution: user.institution || '',
+                                    department: user.department || '',
+                                    bio: user.bio || '',
+                                }}
+                                onSave={handleSave}
+                                onCancel={handleCancel}
+                                loading={saving}
                             />
-                            <FormInput
-                                label="Institution"
-                                value={updateData.institution || ''}
-                                onChange={(e) => setUpdateData({ ...updateData, institution: e.target.value })}
-                            />
-                            <FormInput
-                                label="Department"
-                                value={updateData.department || ''}
-                                onChange={(e) => setUpdateData({ ...updateData, department: e.target.value })}
-                            />
-                            <FormInput
-                                label="Bio"
-                                value={updateData.bio || ''}
-                                onChange={(e) => setUpdateData({ ...updateData, bio: e.target.value })}
-                                multiline
-                            />
-                            <div className="profile-button-group">
-                                <button onClick={handleSave} className="profile-save-button" disabled={loading}>
-                                    {loading ? 'Saving...' : 'Save Changes'}
-                                </button>
-                                <button onClick={() => setEditing(false)} className="profile-cancel-button">
-                                    Cancel
-                                </button>
-                            </div>
-                        </div>
+                        </>
                     ) : (
-                        <div className="profile-details">
-                            <div className="profile-detail-row">
-                                <span className="profile-detail-label">Title:</span>
-                                <span>{user.title || 'Not specified'}</span>
-                            </div>
-                            <div className="profile-detail-row">
-                                <span className="profile-detail-label">Institution:</span>
-                                <span>{user.institution || 'Not specified'}</span>
-                            </div>
-                            <div className="profile-detail-row">
-                                <span className="profile-detail-label">Department:</span>
-                                <span>{user.department || 'Not specified'}</span>
-                            </div>
-                            <div className="profile-detail-row">
-                                <span className="profile-detail-label">Bio:</span>
-                                <span>{user.bio || 'No bio yet'}</span>
-                            </div>
-                            <div className="profile-detail-row">
-                                <span className="profile-detail-label">Verified:</span>
-                                <span>{user.isVerified ? 'Yes' : 'No'}</span>
-                            </div>
-                            <button onClick={() => setEditing(true)} className="profile-edit-button">
-                                Edit Profile
-                            </button>
-                        </div>
+                        <>
+                            <ProfileHeader
+                                fullName={user.fullName}
+                                email={user.email}
+                                isVerified={user.isVerified}
+                                onEditClick={handleEditClick}
+                            />
+                            <ProfileInfo user={user} />
+                        </>
                     )}
                 </div>
             </div>

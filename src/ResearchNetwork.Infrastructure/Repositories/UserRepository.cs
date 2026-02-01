@@ -18,6 +18,16 @@ public class UserRepository : IUserRepository
     {
         return await _context.Users
             .Include(u => u.Publications)
+            .Include(u => u.Tags)
+                .ThenInclude(ut => ut.Tag)
+            .FirstOrDefaultAsync(u => u.Id == id);
+    }
+
+    public async Task<User?> GetByIdWithTagsAsync(Guid id)
+    {
+        return await _context.Users
+            .Include(u => u.Tags)
+                .ThenInclude(ut => ut.Tag)
             .FirstOrDefaultAsync(u => u.Id == id);
     }
 

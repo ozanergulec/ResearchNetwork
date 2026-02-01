@@ -1,6 +1,12 @@
 import api from './apiClient';
 
 // Types
+export interface Tag {
+    id: string;
+    name: string;
+    usageCount: number;
+}
+
 export interface User {
     id: string;
     email: string;
@@ -15,6 +21,7 @@ export interface User {
     followingCount: number;
     avgScore: number;
     createdAt: string;
+    tags: Tag[];
 }
 
 export interface UpdateUserData {
@@ -28,6 +35,15 @@ export interface UpdateUserData {
 
 // Users API
 export const usersApi = {
+    // Get current user's profile (requires authentication)
+    getProfile: () =>
+        api.get<User>('/users/profile'),
+
+    // Update current user's profile (requires authentication)
+    updateProfile: (data: UpdateUserData) =>
+        api.put<User>('/users/profile', data),
+
+    // Legacy endpoints (still available)
     getAll: () =>
         api.get<User[]>('/users'),
 

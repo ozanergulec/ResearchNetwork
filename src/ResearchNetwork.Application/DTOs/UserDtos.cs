@@ -13,7 +13,8 @@ public record UserDto(
     int FollowerCount,
     int FollowingCount,
     double AvgScore,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    IEnumerable<TagDto> Tags
 );
 
 public record UserSummaryDto(
