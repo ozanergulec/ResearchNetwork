@@ -1,20 +1,35 @@
 .profile-container {
     min-height: 100vh;
-    background: var(--bg-primary);
+    background-color: var(--bg-primary);
+    background-image:
+        radial-gradient(circle at 10% 20%, rgba(229, 83, 61, 0.03) 0%, transparent 50%),
+        radial-gradient(circle at 90% 80%, rgba(122, 31, 43, 0.03) 0%, transparent 50%);
 }
 
 .profile-content {
-    max-width: 800px;
-    margin: 32px auto;
-    padding: 0 16px;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px 20px;
 }
 
 .profile-card {
-    background: #fff;
-    border-radius: 16px;
-    box-shadow: 0 4px 20px rgba(42, 31, 29, 0.08);
-    border: 1px solid var(--ui-detail);
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.02);
+    margin-bottom: 16px;
     overflow: hidden;
+    transition: box-shadow 0.3s ease;
+}
+
+.profile-card:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.03);
+}
+
+/* Cover Photo Area */
+.profile-cover {
+    height: 200px;
+    background: linear-gradient(135deg, var(--heading-color) 0%, var(--link-color) 100%);
+    position: relative;
 }
 
 .profile-error {
@@ -30,7 +45,7 @@
 
 .profile-error button {
     padding: 0.75rem 1.5rem;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--heading-color);
     color: white;
     border: none;
     border-radius: 8px;
@@ -42,7 +57,7 @@
 
 .profile-error button:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 4px 8px rgba(122, 31, 43, 0.4);
 }
 
 .profile-error-message {

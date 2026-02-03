@@ -12,32 +12,36 @@ const ProfileInfo: React.FC<ProfileInfoProps> = ({ user, onEditTags }) => {
     return (
         <div className="profile-info">
             <div className="profile-info-grid">
-                <div className="profile-info-item">
-                    <span className="profile-info-label">Title:</span>
-                    <span className="profile-info-value">{user.title || 'Not specified'}</span>
+                {/* About Section */}
+                <div className="profile-info-section">
+                    <h2 className="profile-info-section-title">Hakkında</h2>
+                    <div className="profile-info-item">
+                        <span className="profile-info-label">Unvan</span>
+                        <span className="profile-info-value">{user.title || 'Belirtilmemiş'}</span>
+                    </div>
+                    <div className="profile-info-item">
+                        <span className="profile-info-label">Kurum</span>
+                        <span className="profile-info-value">{user.institution || 'Belirtilmemiş'}</span>
+                    </div>
+                    <div className="profile-info-item">
+                        <span className="profile-info-label">Bölüm</span>
+                        <span className="profile-info-value">{user.department || 'Belirtilmemiş'}</span>
+                    </div>
+                    {user.bio && (
+                        <div className="profile-info-item">
+                            <span className="profile-info-label">Biyografi</span>
+                            <span className="profile-info-value">{user.bio}</span>
+                        </div>
+                    )}
                 </div>
 
-                <div className="profile-info-item">
-                    <span className="profile-info-label">Institution:</span>
-                    <span className="profile-info-value">{user.institution || 'Not specified'}</span>
-                </div>
-
-                <div className="profile-info-item">
-                    <span className="profile-info-label">Department:</span>
-                    <span className="profile-info-value">{user.department || 'Not specified'}</span>
-                </div>
-
-                <div className="profile-info-item">
-                    <span className="profile-info-label">Bio:</span>
-                    <span className="profile-info-value">{user.bio || 'No bio yet'}</span>
-                </div>
-
-                <div className="profile-info-item profile-tags-section">
+                {/* Tags Section */}
+                <div className="profile-tags-section">
                     <div className="profile-tags-header">
-                        <span className="profile-info-label">İlgi Alanları:</span>
+                        <span className="profile-info-label">İlgi Alanları</span>
                         {onEditTags && (
                             <button className="edit-tags-button" onClick={onEditTags}>
-                                Etiketleri Düzenle
+                                Düzenle
                             </button>
                         )}
                     </div>
@@ -52,18 +56,22 @@ const ProfileInfo: React.FC<ProfileInfoProps> = ({ user, onEditTags }) => {
                     )}
                 </div>
 
-                <div className="profile-stats">
-                    <div className="profile-stat">
-                        <span className="stat-value">{user.followerCount}</span>
-                        <span className="stat-label">Followers</span>
-                    </div>
-                    <div className="profile-stat">
-                        <span className="stat-value">{user.followingCount}</span>
-                        <span className="stat-label">Following</span>
-                    </div>
-                    <div className="profile-stat">
-                        <span className="stat-value">{user.avgScore.toFixed(1)}</span>
-                        <span className="stat-label">Avg Score</span>
+                {/* Stats Section */}
+                <div className="profile-info-section">
+                    <h2 className="profile-info-section-title">İstatistikler</h2>
+                    <div className="profile-stats">
+                        <div className="profile-stat">
+                            <span className="stat-value">{user.followerCount}</span>
+                            <span className="stat-label">Takipçi</span>
+                        </div>
+                        <div className="profile-stat">
+                            <span className="stat-value">{user.followingCount}</span>
+                            <span className="stat-label">Takip</span>
+                        </div>
+                        <div className="profile-stat">
+                            <span className="stat-value">{user.avgScore.toFixed(1)}</span>
+                            <span className="stat-label">Ortalama Puan</span>
+                        </div>
                     </div>
                 </div>
             </div>
