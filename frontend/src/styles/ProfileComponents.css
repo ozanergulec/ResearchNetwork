@@ -132,6 +132,32 @@
     margin-top: 1rem;
 }
 
+.profile-tags-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.edit-tags-button {
+    padding: 0.5rem 1rem;
+    background: var(--heading-color);
+    color: white;
+    border: none;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(122, 31, 43, 0.2);
+}
+
+.edit-tags-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(122, 31, 43, 0.3);
+    background: #8B2332;
+}
+
 .profile-tags {
     display: flex;
     flex-wrap: wrap;

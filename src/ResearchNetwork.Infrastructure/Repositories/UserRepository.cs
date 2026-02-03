@@ -72,4 +72,56 @@ public class UserRepository : IUserRepository
     {
         return await _context.Users.AnyAsync(u => u.Email == email);
     }
+
+    public async Task AddUserTagAsync(Guid userId, Guid tagId)
+    {
+        // Check if the relationship already exists
+        var existingUserTag = await _context.Set<UserTag>()
+            .FirstOrDefaultAsync(ut => ut.UserId == userId && ut.TagId == tagId);
+
+        if (existingUserTag != null)
+        {
+            return; // Already exists
+        }
+
+        // Create new UserTag relationship
+        var userTag = new UserTag
+        {
+            UserId = userId,
+            TagId = tagId
+        };
+
+        _context.Set<UserTag>().Add(userTag);
+
+        // Increment tag usage count
+        var tag = await _context.Tags.FindAsync(tagId);
+        if (tag != null)
+        {
+            tag.UsageCount++;
+        }
+
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task RemoveUserTagAsync(Guid userId, Guid tagId)
+    {
+        var userTag = await _context.Set<UserTag>()
+            .FirstOrDefaultAsync(ut => ut.UserId == userId && ut.TagId == tagId);
+
+        if (userTag == null)
+        {
+            return; // Doesn't exist
+        }
+
+        _context.Set<UserTag>().Remove(userTag);
+
+        // Decrement tag usage count
+        var tag = await _context.Tags.FindAsync(tagId);
+        if (tag != null && tag.UsageCount > 0)
+        {
+            tag.UsageCount--;
+        }
+
+        await _context.SaveChangesAsync();
+    }
 }

@@ -5,9 +5,10 @@ import '../styles/ProfileComponents.css';
 
 interface ProfileInfoProps {
     user: User;
+    onEditTags?: () => void;
 }
 
-const ProfileInfo: React.FC<ProfileInfoProps> = ({ user }) => {
+const ProfileInfo: React.FC<ProfileInfoProps> = ({ user, onEditTags }) => {
     return (
         <div className="profile-info">
             <div className="profile-info-grid">
@@ -31,16 +32,25 @@ const ProfileInfo: React.FC<ProfileInfoProps> = ({ user }) => {
                     <span className="profile-info-value">{user.bio || 'No bio yet'}</span>
                 </div>
 
-                {user.tags && user.tags.length > 0 && (
-                    <div className="profile-info-item profile-tags-section">
-                        <span className="profile-info-label">Research Interests:</span>
+                <div className="profile-info-item profile-tags-section">
+                    <div className="profile-tags-header">
+                        <span className="profile-info-label">İlgi Alanları:</span>
+                        {onEditTags && (
+                            <button className="edit-tags-button" onClick={onEditTags}>
+                                Etiketleri Düzenle
+                            </button>
+                        )}
+                    </div>
+                    {user.tags && user.tags.length > 0 ? (
                         <div className="profile-tags">
                             {user.tags.map(tag => (
                                 <TagBadge key={tag.id} name={tag.name} usageCount={tag.usageCount} />
                             ))}
                         </div>
-                    </div>
-                )}
+                    ) : (
+                        <span className="profile-info-value">Henüz ilgi alanı eklenmemiş</span>
+                    )}
+                </div>
 
                 <div className="profile-stats">
                     <div className="profile-stat">

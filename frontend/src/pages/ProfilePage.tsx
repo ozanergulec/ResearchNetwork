@@ -7,7 +7,8 @@ import {
     Loading,
     ProfileHeader,
     ProfileInfo,
-    ProfileEditForm
+    ProfileEditForm,
+    TagManagementPopup
 } from '../components';
 import '../styles/ProfilePage.css';
 
@@ -18,6 +19,7 @@ const ProfilePage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [showTagManagement, setShowTagManagement] = useState(false);
 
     useEffect(() => {
         const fetchProfile = async () => {
@@ -76,6 +78,24 @@ const ProfilePage: React.FC = () => {
     const handleCancel = () => {
         setEditing(false);
         setError(null);
+    };
+
+    const handleEditTags = () => {
+        setShowTagManagement(true);
+    };
+
+    const handleCloseTagManagement = () => {
+        setShowTagManagement(false);
+    };
+
+    const handleTagsUpdated = async () => {
+        // Refresh user profile to get updated tags
+        try {
+            const response = await usersApi.getProfile();
+            setUser(response.data);
+        } catch (err) {
+            console.error('Failed to refresh profile', err);
+        }
     };
 
     if (loading) {
@@ -137,10 +157,18 @@ const ProfilePage: React.FC = () => {
                                 isVerified={user.isVerified}
                                 onEditClick={handleEditClick}
                             />
-                            <ProfileInfo user={user} />
+                            <ProfileInfo user={user} onEditTags={handleEditTags} />
                         </>
                     )}
                 </div>
+
+                {showTagManagement && (
+                    <TagManagementPopup
+                        userTags={user.tags}
+                        onClose={handleCloseTagManagement}
+                        onTagsUpdated={handleTagsUpdated}
+                    />
+                )}
             </div>
         </div>
     );

@@ -55,4 +55,11 @@ export const usersApi = {
 
     delete: (id: string) =>
         api.delete(`/users/${id}`),
+
+    // Tag management
+    addTag: (tagName: string) =>
+        api.post<User>('/users/profile/tags', { name: tagName }),
+
+    removeTag: (tagId: string) =>
+        api.delete<User>(`/users/profile/tags/${tagId}`),
 };

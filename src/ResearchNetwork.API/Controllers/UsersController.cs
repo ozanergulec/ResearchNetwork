@@ -11,10 +11,12 @@ namespace ResearchNetwork.API.Controllers;
 public class UsersController : ControllerBase
 {
     private readonly IUserRepository _userRepository;
+    private readonly ITagRepository _tagRepository;
 
-    public UsersController(IUserRepository userRepository)
+    public UsersController(IUserRepository userRepository, ITagRepository tagRepository)
     {
         _userRepository = userRepository;
+        _tagRepository = tagRepository;
     }
 
     [HttpGet]
@@ -104,6 +106,65 @@ public class UsersController : ControllerBase
         if (dto.ProfileImageUrl != null) user.ProfileImageUrl = dto.ProfileImageUrl;
 
         await _userRepository.UpdateAsync(user);
+
+        return Ok(MapToUserDto(user));
+    }
+
+    [Authorize]
+    [HttpPost("profile/tags")]
+    public async Task<ActionResult<UserDto>> AddTag([FromBody] CreateTagDto dto)
+    {
+        var userId = GetUserIdFromClaims();
+        if (userId == null)
+        {
+            return Unauthorized(new { Message = "User ID not found in token." });
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.Name))
+        {
+            return BadRequest(new { Message = "Tag name is required." });
+        }
+
+        // Check if tag exists, create if it doesn't
+        var tag = await _tagRepository.GetByNameAsync(dto.Name);
+        if (tag == null)
+        {
+            tag = new Domain.Entities.Tag(dto.Name);
+            tag = await _tagRepository.CreateAsync(tag);
+        }
+
+        // Add tag to user
+        await _userRepository.AddUserTagAsync(userId.Value, tag.Id);
+
+        // Return updated user profile
+        var user = await _userRepository.GetByIdWithTagsAsync(userId.Value);
+        if (user == null)
+        {
+            return NotFound(new { Message = "User not found." });
+        }
+
+        return Ok(MapToUserDto(user));
+    }
+
+    [Authorize]
+    [HttpDelete("profile/tags/{tagId:guid}")]
+    public async Task<ActionResult<UserDto>> RemoveTag(Guid tagId)
+    {
+        var userId = GetUserIdFromClaims();
+        if (userId == null)
+        {
+            return Unauthorized(new { Message = "User ID not found in token." });
+        }
+
+        // Remove tag from user
+        await _userRepository.RemoveUserTagAsync(userId.Value, tagId);
+
+        // Return updated user profile
+        var user = await _userRepository.GetByIdWithTagsAsync(userId.Value);
+        if (user == null)
+        {
+            return NotFound(new { Message = "User not found." });
+        }
 
         return Ok(MapToUserDto(user));
     }
