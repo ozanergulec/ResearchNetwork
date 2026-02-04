@@ -32,6 +32,22 @@ public class PublicationRepository : IPublicationRepository
     {
         return await _context.Publications
             .Where(p => p.AuthorId == authorId)
+            .Include(p => p.Author)
+            .Include(p => p.Tags)
+                .ThenInclude(pt => pt.Tag)
+            .OrderByDescending(p => p.CreatedAt)
+            .ToListAsync();
+    }
+
+    public async Task<IEnumerable<Publication>> GetLatestPublicationsByAuthorAsync(Guid authorId, int count)
+    {
+        return await _context.Publications
+            .Where(p => p.AuthorId == authorId)
+            .Include(p => p.Author)
+            .Include(p => p.Tags)
+                .ThenInclude(pt => pt.Tag)
+            .OrderByDescending(p => p.CreatedAt)
+            .Take(count)
             .ToListAsync();
     }
 

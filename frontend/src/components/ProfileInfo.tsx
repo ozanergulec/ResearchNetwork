@@ -55,25 +55,6 @@ const ProfileInfo: React.FC<ProfileInfoProps> = ({ user, onEditTags }) => {
                         <span className="profile-info-value">Henüz ilgi alanı eklenmemiş</span>
                     )}
                 </div>
-
-                {/* Stats Section */}
-                <div className="profile-info-section">
-                    <h2 className="profile-info-section-title">İstatistikler</h2>
-                    <div className="profile-stats">
-                        <div className="profile-stat">
-                            <span className="stat-value">{user.followerCount}</span>
-                            <span className="stat-label">Takipçi</span>
-                        </div>
-                        <div className="profile-stat">
-                            <span className="stat-value">{user.followingCount}</span>
-                            <span className="stat-label">Takip</span>
-                        </div>
-                        <div className="profile-stat">
-                            <span className="stat-value">{user.avgScore.toFixed(1)}</span>
-                            <span className="stat-label">Ortalama Puan</span>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
     );

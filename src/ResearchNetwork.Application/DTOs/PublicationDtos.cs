@@ -4,6 +4,8 @@ public record PublicationDto(
     Guid Id,
     string Title,
     string? Abstract,
+    string? DOI,
+    string? FileUrl,
     DateTime? PublishedDate,
     List<string> Tags,
     UserSummaryDto Author,
@@ -17,6 +19,8 @@ public record PublicationDto(
 public record CreatePublicationDto(
     string Title,
     string? Abstract,
+    string? DOI,
+    string? FileUrl,
     DateTime? PublishedDate,
     List<string>? Tags
 );

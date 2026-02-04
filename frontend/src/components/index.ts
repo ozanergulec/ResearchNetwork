@@ -8,3 +8,7 @@ export { default as ProfileHeader } from './ProfileHeader';
 export { default as ProfileInfo } from './ProfileInfo';
 export { default as ProfileEditForm } from './ProfileEditForm';
 export { default as TagManagementPopup } from './TagManagementPopup';
+export { default as PublicationCard } from './PublicationCard';
+export { default as PublicationsList } from './PublicationsList';
+export { default as AddPublicationModal } from './AddPublicationModal';
+

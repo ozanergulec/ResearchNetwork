@@ -46,6 +46,14 @@ public class PublicationsController : ControllerBase
         return Ok(dtos);
     }
 
+    [HttpGet("author/{authorId:guid}/latest")]
+    public async Task<ActionResult<IEnumerable<PublicationDto>>> GetLatestByAuthor(Guid authorId, [FromQuery] int count = 3)
+    {
+        var publications = await _publicationRepository.GetLatestPublicationsByAuthorAsync(authorId, count);
+        var dtos = publications.Select(p => MapToPublicationDto(p));
+        return Ok(dtos);
+    }
+
     [Authorize]
     [HttpPost]
     public async Task<ActionResult<PublicationDto>> Create([FromBody] CreatePublicationDto dto)
@@ -59,6 +67,8 @@ public class PublicationsController : ControllerBase
         var publication = new Publication(authorId, dto.Title, dto.PublishedDate.HasValue ? dto.PublishedDate.Value.Year : DateTime.UtcNow.Year)
         {
             Abstract = dto.Abstract,
+            DOI = dto.DOI,
+            FileUrl = dto.FileUrl,
             PublishedDate = dto.PublishedDate
         };
 
@@ -74,12 +84,61 @@ public class PublicationsController : ControllerBase
         );
     }
     
+    [Authorize]
+    [HttpPost("upload")]
+    public async Task<ActionResult<string>> UploadFile([FromForm] IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+        {
+            return BadRequest("Dosya seçilmedi.");
+        }
+
+        // Dosya uzantısı kontrolü
+        var allowedExtensions = new[] { ".pdf", ".doc", ".docx" };
+        var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+        
+        if (!allowedExtensions.Contains(extension))
+        {
+            return BadRequest("Sadece PDF ve Word dosyaları kabul edilir.");
+        }
+
+        // Dosya boyutu kontrolü (10MB)
+        if (file.Length > 10 * 1024 * 1024)
+        {
+            return BadRequest("Dosya boyutu 10MB'dan küçük olmalıdır.");
+        }
+
+        // Dosya adını benzersiz yap
+        var fileName = $"{Guid.NewGuid()}{extension}";
+        var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "publications");
+        
+        // Klasör yoksa oluştur
+        if (!Directory.Exists(uploadsFolder))
+        {
+            Directory.CreateDirectory(uploadsFolder);
+        }
+
+        var filePath = Path.Combine(uploadsFolder, fileName);
+
+        // Dosyayı kaydet
+        using (var stream = new FileStream(filePath, FileMode.Create))
+        {
+            await file.CopyToAsync(stream);
+        }
+
+        // Dosya yolunu dön (relative path)
+        var fileUrl = $"/uploads/publications/{fileName}";
+        return Ok(new { fileUrl });
+    }
+    
     private static PublicationDto MapToPublicationDto(Publication p)
     {
         return new PublicationDto(
             p.Id,
             p.Title,
             p.Abstract,
+            p.DOI,
+            p.FileUrl,
             p.PublishedDate,
             p.Tags.Select(t => t.Tag.Name).ToList(),
             new UserSummaryDto(

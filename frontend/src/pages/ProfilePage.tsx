@@ -2,13 +2,16 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usersApi } from '../services/userService';
 import type { User, UpdateUserData } from '../services/userService';
+import { publicationsApi, type Publication } from '../services/publicationService';
 import {
     Navbar,
     Loading,
     ProfileHeader,
     ProfileInfo,
     ProfileEditForm,
-    TagManagementPopup
+    TagManagementPopup,
+    PublicationsList,
+    AddPublicationModal
 } from '../components';
 import '../styles/ProfilePage.css';
 
@@ -20,6 +23,10 @@ const ProfilePage: React.FC = () => {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [showTagManagement, setShowTagManagement] = useState(false);
+    const [publications, setPublications] = useState<Publication[]>([]);
+    const [loadingPublications, setLoadingPublications] = useState(false);
+    const [showAllPublications, setShowAllPublications] = useState(false);
+    const [showAddPublicationModal, setShowAddPublicationModal] = useState(false);
 
     useEffect(() => {
         const fetchProfile = async () => {
@@ -51,6 +58,24 @@ const ProfilePage: React.FC = () => {
 
         fetchProfile();
     }, [navigate]);
+
+    useEffect(() => {
+        const fetchPublications = async () => {
+            if (!user) return;
+
+            try {
+                setLoadingPublications(true);
+                const response = await publicationsApi.getLatestByAuthor(user.id, 100); // Fetch all
+                setPublications(response.data);
+            } catch (err) {
+                console.error('Failed to fetch publications', err);
+            } finally {
+                setLoadingPublications(false);
+            }
+        };
+
+        fetchPublications();
+    }, [user]);
 
     const handleSave = async (data: UpdateUserData) => {
         setSaving(true);
@@ -95,6 +120,30 @@ const ProfilePage: React.FC = () => {
             setUser(response.data);
         } catch (err) {
             console.error('Failed to refresh profile', err);
+        }
+    };
+
+    const handleTogglePublications = () => {
+        setShowAllPublications(!showAllPublications);
+    };
+
+    const handleOpenAddPublication = () => {
+        setShowAddPublicationModal(true);
+    };
+
+    const handleCloseAddPublication = () => {
+        setShowAddPublicationModal(false);
+    };
+
+    const handlePublicationAdded = async () => {
+        // Refresh publications list
+        if (!user) return;
+
+        try {
+            const response = await publicationsApi.getLatestByAuthor(user.id, 100);
+            setPublications(response.data);
+        } catch (err) {
+            console.error('Failed to refresh publications', err);
         }
     };
 
@@ -162,11 +211,67 @@ const ProfilePage: React.FC = () => {
                     )}
                 </div>
 
+                {/* Publications Section */}
+                {!editing && (
+                    <div className="profile-card publications-section">
+                        <div className="publications-section-header">
+                            <h2 className="publications-section-title">📚 Yayınlarım</h2>
+                            <button
+                                className="add-publication-button"
+                                onClick={handleOpenAddPublication}
+                            >
+                                ➕ Yeni Yayın Ekle
+                            </button>
+                        </div>
+
+                        {loadingPublications ? (
+                            <Loading message="Yayınlar yükleniyor..." />
+                        ) : (
+                            <PublicationsList
+                                publications={publications}
+                                showAll={showAllPublications}
+                                onToggleShowAll={handleTogglePublications}
+                                maxPreview={3}
+                            />
+                        )}
+                    </div>
+                )}
+
+                {/* Stats Section - Separate card at the bottom */}
+                {!editing && (
+                    <div className="profile-card">
+                        <div className="profile-info-section">
+                            <h2 className="profile-info-section-title">İstatistikler</h2>
+                            <div className="profile-stats">
+                                <div className="profile-stat">
+                                    <span className="stat-value">{user.followerCount}</span>
+                                    <span className="stat-label">Takipçi</span>
+                                </div>
+                                <div className="profile-stat">
+                                    <span className="stat-value">{user.followingCount}</span>
+                                    <span className="stat-label">Takip</span>
+                                </div>
+                                <div className="profile-stat">
+                                    <span className="stat-value">{user.avgScore.toFixed(1)}</span>
+                                    <span className="stat-label">Ortalama Puan</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {showTagManagement && (
                     <TagManagementPopup
                         userTags={user.tags}
                         onClose={handleCloseTagManagement}
                         onTagsUpdated={handleTagsUpdated}
+                    />
+                )}
+
+                {showAddPublicationModal && (
+                    <AddPublicationModal
+                        onClose={handleCloseAddPublication}
+                        onPublicationAdded={handlePublicationAdded}
                     />
                 )}
             </div>

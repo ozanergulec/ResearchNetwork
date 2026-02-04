@@ -12,6 +12,12 @@ public class Publication
     // Özet (Abstract) metni
     public string? Abstract { get; set; }
 
+    // DOI numarası (Digital Object Identifier)
+    public string? DOI { get; set; }
+
+    // Yüklenen dosyanın yolu (PDF veya Word)
+    public string? FileUrl { get; set; }
+
     // Tam yayınlanma tarihi (Gün/Ay/Yıl)
     public DateTime? PublishedDate { get; set; }
 
