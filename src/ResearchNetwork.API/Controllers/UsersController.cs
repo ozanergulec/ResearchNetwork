@@ -39,6 +39,21 @@ public class UsersController : ControllerBase
         return Ok(MapToUserDto(user));
     }
 
+    [HttpGet("{id:guid}/stats/network")]
+    public async Task<ActionResult<NetworkStatsDto>> GetNetworkStats(Guid id)
+    {
+        var user = await _userRepository.GetByIdAsync(id);
+        if (user == null)
+        {
+            return NotFound();
+        }
+
+        return Ok(new NetworkStatsDto(
+            user.FollowerCount,
+            user.FollowingCount
+        ));
+    }
+
     [Authorize]
     [HttpGet("profile")]
     public async Task<ActionResult<UserDto>> GetProfile()
@@ -220,3 +235,9 @@ public class UsersController : ControllerBase
         );
     }
 }
+
+// DTO for Network Stats
+public record NetworkStatsDto(
+    int FollowerCount,
+    int FollowingCount
+);
