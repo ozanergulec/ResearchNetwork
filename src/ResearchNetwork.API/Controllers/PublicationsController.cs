@@ -77,10 +77,17 @@ public class PublicationsController : ControllerBase
         
         await _publicationRepository.CreateAsync(publication);
 
+        // Reload the publication with Author navigation property included
+        var createdPublication = await _publicationRepository.GetByIdAsync(publication.Id);
+        if (createdPublication == null)
+        {
+            return StatusCode(500, "Failed to retrieve created publication");
+        }
+
         return CreatedAtAction(
             nameof(GetById),
             new { id = publication.Id },
-            MapToPublicationDto(publication) // Author might be null here if not loaded, but for create it's fine
+            MapToPublicationDto(createdPublication)
         );
     }
     

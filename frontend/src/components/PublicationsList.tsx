@@ -8,13 +8,17 @@ interface PublicationsListProps {
     showAll?: boolean;
     onToggleShowAll?: () => void;
     maxPreview?: number;
+    currentUserId?: string;
+    onDelete?: (id: string) => void;
 }
 
 const PublicationsList: React.FC<PublicationsListProps> = ({
     publications,
     showAll = false,
     onToggleShowAll,
-    maxPreview = 3
+    maxPreview = 3,
+    currentUserId,
+    onDelete
 }) => {
     const displayedPublications = showAll
         ? publications
@@ -37,6 +41,8 @@ const PublicationsList: React.FC<PublicationsListProps> = ({
                     <PublicationCard
                         key={publication.id}
                         publication={publication}
+                        currentUserId={currentUserId}
+                        onDelete={onDelete}
                     />
                 ))}
             </div>

@@ -105,6 +105,10 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("AllowReact");
+
+// Serve static files from wwwroot (for uploaded files)
+app.UseStaticFiles();
+
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();

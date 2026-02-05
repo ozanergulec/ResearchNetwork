@@ -2,6 +2,9 @@ import axios from 'axios';
 
 const API_BASE_URL = 'http://localhost:5051/api';
 
+// Export for components that need to construct full URLs
+export const API_SERVER_URL = 'http://localhost:5051';
+
 const api = axios.create({
     baseURL: API_BASE_URL,
     headers: {

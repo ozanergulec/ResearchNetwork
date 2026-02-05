@@ -1,12 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { Publication } from '../services/publicationService';
+import { API_SERVER_URL } from '../services/apiClient';
 import '../styles/PublicationComponents.css';
 
 interface PublicationCardProps {
     publication: Publication;
+    currentUserId?: string;
+    onDelete?: (id: string) => void;
 }
 
-const PublicationCard: React.FC<PublicationCardProps> = ({ publication }) => {
+const PublicationCard: React.FC<PublicationCardProps> = ({ publication, currentUserId, onDelete }) => {
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+
     const formatDate = (dateString: string) => {
         const date = new Date(dateString);
         return date.toLocaleDateString('tr-TR', {
@@ -21,17 +27,76 @@ const PublicationCard: React.FC<PublicationCardProps> = ({ publication }) => {
         return text.substring(0, maxLength) + '...';
     };
 
+    const isOwner = currentUserId && publication.author.id === currentUserId;
+
+    const handleDeleteClick = () => {
+        setShowDeleteConfirm(true);
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!onDelete) return;
+
+        setDeleting(true);
+        try {
+            await onDelete(publication.id);
+        } catch (error) {
+            console.error('Delete failed:', error);
+            setDeleting(false);
+            setShowDeleteConfirm(false);
+        }
+    };
+
+    const handleCancelDelete = () => {
+        setShowDeleteConfirm(false);
+    };
+
     return (
         <div className="publication-card">
             <div className="publication-header">
                 <h3 className="publication-title">{publication.title}</h3>
-                <span className="publication-date">
-                    {publication.publishedDate
-                        ? formatDate(publication.publishedDate)
-                        : formatDate(publication.createdAt)
-                    }
-                </span>
+                <div className="publication-header-actions">
+                    <span className="publication-date">
+                        {publication.publishedDate
+                            ? formatDate(publication.publishedDate)
+                            : formatDate(publication.createdAt)
+                        }
+                    </span>
+                    {isOwner && (
+                        <div className="publication-actions">
+                            <button
+                                className="publication-action-btn delete-btn"
+                                onClick={handleDeleteClick}
+                                disabled={deleting}
+                                title="Sil"
+                            >
+                                🗑️
+                            </button>
+                        </div>
+                    )}
+                </div>
             </div>
+
+            {showDeleteConfirm && (
+                <div className="delete-confirmation">
+                    <p>Bu yayını silmek istediğinizden emin misiniz?</p>
+                    <div className="delete-confirmation-actions">
+                        <button
+                            className="btn-secondary"
+                            onClick={handleCancelDelete}
+                            disabled={deleting}
+                        >
+                            İptal
+                        </button>
+                        <button
+                            className="btn-danger"
+                            onClick={handleConfirmDelete}
+                            disabled={deleting}
+                        >
+                            {deleting ? 'Siliniyor...' : 'Evet, Sil'}
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {publication.abstract && (
                 <p className="publication-abstract">
@@ -56,7 +121,7 @@ const PublicationCard: React.FC<PublicationCardProps> = ({ publication }) => {
                 {publication.fileUrl && (
                     <div className="publication-file">
                         <a
-                            href={publication.fileUrl}
+                            href={`${API_SERVER_URL}${publication.fileUrl}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="file-link"

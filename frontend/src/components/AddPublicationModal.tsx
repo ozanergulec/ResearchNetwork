@@ -143,9 +143,13 @@ const AddPublicationModal: React.FC<AddPublicationModalProps> = ({ onClose, onPu
         setError(null);
 
         try {
+            console.log('Dosya yükleniyor:', selectedFile.name);
+
             // Upload file first
             const uploadResponse = await publicationsApi.uploadFile(selectedFile);
             const fileUrl = uploadResponse.data.fileUrl;
+
+            console.log('Dosya yüklendi, URL:', fileUrl);
 
             // Create publication with file URL
             const tags = fileUploadData.tags
@@ -160,12 +164,22 @@ const AddPublicationModal: React.FC<AddPublicationModalProps> = ({ onClose, onPu
                 tags: tags.length > 0 ? tags : undefined
             };
 
+            console.log('Yayın oluşturuluyor:', publicationData);
             await publicationsApi.create(publicationData);
+
+            console.log('Yayın başarıyla oluşturuldu');
             onPublicationAdded();
             onClose();
         } catch (err: any) {
-            console.error('Failed to upload and create publication', err);
-            setError(err.response?.data?.message || 'Dosya yüklenirken bir hata oluştu.');
+            console.error('Dosya yükleme hatası:', err);
+            console.error('Hata detayı:', err.response?.data);
+
+            const errorMessage = err.response?.data?.message
+                || err.response?.data
+                || err.message
+                || 'Dosya yüklenirken bir hata oluştu.';
+
+            setError(typeof errorMessage === 'string' ? errorMessage : 'Dosya yüklenirken bir hata oluştu.');
         } finally {
             setLoading(false);
         }

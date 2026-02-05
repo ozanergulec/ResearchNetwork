@@ -127,7 +127,17 @@ const ProfilePage: React.FC = () => {
         setShowAllPublications(!showAllPublications);
     };
 
-    const handleOpenAddPublication = () => {
+    const handleOpenAddPublication = async () => {
+        // Refresh publications list when opening modal
+        if (user) {
+            try {
+                const response = await publicationsApi.getLatestByAuthor(user.id, 100);
+                setPublications(response.data);
+            } catch (err) {
+                console.error('Failed to refresh publications', err);
+            }
+        }
+
         setShowAddPublicationModal(true);
     };
 
@@ -144,6 +154,21 @@ const ProfilePage: React.FC = () => {
             setPublications(response.data);
         } catch (err) {
             console.error('Failed to refresh publications', err);
+        }
+    };
+
+    const handleDeletePublication = async (publicationId: string) => {
+        try {
+            await publicationsApi.delete(publicationId);
+
+            // Refresh publications list after deletion
+            if (user) {
+                const response = await publicationsApi.getLatestByAuthor(user.id, 100);
+                setPublications(response.data);
+            }
+        } catch (err: any) {
+            console.error('Failed to delete publication', err);
+            throw err; // Re-throw to let the component handle the error
         }
     };
 
@@ -232,6 +257,8 @@ const ProfilePage: React.FC = () => {
                                 showAll={showAllPublications}
                                 onToggleShowAll={handleTogglePublications}
                                 maxPreview={3}
+                                currentUserId={user.id}
+                                onDelete={handleDeletePublication}
                             />
                         )}
                     </div>

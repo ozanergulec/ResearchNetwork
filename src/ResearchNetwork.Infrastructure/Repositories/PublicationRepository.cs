@@ -18,6 +18,8 @@ public class PublicationRepository : IPublicationRepository
     {
         return await _context.Publications
             .Include(p => p.Author)
+            .Include(p => p.Tags)
+                .ThenInclude(pt => pt.Tag)
             .FirstOrDefaultAsync(p => p.Id == id);
     }
 
