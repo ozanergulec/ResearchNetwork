@@ -65,7 +65,8 @@ const ProfilePage: React.FC = () => {
 
             try {
                 setLoadingPublications(true);
-                const response = await publicationsApi.getLatestByAuthor(user.id, 100); // Fetch all
+                // Fetch 4 publications to check if there are more than 3 (for "Show All" button)
+                const response = await publicationsApi.getLatestByAuthor(user.id, 4);
                 setPublications(response.data);
             } catch (err) {
                 console.error('Failed to fetch publications', err);
@@ -123,15 +124,38 @@ const ProfilePage: React.FC = () => {
         }
     };
 
-    const handleTogglePublications = () => {
-        setShowAllPublications(!showAllPublications);
+    const handleTogglePublications = async () => {
+        if (!user) return;
+
+        const newShowAll = !showAllPublications;
+        setShowAllPublications(newShowAll);
+
+        // Fetch publications based on the new state
+        try {
+            setLoadingPublications(true);
+            if (newShowAll) {
+                // Fetch all publications when showing all
+                const response = await publicationsApi.getByAuthor(user.id);
+                setPublications(response.data);
+            } else {
+                // Fetch 4 when collapsing to check if button should show
+                const response = await publicationsApi.getLatestByAuthor(user.id, 4);
+                setPublications(response.data);
+            }
+        } catch (err) {
+            console.error('Failed to fetch publications', err);
+        } finally {
+            setLoadingPublications(false);
+        }
     };
 
     const handleOpenAddPublication = async () => {
         // Refresh publications list when opening modal
         if (user) {
             try {
-                const response = await publicationsApi.getLatestByAuthor(user.id, 100);
+                const response = showAllPublications
+                    ? await publicationsApi.getByAuthor(user.id)
+                    : await publicationsApi.getLatestByAuthor(user.id, 4);
                 setPublications(response.data);
             } catch (err) {
                 console.error('Failed to refresh publications', err);
@@ -150,7 +174,9 @@ const ProfilePage: React.FC = () => {
         if (!user) return;
 
         try {
-            const response = await publicationsApi.getLatestByAuthor(user.id, 100);
+            const response = showAllPublications
+                ? await publicationsApi.getByAuthor(user.id)
+                : await publicationsApi.getLatestByAuthor(user.id, 4);
             setPublications(response.data);
         } catch (err) {
             console.error('Failed to refresh publications', err);
@@ -163,7 +189,9 @@ const ProfilePage: React.FC = () => {
 
             // Refresh publications list after deletion
             if (user) {
-                const response = await publicationsApi.getLatestByAuthor(user.id, 100);
+                const response = showAllPublications
+                    ? await publicationsApi.getByAuthor(user.id)
+                    : await publicationsApi.getLatestByAuthor(user.id, 4);
                 setPublications(response.data);
             }
         } catch (err: any) {
