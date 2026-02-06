@@ -1,0 +1,11 @@
+using ResearchNetwork.Application.DTOs;
+using ResearchNetwork.Domain.Entities;
+
+namespace ResearchNetwork.Application.Interfaces;
+
+public interface IPublicationService
+{
+    Task<Publication> CreatePublicationAsync(Guid authorId, CreatePublicationDto dto);
+    Task<List<Tag>> FindOrCreateTagsAsync(List<string> tagNames);
+    Task DeleteFileAsync(string fileUrl);
+}

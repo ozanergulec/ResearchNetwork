@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { Publication } from '../services/publicationService';
 import { API_SERVER_URL } from '../services/apiClient';
+import DocumentViewerModal from './DocumentViewerModal';
 import '../styles/PublicationComponents.css';
 
 interface PublicationCardProps {
@@ -12,6 +13,7 @@ interface PublicationCardProps {
 const PublicationCard: React.FC<PublicationCardProps> = ({ publication, currentUserId, onDelete }) => {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [deleting, setDeleting] = useState(false);
+    const [showDocumentViewer, setShowDocumentViewer] = useState(false);
 
     const formatDate = (dateString: string) => {
         const date = new Date(dateString);
@@ -48,6 +50,11 @@ const PublicationCard: React.FC<PublicationCardProps> = ({ publication, currentU
 
     const handleCancelDelete = () => {
         setShowDeleteConfirm(false);
+    };
+
+    const handleViewDocument = (e: React.MouseEvent) => {
+        e.preventDefault();
+        setShowDocumentViewer(true);
     };
 
     return (
@@ -121,9 +128,8 @@ const PublicationCard: React.FC<PublicationCardProps> = ({ publication, currentU
                 {publication.fileUrl && (
                     <div className="publication-file">
                         <a
-                            href={`${API_SERVER_URL}${publication.fileUrl}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                            href="#"
+                            onClick={handleViewDocument}
                             className="file-link"
                         >
                             📄 Dosyayı Görüntüle
@@ -153,6 +159,14 @@ const PublicationCard: React.FC<PublicationCardProps> = ({ publication, currentU
                     💾 {publication.saveCount} kayıt
                 </span>
             </div>
+
+            {showDocumentViewer && publication.fileUrl && (
+                <DocumentViewerModal
+                    fileUrl={`${API_SERVER_URL}${publication.fileUrl}`}
+                    fileName={publication.title}
+                    onClose={() => setShowDocumentViewer(false)}
+                />
+            )}
         </div>
     );
 };

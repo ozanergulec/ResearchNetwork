@@ -12,10 +12,14 @@ namespace ResearchNetwork.API.Controllers;
 public class PublicationsController : ControllerBase
 {
     private readonly IPublicationRepository _publicationRepository;
+    private readonly IPublicationService _publicationService;
 
-    public PublicationsController(IPublicationRepository publicationRepository)
+    public PublicationsController(
+        IPublicationRepository publicationRepository,
+        IPublicationService publicationService)
     {
         _publicationRepository = publicationRepository;
+        _publicationService = publicationService;
     }
 
     [HttpGet]
@@ -64,31 +68,37 @@ public class PublicationsController : ControllerBase
             return Unauthorized();
         }
 
-        var publication = new Publication(authorId, dto.Title, dto.PublishedDate.HasValue ? dto.PublishedDate.Value.Year : DateTime.UtcNow.Year)
+        string? uploadedFileUrl = null;
+        try
         {
-            Abstract = dto.Abstract,
-            DOI = dto.DOI,
-            FileUrl = dto.FileUrl,
-            PublishedDate = dto.PublishedDate
-        };
+            uploadedFileUrl = dto.FileUrl;
 
-        // Note: Keywords/Tags handling would need a service or repository method to find/create tags
-        // For now we skip tag creation in this controller action as it requires Tag repository logic
-        
-        await _publicationRepository.CreateAsync(publication);
+            // Use the service to create publication with tag handling
+            var publication = await _publicationService.CreatePublicationAsync(authorId, dto);
 
-        // Reload the publication with Author navigation property included
-        var createdPublication = await _publicationRepository.GetByIdAsync(publication.Id);
-        if (createdPublication == null)
-        {
-            return StatusCode(500, "Failed to retrieve created publication");
+            // Reload the publication with Author navigation property included
+            var createdPublication = await _publicationRepository.GetByIdAsync(publication.Id);
+            if (createdPublication == null)
+            {
+                return StatusCode(500, "Failed to retrieve created publication");
+            }
+
+            return CreatedAtAction(
+                nameof(GetById),
+                new { id = publication.Id },
+                MapToPublicationDto(createdPublication)
+            );
         }
+        catch (Exception ex)
+        {
+            // If publication creation failed and a file was uploaded, clean it up
+            if (!string.IsNullOrEmpty(uploadedFileUrl))
+            {
+                await _publicationService.DeleteFileAsync(uploadedFileUrl);
+            }
 
-        return CreatedAtAction(
-            nameof(GetById),
-            new { id = publication.Id },
-            MapToPublicationDto(createdPublication)
-        );
+            return StatusCode(500, new { message = "Publication creation failed", error = ex.Message });
+        }
     }
     
     [Authorize]

@@ -66,5 +66,46 @@ export const publicationsApi = {
 
     delete: (id: string) =>
         api.delete(`/publications/${id}`),
+
+    /**
+     * Centralized function to handle the two-phase process:
+     * 1. Upload file to server
+     * 2. Create publication with the returned file URL
+     * 
+     * Provides better error handling and encapsulation of the async flow.
+     */
+    createPublicationWithFile: async (
+        file: File,
+        data: Omit<CreatePublicationDto, 'fileUrl'>
+    ): Promise<Publication> => {
+        let fileUrl: string | undefined;
+
+        try {
+            // Phase 1: Upload file
+            const uploadResponse = await publicationsApi.uploadFile(file);
+            fileUrl = uploadResponse.data.fileUrl;
+
+            // Phase 2: Create publication with file URL
+            const publicationData: CreatePublicationDto = {
+                ...data,
+                fileUrl,
+            };
+
+            const createResponse = await publicationsApi.create(publicationData);
+            return createResponse.data;
+        } catch (error: any) {
+            // Enhanced error handling with phase-specific messages
+            if (error.response) {
+                const phase = fileUrl ? 'creating publication' : 'uploading file';
+                const message = error.response.data?.message
+                    || error.response.data
+                    || `Error ${phase}`;
+
+                throw new Error(typeof message === 'string' ? message : `Failed ${phase}`);
+            }
+
+            throw error;
+        }
+    },
 };
 

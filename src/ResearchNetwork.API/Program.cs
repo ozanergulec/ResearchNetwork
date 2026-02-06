@@ -7,6 +7,7 @@ using ResearchNetwork.Application.Interfaces;
 using ResearchNetwork.Infrastructure.Data;
 using ResearchNetwork.Infrastructure.Repositories;
 using ResearchNetwork.Infrastructure.Services;
+using ResearchNetwork.Application.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -54,6 +55,7 @@ builder.Services.AddScoped<ITagRepository, TagRepository>();
 
 // Services
 builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<IPublicationService, PublicationService>();
 
 // JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "DefaultSecretKeyForDevelopment123456";
@@ -95,6 +97,13 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.Migrate();
+}
+
+// Ensure uploads directory exists
+var uploadsPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "publications");
+if (!Directory.Exists(uploadsPath))
+{
+    Directory.CreateDirectory(uploadsPath);
 }
 
 // Configure the HTTP request pipeline
