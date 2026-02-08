@@ -13,7 +13,7 @@ import {
     PublicationsList,
     AddPublicationModal
 } from '../components';
-import '../styles/ProfilePage.css';
+import '../styles/pages/ProfilePage.css';
 
 const ProfilePage: React.FC = () => {
     const navigate = useNavigate();

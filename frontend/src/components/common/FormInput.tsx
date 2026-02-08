@@ -1,5 +1,5 @@
 import React from 'react';
-import '../../styles/Components.css';
+import '../../styles/common/FormInput.css';
 
 interface FormInputProps {
     type?: string;

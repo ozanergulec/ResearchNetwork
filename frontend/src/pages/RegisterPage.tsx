@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authApi } from '../services/authService';
 import type { RegisterData } from '../services/authService';
-import '../styles/LoginPage.css';
+import '../styles/pages/LoginPage.css';
 
 // Accepted academic email domains
 const ACADEMIC_DOMAINS = ['.edu.tr', '.ac.uk', '.edu'];

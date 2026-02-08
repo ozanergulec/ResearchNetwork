@@ -1,0 +1,80 @@
+/* Add Publication Modal - File Upload Styles */
+
+.file-drop-zone {
+    border: 2px dashed var(--ui-detail, #e0e0e0);
+    border-radius: 12px;
+    padding: 2rem;
+    text-align: center;
+    margin-bottom: 1.5rem;
+    transition: all 0.2s ease;
+    background: #FFFBF8;
+}
+
+.file-drop-zone.active {
+    border-color: var(--heading-color, #7A1F2B);
+    background: rgba(122, 31, 43, 0.05);
+}
+
+.file-drop-zone p {
+    margin: 0.5rem 0;
+    color: var(--text-secondary, #666);
+}
+
+.file-select-button {
+    display: inline-block;
+    padding: 0.75rem 1.5rem;
+    background: var(--heading-color, #7A1F2B);
+    color: white;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin: 1rem 0;
+    box-shadow: 0 2px 4px rgba(122, 31, 43, 0.2);
+}
+
+.file-select-button:hover {
+    background: #8B2332;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(122, 31, 43, 0.3);
+}
+
+.file-help {
+    font-size: 0.85rem;
+    color: var(--text-secondary, #999);
+}
+
+.file-selected {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: white;
+    border-radius: 8px;
+    border: 1px solid var(--ui-detail, #e0e0e0);
+}
+
+.file-icon {
+    font-size: 2rem;
+}
+
+.file-name {
+    flex: 1;
+    font-weight: 500;
+    color: var(--heading-color, #7A1F2B);
+}
+
+.file-remove {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: var(--text-secondary, #666);
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.file-remove:hover {
+    background: #FFFBF8;
+    color: var(--link-color, #E5533D);
+}

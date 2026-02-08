@@ -1,0 +1,72 @@
+/* UserCard Component Styles */
+
+.user-card {
+    background: #fff;
+    border: 1px solid var(--ui-detail);
+    border-radius: 16px;
+    padding: 1.5rem;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.user-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 30px rgba(42, 31, 29, 0.1);
+    border-color: var(--heading-color);
+}
+
+.user-card .avatar {
+    margin: 0 auto 1rem;
+}
+
+.user-card-name {
+    color: var(--text-primary);
+    font-size: 1.1rem;
+    margin-bottom: 0.25rem;
+}
+
+.user-card-title {
+    color: rgba(42, 31, 29, 0.7);
+    font-size: 0.9rem;
+    margin-bottom: 0.25rem;
+}
+
+.user-card-institution {
+    color: rgba(42, 31, 29, 0.6);
+    font-size: 0.85rem;
+    margin-bottom: 0.75rem;
+}
+
+.user-card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: center;
+    margin-bottom: 1rem;
+}
+
+.user-card-tag {
+    background: rgba(122, 31, 43, 0.1);
+    color: var(--heading-color);
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+}
+
+.user-card-connect-button {
+    width: 100%;
+    padding: 0.75rem;
+    background: var(--heading-color);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.user-card-connect-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(122, 31, 43, 0.3);
+}

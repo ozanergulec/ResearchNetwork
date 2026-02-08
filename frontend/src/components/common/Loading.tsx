@@ -1,5 +1,5 @@
 import React from 'react';
-import '../../styles/Components.css';
+import '../../styles/common/Loading.css';
 
 interface LoadingProps {
     message?: string;

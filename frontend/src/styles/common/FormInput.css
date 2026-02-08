@@ -1,0 +1,36 @@
+/* FormInput Component Styles */
+
+.form-label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+}
+
+.form-input {
+    width: 100%;
+    padding: 0.875rem 1rem;
+    background: #fff;
+    border: 1px solid var(--ui-detail);
+    border-radius: 10px;
+    color: var(--text-primary);
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    box-sizing: border-box;
+}
+
+.form-input::placeholder {
+    color: rgba(42, 31, 29, 0.5);
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: var(--heading-color);
+    box-shadow: 0 0 0 3px rgba(122, 31, 43, 0.1);
+}
+
+.form-textarea {
+    min-height: 100px;
+    resize: vertical;
+}

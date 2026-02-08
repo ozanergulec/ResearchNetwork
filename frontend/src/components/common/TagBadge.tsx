@@ -1,5 +1,5 @@
 import React from 'react';
-import '../../styles/ProfileComponents.css';
+import '../../styles/profile/TagBadge.css';
 
 interface TagBadgeProps {
     name: string;

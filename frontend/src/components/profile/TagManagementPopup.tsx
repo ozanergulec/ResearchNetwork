@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { usersApi } from '../../services/userService';
 import { tagsApi } from '../../services/tagService';
 import type { Tag } from '../../services/userService';
-import '../../styles/TagManagementPopup.css';
+import '../../styles/profile/TagManagementPopup.css';
 
 interface TagManagementPopupProps {
     userTags: Tag[];

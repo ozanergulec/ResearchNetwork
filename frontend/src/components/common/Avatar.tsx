@@ -1,5 +1,5 @@
 import React from 'react';
-import '../../styles/Components.css';
+import '../../styles/common/Avatar.css';
 
 interface AvatarProps {
     name: string;

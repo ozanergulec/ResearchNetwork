@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import type { Publication } from '../../services/publicationService';
 import { API_SERVER_URL } from '../../services/apiClient';
 import DocumentViewerModal from './DocumentViewerModal';
-import '../../styles/PublicationComponents.css';
+import '../../styles/publications/PublicationCard.css';
 
 interface PublicationCardProps {
     publication: Publication;

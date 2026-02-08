@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { authApi } from '../services/authService';
-import '../styles/LoginPage.css';
+import '../styles/pages/LoginPage.css';
 
 const VerifyEmailPage: React.FC = () => {
     const navigate = useNavigate();
