@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { publicationsApi, type CreatePublicationDto } from '../services/publicationService';
-import '../styles/PublicationComponents.css';
+import { publicationsApi, type CreatePublicationDto } from '../../services/publicationService';
+import '../../styles/PublicationComponents.css';
 
 interface AddPublicationModalProps {
     onClose: () => void;

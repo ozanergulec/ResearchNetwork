@@ -1,7 +1,7 @@
 import React from 'react';
-import Avatar from './Avatar';
-import type { User } from '../services/userService';
-import '../styles/Components.css';
+import Avatar from '../common/Avatar';
+import type { User } from '../../services/userService';
+import '../../styles/Components.css';
 
 interface UserCardProps {
     user: User;

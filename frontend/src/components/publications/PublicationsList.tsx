@@ -1,7 +1,7 @@
 import React from 'react';
-import type { Publication } from '../services/publicationService';
+import type { Publication } from '../../services/publicationService';
 import PublicationCard from './PublicationCard';
-import '../styles/PublicationComponents.css';
+import '../../styles/PublicationComponents.css';
 
 interface PublicationsListProps {
     publications: Publication[];

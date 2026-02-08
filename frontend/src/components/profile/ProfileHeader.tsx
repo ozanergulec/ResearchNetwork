@@ -1,5 +1,5 @@
 import React from 'react';
-import '../styles/ProfileComponents.css';
+import '../../styles/ProfileComponents.css';
 
 interface ProfileHeaderProps {
     fullName: string;

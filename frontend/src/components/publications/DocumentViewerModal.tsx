@@ -1,5 +1,5 @@
 import React from 'react';
-import '../styles/PublicationComponents.css';
+import '../../styles/PublicationComponents.css';
 
 interface DocumentViewerModalProps {
     fileUrl: string;

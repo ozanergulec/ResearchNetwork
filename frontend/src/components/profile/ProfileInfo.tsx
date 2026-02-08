@@ -1,7 +1,7 @@
 import React from 'react';
-import type { User } from '../services/userService';
-import TagBadge from './TagBadge';
-import '../styles/ProfileComponents.css';
+import type { User } from '../../services/userService';
+import TagBadge from '../common/TagBadge';
+import '../../styles/ProfileComponents.css';
 
 interface ProfileInfoProps {
     user: User;

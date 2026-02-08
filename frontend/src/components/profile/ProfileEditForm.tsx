@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import type { UpdateUserData } from '../services/userService';
-import FormInput from './FormInput';
-import '../styles/ProfileComponents.css';
+import type { UpdateUserData } from '../../services/userService';
+import FormInput from '../common/FormInput';
+import '../../styles/ProfileComponents.css';
 
 interface ProfileEditFormProps {
     initialData: UpdateUserData;
