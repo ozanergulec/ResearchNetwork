@@ -14,22 +14,22 @@ const ProfileInfo: React.FC<ProfileInfoProps> = ({ user, onEditTags }) => {
             <div className="profile-info-grid">
                 {/* About Section */}
                 <div className="profile-info-section">
-                    <h2 className="profile-info-section-title">Hakkında</h2>
+                    <h2 className="profile-info-section-title">About</h2>
                     <div className="profile-info-item">
-                        <span className="profile-info-label">Unvan</span>
-                        <span className="profile-info-value">{user.title || 'Belirtilmemiş'}</span>
+                        <span className="profile-info-label">Title</span>
+                        <span className="profile-info-value">{user.title || 'Not specified'}</span>
                     </div>
                     <div className="profile-info-item">
-                        <span className="profile-info-label">Kurum</span>
-                        <span className="profile-info-value">{user.institution || 'Belirtilmemiş'}</span>
+                        <span className="profile-info-label">Institution</span>
+                        <span className="profile-info-value">{user.institution || 'Not specified'}</span>
                     </div>
                     <div className="profile-info-item">
-                        <span className="profile-info-label">Bölüm</span>
-                        <span className="profile-info-value">{user.department || 'Belirtilmemiş'}</span>
+                        <span className="profile-info-label">Department</span>
+                        <span className="profile-info-value">{user.department || 'Not specified'}</span>
                     </div>
                     {user.bio && (
                         <div className="profile-info-item">
-                            <span className="profile-info-label">Biyografi</span>
+                            <span className="profile-info-label">Biography</span>
                             <span className="profile-info-value">{user.bio}</span>
                         </div>
                     )}
@@ -38,10 +38,10 @@ const ProfileInfo: React.FC<ProfileInfoProps> = ({ user, onEditTags }) => {
                 {/* Tags Section */}
                 <div className="profile-tags-section">
                     <div className="profile-tags-header">
-                        <span className="profile-info-label">İlgi Alanları</span>
+                        <span className="profile-info-label">Research Interests</span>
                         {onEditTags && (
                             <button className="edit-tags-button" onClick={onEditTags}>
-                                Düzenle
+                                Edit
                             </button>
                         )}
                     </div>
@@ -52,7 +52,7 @@ const ProfileInfo: React.FC<ProfileInfoProps> = ({ user, onEditTags }) => {
                             ))}
                         </div>
                     ) : (
-                        <span className="profile-info-value">Henüz ilgi alanı eklenmemiş</span>
+                        <span className="profile-info-value">No research interests added yet</span>
                     )}
                 </div>
             </div>

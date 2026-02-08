@@ -102,7 +102,7 @@ const TagManagementPopup: React.FC<TagManagementPopupProps> = ({
         <div className="popup-overlay" onClick={onClose}>
             <div className="popup-content" onClick={(e) => e.stopPropagation()}>
                 <div className="popup-header">
-                    <h2>İlgi Alanlarını Düzenle</h2>
+                    <h2>Edit Research Interests</h2>
                     <button className="popup-close" onClick={onClose}>×</button>
                 </div>
 
@@ -113,9 +113,9 @@ const TagManagementPopup: React.FC<TagManagementPopupProps> = ({
                 <div className="popup-body">
                     {/* Current Tags Section */}
                     <div className="current-tags-section">
-                        <h3>Mevcut Etiketler</h3>
+                        <h3>Current Tags</h3>
                         {userTags.length === 0 ? (
-                            <p className="no-tags">Henüz etiket eklenmemiş</p>
+                            <p className="no-tags">No tags added yet</p>
                         ) : (
                             <div className="tags-list">
                                 {userTags.map(tag => (
@@ -137,11 +137,11 @@ const TagManagementPopup: React.FC<TagManagementPopupProps> = ({
 
                     {/* Search Section */}
                     <div className="search-section">
-                        <h3>Etiket Ara</h3>
+                        <h3>Search Tags</h3>
                         <input
                             type="text"
                             className="tag-search-input"
-                            placeholder="Etiket adı girin (örn: AI, NLP, Machine Learning)"
+                            placeholder="Enter tag name (e.g., AI, NLP, Machine Learning)"
                             value={searchQuery}
                             onChange={(e) => handleSearch(e.target.value)}
                             disabled={actionLoading}
@@ -150,11 +150,11 @@ const TagManagementPopup: React.FC<TagManagementPopupProps> = ({
 
                     {/* Available Tags Section */}
                     <div className="available-tags-section">
-                        <h3>Mevcut Etiketler</h3>
+                        <h3>Available Tags</h3>
                         {loading ? (
-                            <p className="loading-text">Yükleniyor...</p>
+                            <p className="loading-text">Loading...</p>
                         ) : filteredTags.length === 0 && !canAddNewTag ? (
-                            <p className="no-tags">Etiket bulunamadı</p>
+                            <p className="no-tags">No tags found</p>
                         ) : (
                             <div className="tags-list">
                                 {canAddNewTag && (
@@ -162,7 +162,7 @@ const TagManagementPopup: React.FC<TagManagementPopupProps> = ({
                                         className="tag-item new-tag"
                                         onClick={() => handleAddTag(searchQuery.trim())}
                                     >
-                                        + "{searchQuery.trim()}" ekle
+                                        + Add "{searchQuery.trim()}"
                                     </span>
                                 )}
                                 {filteredTags.map(tag => (

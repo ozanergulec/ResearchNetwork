@@ -85,14 +85,14 @@ const PublicationCard: React.FC<PublicationCardProps> = ({ publication, currentU
 
             {showDeleteConfirm && (
                 <div className="delete-confirmation">
-                    <p>Bu yayını silmek istediğinizden emin misiniz?</p>
+                    <p>Are you sure you want to delete this publication?</p>
                     <div className="delete-confirmation-actions">
                         <button
                             className="btn-secondary"
                             onClick={handleCancelDelete}
                             disabled={deleting}
                         >
-                            İptal
+                            Cancel
                         </button>
                         <button
                             className="btn-danger"
@@ -132,7 +132,7 @@ const PublicationCard: React.FC<PublicationCardProps> = ({ publication, currentU
                             onClick={handleViewDocument}
                             className="file-link"
                         >
-                            📄 Dosyayı Görüntüle
+                            📄 View File
                         </a>
                     </div>
                 )}
@@ -153,10 +153,10 @@ const PublicationCard: React.FC<PublicationCardProps> = ({ publication, currentU
                     ⭐ {publication.averageRating.toFixed(1)}
                 </span>
                 <span className="stat-item">
-                    📚 {publication.citationCount} alıntı
+                    📚 {publication.citationCount} citations
                 </span>
                 <span className="stat-item">
-                    💾 {publication.saveCount} kayıt
+                    💾 {publication.saveCount} saves
                 </span>
             </div>
 

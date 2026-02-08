@@ -52,7 +52,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 
                     {/* Edit Button */}
                     <button onClick={onEditClick} className="profile-edit-button">
-                        Profili Düzenle
+                        Edit Profile
                     </button>
                 </div>
             </div>

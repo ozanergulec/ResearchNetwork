@@ -29,7 +29,7 @@ const PublicationsList: React.FC<PublicationsListProps> = ({
     if (publications.length === 0) {
         return (
             <div className="publications-empty">
-                <p>Henüz yayın eklenmemiş.</p>
+                <p>No publications added yet.</p>
             </div>
         );
     }
@@ -53,7 +53,7 @@ const PublicationsList: React.FC<PublicationsListProps> = ({
                         className="toggle-button"
                         onClick={onToggleShowAll}
                     >
-                        {showAll ? 'Daha Az Göster' : 'Tümünü Gör'}
+                        {showAll ? 'Show Less' : 'View All'}
                     </button>
                 </div>
             )}

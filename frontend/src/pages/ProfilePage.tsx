@@ -268,17 +268,17 @@ const ProfilePage: React.FC = () => {
                 {!editing && (
                     <div className="profile-card publications-section">
                         <div className="publications-section-header">
-                            <h2 className="publications-section-title">📚 Yayınlarım</h2>
+                            <h2 className="publications-section-title">📚 My Publications</h2>
                             <button
                                 className="add-publication-button"
                                 onClick={handleOpenAddPublication}
                             >
-                                ➕ Yeni Yayın Ekle
+                                ➕ Add New Publication
                             </button>
                         </div>
 
                         {loadingPublications ? (
-                            <Loading message="Yayınlar yükleniyor..." />
+                            <Loading message="Loading publications..." />
                         ) : (
                             <PublicationsList
                                 publications={publications}
@@ -296,19 +296,19 @@ const ProfilePage: React.FC = () => {
                 {!editing && (
                     <div className="profile-card">
                         <div className="profile-info-section">
-                            <h2 className="profile-info-section-title">İstatistikler</h2>
+                            <h2 className="profile-info-section-title">Statistics</h2>
                             <div className="profile-stats">
                                 <div className="profile-stat">
                                     <span className="stat-value">{user.followerCount}</span>
-                                    <span className="stat-label">Takipçi</span>
+                                    <span className="stat-label">Followers</span>
                                 </div>
                                 <div className="profile-stat">
                                     <span className="stat-value">{user.followingCount}</span>
-                                    <span className="stat-label">Takip</span>
+                                    <span className="stat-label">Following</span>
                                 </div>
                                 <div className="profile-stat">
                                     <span className="stat-value">{user.avgScore.toFixed(1)}</span>
-                                    <span className="stat-label">Ortalama Puan</span>
+                                    <span className="stat-label">Average Score</span>
                                 </div>
                             </div>
                         </div>

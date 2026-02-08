@@ -29,14 +29,14 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({ fileUrl, file
                         />
                     ) : isWord ? (
                         <div className="word-viewer-notice">
-                            <p>📄 Word dosyaları için önizleme desteklenmiyor.</p>
+                            <p>📄 Preview is not supported for Word files.</p>
                             <a
                                 href={fileUrl}
                                 download
                                 className="btn-primary"
                                 onClick={onClose}
                             >
-                                📥 Dosyayı İndir
+                                📥 Download File
                             </a>
                             <p className="viewer-hint">
                                 veya
@@ -47,19 +47,19 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({ fileUrl, file
                                 rel="noopener noreferrer"
                                 className="btn-secondary"
                             >
-                                🔗 Office Online ile Görüntüle
+                                🔗 View with Office Online
                             </a>
                         </div>
                     ) : (
                         <div className="word-viewer-notice">
-                            <p>⚠️ Bu dosya türü için önizleme desteklenmiyor.</p>
+                            <p>⚠️ Preview is not supported for this file type.</p>
                             <a
                                 href={fileUrl}
                                 download
                                 className="btn-primary"
                                 onClick={onClose}
                             >
-                                📥 Dosyayı İndir
+                                📥 Download File
                             </a>
                         </div>
                     )}

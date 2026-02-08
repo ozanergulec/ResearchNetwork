@@ -26,12 +26,12 @@ const LoginPage: React.FC = () => {
             navigate('/profile');
         } catch (err: any) {
             const errorData = err.response?.data;
-            // Email doğrulanmamışsa doğrulama sayfasına yönlendir
+            // If email is not verified, redirect to verification page
             if (errorData?.requiresVerification) {
                 navigate('/verify-email', { state: { email: errorData.email } });
                 return;
             }
-            setError(errorData?.message || 'Giriş başarısız.');
+            setError(errorData?.message || 'Login failed.');
         } finally {
             setLoading(false);
         }

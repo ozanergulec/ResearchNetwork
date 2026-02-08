@@ -57,12 +57,12 @@ const AddPublicationModal: React.FC<AddPublicationModalProps> = ({ onClose, onPu
         const maxSize = 10 * 1024 * 1024; // 10MB
 
         if (!allowedTypes.includes(file.type)) {
-            setError('Sadece PDF ve Word dosyaları kabul edilir.');
+            setError('Only PDF and Word files are accepted.');
             return;
         }
 
         if (file.size > maxSize) {
-            setError('Dosya boyutu 10MB\'dan küçük olmalıdır.');
+            setError('File size must be less than 10MB.');
             return;
         }
 
@@ -95,7 +95,7 @@ const AddPublicationModal: React.FC<AddPublicationModalProps> = ({ onClose, onPu
         e.preventDefault();
 
         if (!formData.title.trim()) {
-            setError('Başlık zorunludur.');
+            setError('Title is required.');
             return;
         }
 
@@ -121,7 +121,7 @@ const AddPublicationModal: React.FC<AddPublicationModalProps> = ({ onClose, onPu
             onClose();
         } catch (err: any) {
             console.error('Failed to create publication', err);
-            setError(err.response?.data?.message || 'Yayın eklenirken bir hata oluştu.');
+            setError(err.response?.data?.message || 'An error occurred while adding the publication.');
         } finally {
             setLoading(false);
         }
@@ -131,12 +131,12 @@ const AddPublicationModal: React.FC<AddPublicationModalProps> = ({ onClose, onPu
         e.preventDefault();
 
         if (!selectedFile) {
-            setError('Lütfen bir dosya seçin.');
+            setError('Please select a file.');
             return;
         }
 
         if (!fileUploadData.title.trim()) {
-            setError('Başlık zorunludur.');
+            setError('Title is required.');
             return;
         }
 
@@ -161,7 +161,7 @@ const AddPublicationModal: React.FC<AddPublicationModalProps> = ({ onClose, onPu
             onClose();
         } catch (err: any) {
             console.error('Publication creation error:', err);
-            setError(err.message || 'Dosya yüklenirken bir hata oluştu.');
+            setError(err.message || 'An error occurred while uploading the file.');
         } finally {
             setLoading(false);
         }
@@ -171,7 +171,7 @@ const AddPublicationModal: React.FC<AddPublicationModalProps> = ({ onClose, onPu
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal-content" onClick={(e) => e.stopPropagation()}>
                 <div className="modal-header">
-                    <h2>Yeni Yayın Ekle</h2>
+                    <h2>Add New Publication</h2>
                     <button className="modal-close" onClick={onClose}>×</button>
                 </div>
 
@@ -180,13 +180,13 @@ const AddPublicationModal: React.FC<AddPublicationModalProps> = ({ onClose, onPu
                         className={`tab-button ${activeTab === 'manual' ? 'active' : ''}`}
                         onClick={() => setActiveTab('manual')}
                     >
-                        📝 Manuel Giriş
+                        📝 Manual Entry
                     </button>
                     <button
                         className={`tab-button ${activeTab === 'file' ? 'active' : ''}`}
                         onClick={() => setActiveTab('file')}
                     >
-                        📄 Dosya Yükle
+                        📄 File Upload
                     </button>
                 </div>
 
@@ -200,7 +200,7 @@ const AddPublicationModal: React.FC<AddPublicationModalProps> = ({ onClose, onPu
                     {activeTab === 'manual' ? (
                         <form onSubmit={handleManualSubmit}>
                             <div className="form-group">
-                                <label htmlFor="title">Başlık *</label>
+                                <label htmlFor="title">Title *</label>
                                 <input
                                     type="text"
                                     id="title"
@@ -208,24 +208,24 @@ const AddPublicationModal: React.FC<AddPublicationModalProps> = ({ onClose, onPu
                                     value={formData.title}
                                     onChange={handleManualInputChange}
                                     required
-                                    placeholder="Yayın başlığını girin"
+                                    placeholder="Enter publication title"
                                 />
                             </div>
 
                             <div className="form-group">
-                                <label htmlFor="abstract">Özet (Abstract)</label>
+                                <label htmlFor="abstract">Abstract</label>
                                 <textarea
                                     id="abstract"
                                     name="abstract"
                                     value={formData.abstract}
                                     onChange={handleManualInputChange}
                                     rows={4}
-                                    placeholder="Yayının özetini girin (isteğe bağlı)"
+                                    placeholder="Enter the abstract (optional)"
                                 />
                             </div>
 
                             <div className="form-group">
-                                <label htmlFor="doi">DOI Numarası</label>
+                                <label htmlFor="doi">DOI Number</label>
                                 <input
                                     type="text"
                                     id="doi"
@@ -237,7 +237,7 @@ const AddPublicationModal: React.FC<AddPublicationModalProps> = ({ onClose, onPu
                             </div>
 
                             <div className="form-group">
-                                <label htmlFor="publishedDate">Yayın Tarihi</label>
+                                <label htmlFor="publishedDate">Publication Date</label>
                                 <input
                                     type="date"
                                     id="publishedDate"
@@ -248,14 +248,14 @@ const AddPublicationModal: React.FC<AddPublicationModalProps> = ({ onClose, onPu
                             </div>
 
                             <div className="form-group">
-                                <label htmlFor="tags">Etiketler</label>
+                                <label htmlFor="tags">Tags</label>
                                 <input
                                     type="text"
                                     id="tags"
                                     name="tags"
                                     value={formData.tags}
                                     onChange={handleManualInputChange}
-                                    placeholder="Etiketleri virgülle ayırın"
+                                    placeholder="Separate tags with commas"
                                 />
                             </div>
 
@@ -266,14 +266,14 @@ const AddPublicationModal: React.FC<AddPublicationModalProps> = ({ onClose, onPu
                                     onClick={onClose}
                                     disabled={loading}
                                 >
-                                    İptal
+                                    Cancel
                                 </button>
                                 <button
                                     type="submit"
                                     className="btn-primary"
                                     disabled={loading}
                                 >
-                                    {loading ? 'Ekleniyor...' : 'Yayın Ekle'}
+                                    {loading ? 'Adding...' : 'Add Publication'}
                                 </button>
                             </div>
                         </form>
@@ -300,7 +300,7 @@ const AddPublicationModal: React.FC<AddPublicationModalProps> = ({ onClose, onPu
                                     </div>
                                 ) : (
                                     <>
-                                        <p>📁 Dosyayı buraya sürükleyin veya tıklayarak seçin</p>
+                                        <p>📁 Drag file here or click to select</p>
                                         <input
                                             type="file"
                                             accept=".pdf,.doc,.docx"
@@ -309,15 +309,15 @@ const AddPublicationModal: React.FC<AddPublicationModalProps> = ({ onClose, onPu
                                             id="file-input"
                                         />
                                         <label htmlFor="file-input" className="file-select-button">
-                                            Dosya Seç
+                                            Select File
                                         </label>
-                                        <p className="file-help">PDF veya Word (max 10MB)</p>
+                                        <p className="file-help">PDF or Word (max 10MB)</p>
                                     </>
                                 )}
                             </div>
 
                             <div className="form-group">
-                                <label htmlFor="file-title">Başlık *</label>
+                                <label htmlFor="file-title">Title *</label>
                                 <input
                                     type="text"
                                     id="file-title"
@@ -325,31 +325,31 @@ const AddPublicationModal: React.FC<AddPublicationModalProps> = ({ onClose, onPu
                                     value={fileUploadData.title}
                                     onChange={handleFileInputChange}
                                     required
-                                    placeholder="Yayın başlığını girin"
+                                    placeholder="Enter publication title"
                                 />
                             </div>
 
                             <div className="form-group">
-                                <label htmlFor="file-abstract">Özet (Abstract)</label>
+                                <label htmlFor="file-abstract">Abstract</label>
                                 <textarea
                                     id="file-abstract"
                                     name="abstract"
                                     value={fileUploadData.abstract}
                                     onChange={handleFileInputChange}
                                     rows={4}
-                                    placeholder="Yayının özetini girin (isteğe bağlı)"
+                                    placeholder="Enter the abstract (optional)"
                                 />
                             </div>
 
                             <div className="form-group">
-                                <label htmlFor="file-tags">Etiketler</label>
+                                <label htmlFor="file-tags">Tags</label>
                                 <input
                                     type="text"
                                     id="file-tags"
                                     name="tags"
                                     value={fileUploadData.tags}
                                     onChange={handleFileInputChange}
-                                    placeholder="Etiketleri virgülle ayırın"
+                                    placeholder="Separate tags with commas"
                                 />
                             </div>
 
@@ -360,14 +360,14 @@ const AddPublicationModal: React.FC<AddPublicationModalProps> = ({ onClose, onPu
                                     onClick={onClose}
                                     disabled={loading}
                                 >
-                                    İptal
+                                    Cancel
                                 </button>
                                 <button
                                     type="submit"
                                     className="btn-primary"
                                     disabled={loading}
                                 >
-                                    {loading ? 'Yükleniyor...' : 'Yükle ve Ekle'}
+                                    {loading ? 'Uploading...' : 'Upload & Add'}
                                 </button>
                             </div>
                         </form>
