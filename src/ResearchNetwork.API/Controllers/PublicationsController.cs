@@ -103,7 +103,8 @@ public class PublicationsController : ControllerBase
     
     [Authorize]
     [HttpPost("upload")]
-    public async Task<ActionResult<string>> UploadFile([FromForm] IFormFile file)
+    [Consumes("multipart/form-data")]
+    public async Task<ActionResult<string>> UploadFile(IFormFile file)
     {
         if (file == null || file.Length == 0)
         {
