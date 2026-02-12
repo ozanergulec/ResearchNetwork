@@ -148,6 +148,36 @@ public class PublicationsController : ControllerBase
         var fileUrl = $"/uploads/publications/{fileName}";
         return Ok(new { fileUrl });
     }
+
+    [HttpGet("download")]
+    public IActionResult DownloadFile([FromQuery] string fileUrl)
+    {
+        if (string.IsNullOrEmpty(fileUrl))
+        {
+            return BadRequest("File URL is required.");
+        }
+
+        // Sanitize: only allow files from uploads/publications
+        var fileName = Path.GetFileName(fileUrl);
+        var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "publications", fileName);
+
+        if (!System.IO.File.Exists(filePath))
+        {
+            return NotFound("File not found.");
+        }
+
+        var extension = Path.GetExtension(fileName).ToLowerInvariant();
+        var contentType = extension switch
+        {
+            ".pdf" => "application/pdf",
+            ".doc" => "application/msword",
+            ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            _ => "application/octet-stream"
+        };
+
+        var fileBytes = System.IO.File.ReadAllBytes(filePath);
+        return File(fileBytes, contentType, fileName);
+    }
     
     private static PublicationDto MapToPublicationDto(Publication p)
     {

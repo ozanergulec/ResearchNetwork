@@ -38,6 +38,8 @@ services:
       - "5051:8080"
     depends_on:
       - postgres
+    volumes:
+      - uploads_data:/app/wwwroot/uploads
     networks:
       - research-net
     restart: on-failure
@@ -59,3 +61,4 @@ networks:
 
 volumes:
   postgres_data:
+  uploads_data:
