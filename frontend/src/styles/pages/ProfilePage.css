@@ -7,22 +7,40 @@
 }
 
 .profile-content {
-    max-width: 1200px;
+    max-width: 1400px;
     margin: 0 auto;
-    padding: 24px 20px;
+    padding: 24px 32px;
 }
 
 .profile-card {
     background: white;
     border-radius: 12px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.02);
-    margin-bottom: 16px;
+    margin-bottom: 20px;
     overflow: hidden;
     transition: box-shadow 0.3s ease;
 }
 
 .profile-card:hover {
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.03);
+}
+
+/* Two Column Layout */
+.profile-body {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    gap: 24px;
+    align-items: start;
+}
+
+.profile-sidebar {
+    position: sticky;
+    top: 24px;
+}
+
+.profile-main {
+    min-width: 0;
+    /* Prevent grid overflow */
 }
 
 /* Cover Photo Area */
@@ -67,4 +85,30 @@
     font-size: 0.875rem;
     font-weight: 500;
     border-bottom: 1px solid #fecaca;
+}
+
+/* Responsive: collapse to single column */
+@media (max-width: 1024px) {
+    .profile-body {
+        grid-template-columns: 1fr;
+    }
+
+    .profile-sidebar {
+        position: static;
+    }
+
+    .profile-content {
+        padding: 16px;
+    }
+}
+
+@media (max-width: 768px) {
+    .profile-body {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    .profile-content {
+        padding: 12px;
+    }
 }

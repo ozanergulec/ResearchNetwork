@@ -223,6 +223,7 @@ const ProfilePage: React.FC = () => {
             <Navbar currentPage="profile" />
 
             <div className="profile-content">
+                {/* Header Card - Full Width */}
                 <div className="profile-card">
                     {error && (
                         <div className="profile-error-message">
@@ -252,64 +253,72 @@ const ProfilePage: React.FC = () => {
                             />
                         </>
                     ) : (
-                        <>
-                            <ProfileHeader
-                                fullName={user.fullName}
-                                email={user.email}
-                                isVerified={user.isVerified}
-                                onEditClick={handleEditClick}
-                            />
-                            <ProfileInfo user={user} onEditTags={handleEditTags} />
-                        </>
+                        <ProfileHeader
+                            fullName={user.fullName}
+                            email={user.email}
+                            isVerified={user.isVerified}
+                            onEditClick={handleEditClick}
+                        />
                     )}
                 </div>
 
-                {/* Publications Section */}
+                {/* Two Column Layout */}
                 {!editing && (
-                    <div className="profile-card publications-section">
-                        <div className="publications-section-header">
-                            <h2 className="publications-section-title">📚 My Publications</h2>
-                            <button
-                                className="add-publication-button"
-                                onClick={handleOpenAddPublication}
-                            >
-                                ➕ Add New Publication
-                            </button>
+                    <div className="profile-body">
+                        {/* Left Sidebar */}
+                        <div className="profile-sidebar">
+                            {/* About + Tags */}
+                            <div className="profile-card">
+                                <ProfileInfo user={user} onEditTags={handleEditTags} />
+                            </div>
+
+                            {/* Statistics */}
+                            <div className="profile-card">
+                                <div className="profile-info-section">
+                                    <h2 className="profile-info-section-title">Statistics</h2>
+                                    <div className="profile-stats">
+                                        <div className="profile-stat">
+                                            <span className="stat-value">{user.followerCount}</span>
+                                            <span className="stat-label">Followers</span>
+                                        </div>
+                                        <div className="profile-stat">
+                                            <span className="stat-value">{user.followingCount}</span>
+                                            <span className="stat-label">Following</span>
+                                        </div>
+                                        <div className="profile-stat">
+                                            <span className="stat-value">{user.avgScore.toFixed(1)}</span>
+                                            <span className="stat-label">Avg Score</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
-                        {loadingPublications ? (
-                            <Loading message="Loading publications..." />
-                        ) : (
-                            <PublicationsList
-                                publications={publications}
-                                showAll={showAllPublications}
-                                onToggleShowAll={handleTogglePublications}
-                                maxPreview={3}
-                                currentUserId={user.id}
-                                onDelete={handleDeletePublication}
-                            />
-                        )}
-                    </div>
-                )}
+                        {/* Right Main Content */}
+                        <div className="profile-main">
+                            <div className="profile-card publications-section">
+                                <div className="publications-section-header">
+                                    <h2 className="publications-section-title">📚 My Publications</h2>
+                                    <button
+                                        className="add-publication-button"
+                                        onClick={handleOpenAddPublication}
+                                    >
+                                        ➕ Add New Publication
+                                    </button>
+                                </div>
 
-                {/* Stats Section - Separate card at the bottom */}
-                {!editing && (
-                    <div className="profile-card">
-                        <div className="profile-info-section">
-                            <h2 className="profile-info-section-title">Statistics</h2>
-                            <div className="profile-stats">
-                                <div className="profile-stat">
-                                    <span className="stat-value">{user.followerCount}</span>
-                                    <span className="stat-label">Followers</span>
-                                </div>
-                                <div className="profile-stat">
-                                    <span className="stat-value">{user.followingCount}</span>
-                                    <span className="stat-label">Following</span>
-                                </div>
-                                <div className="profile-stat">
-                                    <span className="stat-value">{user.avgScore.toFixed(1)}</span>
-                                    <span className="stat-label">Average Score</span>
-                                </div>
+                                {loadingPublications ? (
+                                    <Loading message="Loading publications..." />
+                                ) : (
+                                    <PublicationsList
+                                        publications={publications}
+                                        showAll={showAllPublications}
+                                        onToggleShowAll={handleTogglePublications}
+                                        maxPreview={3}
+                                        currentUserId={user.id}
+                                        onDelete={handleDeletePublication}
+                                    />
+                                )}
                             </div>
                         </div>
                     </div>
