@@ -99,7 +99,7 @@ const PublicationCard: React.FC<PublicationCardProps> = ({ publication, currentU
                             onClick={handleConfirmDelete}
                             disabled={deleting}
                         >
-                            {deleting ? 'Siliniyor...' : 'Evet, Sil'}
+                            {deleting ? 'Deleting...' : 'Yes, Delete'}
                         </button>
                     </div>
                 </div>
