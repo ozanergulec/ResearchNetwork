@@ -40,6 +40,9 @@ public class User
     // Profil fotoğrafının dosya yolu veya URL'i
     public string? ProfileImageUrl { get; set; }
 
+    // Kapak fotoğrafının dosya yolu veya URL'i
+    public string? CoverImageUrl { get; set; }
+
     // Hesabın doğrulanıp doğrulanmadığı (Mavi tik vb.)
     public bool IsVerified { get; set; }
     

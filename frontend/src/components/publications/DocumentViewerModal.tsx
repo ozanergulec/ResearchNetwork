@@ -76,7 +76,7 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({ fileUrl, file
         <div className="modal-overlay" onClick={onClose}>
             <div className="document-viewer-modal" onClick={(e) => e.stopPropagation()}>
                 <div className="modal-header">
-                    <h2>📄 {fileName}</h2>
+                    <h2>{fileName}</h2>
                     <button className="modal-close" onClick={onClose}>×</button>
                 </div>
 
@@ -94,7 +94,7 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({ fileUrl, file
                                     onClick={handleDownload}
                                     disabled={downloading}
                                 >
-                                    {downloading ? '⏳ Downloading...' : '📥 Download PDF'}
+                                    {downloading ? 'Downloading...' : 'Download PDF'}
                                 </button>
                             </div>
                         </>
@@ -102,17 +102,17 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({ fileUrl, file
                         <>
                             {wordLoading ? (
                                 <div className="word-viewer-notice">
-                                    <p>⏳ Loading preview...</p>
+                                    <p>Loading preview...</p>
                                 </div>
                             ) : wordError ? (
                                 <div className="word-viewer-notice">
-                                    <p>⚠️ {wordError}</p>
+                                    <p>{wordError}</p>
                                     <button
                                         className="btn-primary"
                                         onClick={handleDownload}
                                         disabled={downloading}
                                     >
-                                        {downloading ? '⏳ Downloading...' : '📥 Download File'}
+                                        {downloading ? 'Downloading...' : 'Download File'}
                                     </button>
                                 </div>
                             ) : wordHtml ? (
@@ -127,7 +127,7 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({ fileUrl, file
                                             onClick={handleDownload}
                                             disabled={downloading}
                                         >
-                                            {downloading ? '⏳ Downloading...' : '📥 Download File'}
+                                            {downloading ? 'Downloading...' : 'Download File'}
                                         </button>
                                     </div>
                                 </>
@@ -135,24 +135,24 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({ fileUrl, file
                         </>
                     ) : isDoc ? (
                         <div className="word-viewer-notice">
-                            <p>📄 Preview is not supported for .doc files. Please use .docx format for preview.</p>
+                            <p>Preview is not supported for .doc files. Please use .docx format for preview.</p>
                             <button
                                 className="btn-primary"
                                 onClick={handleDownload}
                                 disabled={downloading}
                             >
-                                {downloading ? '⏳ Downloading...' : '📥 Download File'}
+                                {downloading ? 'Downloading...' : 'Download File'}
                             </button>
                         </div>
                     ) : (
                         <div className="word-viewer-notice">
-                            <p>⚠️ Preview is not supported for this file type.</p>
+                            <p>Preview is not supported for this file type.</p>
                             <button
                                 className="btn-primary"
                                 onClick={handleDownload}
                                 disabled={downloading}
                             >
-                                {downloading ? '⏳ Downloading...' : '📥 Download File'}
+                                {downloading ? 'Downloading...' : 'Download File'}
                             </button>
                         </div>
                     )}

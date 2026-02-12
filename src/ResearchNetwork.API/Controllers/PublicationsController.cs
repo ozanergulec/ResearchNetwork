@@ -195,6 +195,7 @@ public class PublicationsController : ControllerBase
                 p.Author.Title, 
                 p.Author.Institution, 
                 p.Author.ProfileImageUrl, 
+                p.Author.CoverImageUrl,
                 p.Author.IsVerified
             ),
             p.AverageRating,

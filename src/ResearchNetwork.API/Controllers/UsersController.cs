@@ -95,7 +95,8 @@ public class UsersController : ControllerBase
         if (dto.Institution != null) user.Institution = dto.Institution;
         if (dto.Department != null) user.Department = dto.Department;
         if (dto.Bio != null) user.Bio = dto.Bio;
-        if (dto.ProfileImageUrl != null) user.ProfileImageUrl = dto.ProfileImageUrl;
+        if (dto.ProfileImageUrl != null) user.ProfileImageUrl = string.IsNullOrEmpty(dto.ProfileImageUrl) ? null : dto.ProfileImageUrl;
+        if (dto.CoverImageUrl != null) user.CoverImageUrl = string.IsNullOrEmpty(dto.CoverImageUrl) ? null : dto.CoverImageUrl;
 
         await _userRepository.UpdateAsync(user);
 
@@ -118,7 +119,76 @@ public class UsersController : ControllerBase
         if (dto.Institution != null) user.Institution = dto.Institution;
         if (dto.Department != null) user.Department = dto.Department;
         if (dto.Bio != null) user.Bio = dto.Bio;
-        if (dto.ProfileImageUrl != null) user.ProfileImageUrl = dto.ProfileImageUrl;
+        if (dto.ProfileImageUrl != null) user.ProfileImageUrl = string.IsNullOrEmpty(dto.ProfileImageUrl) ? null : dto.ProfileImageUrl;
+        if (dto.CoverImageUrl != null) user.CoverImageUrl = string.IsNullOrEmpty(dto.CoverImageUrl) ? null : dto.CoverImageUrl;
+
+        await _userRepository.UpdateAsync(user);
+
+        return Ok(MapToUserDto(user));
+    }
+
+    [Authorize]
+    [HttpPost("profile/upload-image")]
+    public async Task<ActionResult<UserDto>> UploadProfileImage(IFormFile file, [FromForm] string type)
+    {
+        var userId = GetUserIdFromClaims();
+        if (userId == null)
+        {
+            return Unauthorized(new { Message = "User ID not found in token." });
+        }
+
+        if (file == null || file.Length == 0)
+        {
+            return BadRequest(new { Message = "No file provided." });
+        }
+
+        // Validate file type
+        var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp", ".gif" };
+        var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (!allowedExtensions.Contains(extension))
+        {
+            return BadRequest(new { Message = "Only image files (jpg, png, webp, gif) are allowed." });
+        }
+
+        // Validate file size (max 5MB)
+        if (file.Length > 5 * 1024 * 1024)
+        {
+            return BadRequest(new { Message = "File size cannot exceed 5MB." });
+        }
+
+        // Determine folder based on type
+        var folder = type?.ToLower() == "cover" ? "covers" : "profiles";
+        var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", folder);
+        if (!Directory.Exists(uploadsFolder))
+        {
+            Directory.CreateDirectory(uploadsFolder);
+        }
+
+        var fileName = $"{Guid.NewGuid()}{extension}";
+        var filePath = Path.Combine(uploadsFolder, fileName);
+
+        using (var stream = new FileStream(filePath, FileMode.Create))
+        {
+            await file.CopyToAsync(stream);
+        }
+
+        var imageUrl = $"/uploads/{folder}/{fileName}";
+
+        // Update user
+        var user = await _userRepository.GetByIdWithTagsAsync(userId.Value);
+        if (user == null)
+        {
+            return NotFound(new { Message = "User not found." });
+        }
+
+        if (folder == "covers")
+        {
+            user.CoverImageUrl = imageUrl;
+        }
+        else
+        {
+            user.ProfileImageUrl = imageUrl;
+        }
 
         await _userRepository.UpdateAsync(user);
 
@@ -226,6 +296,7 @@ public class UsersController : ControllerBase
             user.Department,
             user.Bio,
             user.ProfileImageUrl,
+            user.CoverImageUrl,
             user.IsVerified,
             user.FollowerCount,
             user.FollowingCount,

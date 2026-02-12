@@ -9,6 +9,7 @@ public record UserDto(
     string? Department,
     string? Bio,
     string? ProfileImageUrl,
+    string? CoverImageUrl,
     bool IsVerified,
     int FollowerCount,
     int FollowingCount,
@@ -23,6 +24,7 @@ public record UserSummaryDto(
     string? Title,
     string? Institution,
     string? ProfileImageUrl,
+    string? CoverImageUrl,
     bool IsVerified
 );
 
@@ -32,5 +34,6 @@ public record UpdateUserProfileDto(
     string? Institution,
     string? Department,
     string? Bio,
-    string? ProfileImageUrl
+    string? ProfileImageUrl,
+    string? CoverImageUrl
 );

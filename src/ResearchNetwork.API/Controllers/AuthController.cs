@@ -335,6 +335,7 @@ public class AuthController : ControllerBase
             user.Department,
             user.Bio,
             user.ProfileImageUrl,
+            user.CoverImageUrl,
             user.IsVerified,
             user.FollowerCount,
             user.FollowingCount,

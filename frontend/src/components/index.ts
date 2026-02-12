@@ -1,5 +1,5 @@
 // Common components
-export { Avatar, FormInput, Loading, Navbar, TagBadge } from './common';
+export { Avatar, FormInput, Loading, Navbar, TagBadge, Toast } from './common';
 
 // Profile components
 export { ProfileEditForm, ProfileHeader, ProfileInfo, TagManagementPopup } from './profile';

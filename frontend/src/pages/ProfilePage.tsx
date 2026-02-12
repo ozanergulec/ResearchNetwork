@@ -11,7 +11,8 @@ import {
     ProfileEditForm,
     TagManagementPopup,
     PublicationsList,
-    AddPublicationModal
+    AddPublicationModal,
+    Toast
 } from '../components';
 import '../styles/pages/ProfilePage.css';
 
@@ -27,6 +28,7 @@ const ProfilePage: React.FC = () => {
     const [loadingPublications, setLoadingPublications] = useState(false);
     const [showAllPublications, setShowAllPublications] = useState(false);
     const [showAddPublicationModal, setShowAddPublicationModal] = useState(false);
+    const [toastMessage, setToastMessage] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchProfile = async () => {
@@ -108,6 +110,32 @@ const ProfilePage: React.FC = () => {
 
     const handleEditTags = () => {
         setShowTagManagement(true);
+    };
+
+    const handleImageUpload = async (file: File, type: 'profile' | 'cover') => {
+        try {
+            const response = await usersApi.uploadProfileImage(file, type);
+            setUser(response.data);
+        } catch (err: any) {
+            console.error('Image upload failed:', err);
+            const message = err?.response?.data?.message || err?.response?.data?.Message || 'Failed to upload image. Please try again.';
+            setToastMessage(message);
+        }
+    };
+
+    const handleImageRemove = async (type: 'profile' | 'cover') => {
+        if (!user) return;
+        try {
+            const updateData: UpdateUserData = {
+                fullName: user.fullName,
+                ...(type === 'profile' ? { profileImageUrl: '' } : { coverImageUrl: '' }),
+            };
+            const response = await usersApi.updateProfile(updateData);
+            setUser(response.data);
+        } catch (err) {
+            console.error('Image remove failed:', err);
+            setToastMessage('Failed to remove image. Please try again.');
+        }
     };
 
     const handleCloseTagManagement = () => {
@@ -237,7 +265,11 @@ const ProfilePage: React.FC = () => {
                                 fullName={user.fullName}
                                 email={user.email}
                                 isVerified={user.isVerified}
+                                profileImageUrl={user.profileImageUrl}
+                                coverImageUrl={user.coverImageUrl}
                                 onEditClick={() => setEditing(false)}
+                                onImageUpload={handleImageUpload}
+                                onImageRemove={handleImageRemove}
                             />
                             <ProfileEditForm
                                 initialData={{
@@ -257,7 +289,11 @@ const ProfilePage: React.FC = () => {
                             fullName={user.fullName}
                             email={user.email}
                             isVerified={user.isVerified}
+                            profileImageUrl={user.profileImageUrl}
+                            coverImageUrl={user.coverImageUrl}
                             onEditClick={handleEditClick}
+                            onImageUpload={handleImageUpload}
+                            onImageRemove={handleImageRemove}
                         />
                     )}
                 </div>
@@ -298,12 +334,12 @@ const ProfilePage: React.FC = () => {
                         <div className="profile-main">
                             <div className="profile-card publications-section">
                                 <div className="publications-section-header">
-                                    <h2 className="publications-section-title">📚 My Publications</h2>
+                                    <h2 className="publications-section-title">My Publications</h2>
                                     <button
                                         className="add-publication-button"
                                         onClick={handleOpenAddPublication}
                                     >
-                                        ➕ Add New Publication
+                                        + Add New Publication
                                     </button>
                                 </div>
 
@@ -336,6 +372,14 @@ const ProfilePage: React.FC = () => {
                     <AddPublicationModal
                         onClose={handleCloseAddPublication}
                         onPublicationAdded={handlePublicationAdded}
+                    />
+                )}
+
+                {toastMessage && (
+                    <Toast
+                        message={toastMessage}
+                        type="error"
+                        onClose={() => setToastMessage(null)}
                     />
                 )}
             </div>

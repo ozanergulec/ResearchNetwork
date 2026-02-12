@@ -114,6 +114,13 @@
     gap: 0.25rem;
 }
 
+.stat-icon {
+    width: 16px;
+    height: 16px;
+    color: var(--heading-color, #7A1F2B);
+    flex-shrink: 0;
+}
+
 /* Publication Actions */
 .publication-header-actions {
     display: flex;

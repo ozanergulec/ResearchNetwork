@@ -16,6 +16,7 @@ export interface User {
     department?: string;
     bio?: string;
     profileImageUrl?: string;
+    coverImageUrl?: string;
     isVerified: boolean;
     followerCount: number;
     followingCount: number;
@@ -31,6 +32,7 @@ export interface UpdateUserData {
     department?: string;
     bio?: string;
     profileImageUrl?: string;
+    coverImageUrl?: string;
 }
 
 // Users API
@@ -62,4 +64,14 @@ export const usersApi = {
 
     removeTag: (tagId: string) =>
         api.delete<User>(`/users/profile/tags/${tagId}`),
+
+    // Profile image upload
+    uploadProfileImage: (file: File, type: 'profile' | 'cover') => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('type', type);
+        return api.post<User>('/users/profile/upload-image', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+    },
 };

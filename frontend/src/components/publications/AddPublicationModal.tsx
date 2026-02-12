@@ -180,13 +180,13 @@ const AddPublicationModal: React.FC<AddPublicationModalProps> = ({ onClose, onPu
                         className={`tab-button ${activeTab === 'manual' ? 'active' : ''}`}
                         onClick={() => setActiveTab('manual')}
                     >
-                        📝 Manual Entry
+                        Manual Entry
                     </button>
                     <button
                         className={`tab-button ${activeTab === 'file' ? 'active' : ''}`}
                         onClick={() => setActiveTab('file')}
                     >
-                        📄 File Upload
+                        File Upload
                     </button>
                 </div>
 
@@ -288,7 +288,7 @@ const AddPublicationModal: React.FC<AddPublicationModalProps> = ({ onClose, onPu
                             >
                                 {selectedFile ? (
                                     <div className="file-selected">
-                                        <span className="file-icon">📄</span>
+                                        <span className="file-icon"></span>
                                         <span className="file-name">{selectedFile.name}</span>
                                         <button
                                             type="button"
