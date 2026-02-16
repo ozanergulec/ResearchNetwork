@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { publicationsApi, type CreatePublicationDto } from '../../services/publicationService';
+import { RESEARCH_TOPICS } from '../../data/researchTopics';
 import '../../styles/common/Modal.css';
 import '../../styles/publications/AddPublicationModal.css';
 
@@ -9,6 +10,8 @@ interface AddPublicationModalProps {
 }
 
 type TabType = 'manual' | 'file';
+
+const MAX_TAGS = 4;
 
 const AddPublicationModal: React.FC<AddPublicationModalProps> = ({ onClose, onPublicationAdded }) => {
     const [activeTab, setActiveTab] = useState<TabType>('manual');
@@ -21,17 +24,58 @@ const AddPublicationModal: React.FC<AddPublicationModalProps> = ({ onClose, onPu
         abstract: '',
         doi: '',
         publishedDate: '',
-        tags: ''
     });
+    const [manualTags, setManualTags] = useState<string[]>([]);
+    const [manualTagQuery, setManualTagQuery] = useState('');
+    const [manualTagFiltered, setManualTagFiltered] = useState<string[]>([]);
+    const [manualTagOpen, setManualTagOpen] = useState(false);
+    const [manualTagActiveIdx, setManualTagActiveIdx] = useState(-1);
+    const manualTagRef = useRef<HTMLDivElement>(null);
+    const manualTagListRef = useRef<HTMLUListElement>(null);
 
     // File Upload State
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [fileUploadData, setFileUploadData] = useState({
         title: '',
         abstract: '',
-        tags: ''
     });
+    const [fileTags, setFileTags] = useState<string[]>([]);
+    const [fileTagQuery, setFileTagQuery] = useState('');
+    const [fileTagFiltered, setFileTagFiltered] = useState<string[]>([]);
+    const [fileTagOpen, setFileTagOpen] = useState(false);
+    const [fileTagActiveIdx, setFileTagActiveIdx] = useState(-1);
+    const fileTagRef = useRef<HTMLDivElement>(null);
+    const fileTagListRef = useRef<HTMLUListElement>(null);
     const [dragActive, setDragActive] = useState(false);
+
+    // Click outside handlers for autocomplete dropdowns
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (manualTagRef.current && !manualTagRef.current.contains(e.target as Node)) {
+                setManualTagOpen(false);
+            }
+            if (fileTagRef.current && !fileTagRef.current.contains(e.target as Node)) {
+                setFileTagOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    // Scroll active item into view
+    useEffect(() => {
+        if (manualTagActiveIdx >= 0 && manualTagListRef.current) {
+            const el = manualTagListRef.current.children[manualTagActiveIdx] as HTMLElement;
+            if (el) el.scrollIntoView({ block: 'nearest' });
+        }
+    }, [manualTagActiveIdx]);
+
+    useEffect(() => {
+        if (fileTagActiveIdx >= 0 && fileTagListRef.current) {
+            const el = fileTagListRef.current.children[fileTagActiveIdx] as HTMLElement;
+            if (el) el.scrollIntoView({ block: 'nearest' });
+        }
+    }, [fileTagActiveIdx]);
 
     const handleManualInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -43,6 +87,93 @@ const AddPublicationModal: React.FC<AddPublicationModalProps> = ({ onClose, onPu
         const { name, value } = e.target;
         setFileUploadData(prev => ({ ...prev, [name]: value }));
         setError(null);
+    };
+
+    // Tag autocomplete helpers
+    const filterTopics = (query: string, currentTags: string[]) => {
+        if (query.trim().length === 0) return [];
+        const tagSet = new Set(currentTags.map(t => t.toLowerCase()));
+        return RESEARCH_TOPICS.filter(t =>
+            t.toLowerCase().includes(query.toLowerCase()) && !tagSet.has(t.toLowerCase())
+        ).slice(0, 15);
+    };
+
+    const handleManualTagSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (manualTags.length >= MAX_TAGS) return;
+        const q = e.target.value;
+        setManualTagQuery(q);
+        const matches = filterTopics(q, manualTags);
+        setManualTagFiltered(matches);
+        setManualTagOpen(matches.length > 0);
+        setManualTagActiveIdx(-1);
+    };
+
+    const handleManualTagSelect = (topic: string) => {
+        if (manualTags.length >= MAX_TAGS) return;
+        setManualTags(prev => [...prev, topic]);
+        setManualTagQuery('');
+        setManualTagFiltered([]);
+        setManualTagOpen(false);
+        setManualTagActiveIdx(-1);
+    };
+
+    const handleManualTagRemove = (topic: string) => {
+        setManualTags(prev => prev.filter(t => t !== topic));
+    };
+
+    const handleManualTagKeyDown = (e: React.KeyboardEvent) => {
+        if (!manualTagOpen) return;
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setManualTagActiveIdx(prev => (prev < manualTagFiltered.length - 1 ? prev + 1 : prev));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setManualTagActiveIdx(prev => (prev > 0 ? prev - 1 : 0));
+        } else if (e.key === 'Enter' && manualTagActiveIdx >= 0) {
+            e.preventDefault();
+            handleManualTagSelect(manualTagFiltered[manualTagActiveIdx]);
+        } else if (e.key === 'Escape') {
+            setManualTagOpen(false);
+        }
+    };
+
+    const handleFileTagSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (fileTags.length >= MAX_TAGS) return;
+        const q = e.target.value;
+        setFileTagQuery(q);
+        const matches = filterTopics(q, fileTags);
+        setFileTagFiltered(matches);
+        setFileTagOpen(matches.length > 0);
+        setFileTagActiveIdx(-1);
+    };
+
+    const handleFileTagSelect = (topic: string) => {
+        if (fileTags.length >= MAX_TAGS) return;
+        setFileTags(prev => [...prev, topic]);
+        setFileTagQuery('');
+        setFileTagFiltered([]);
+        setFileTagOpen(false);
+        setFileTagActiveIdx(-1);
+    };
+
+    const handleFileTagRemove = (topic: string) => {
+        setFileTags(prev => prev.filter(t => t !== topic));
+    };
+
+    const handleFileTagKeyDown = (e: React.KeyboardEvent) => {
+        if (!fileTagOpen) return;
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setFileTagActiveIdx(prev => (prev < fileTagFiltered.length - 1 ? prev + 1 : prev));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setFileTagActiveIdx(prev => (prev > 0 ? prev - 1 : 0));
+        } else if (e.key === 'Enter' && fileTagActiveIdx >= 0) {
+            e.preventDefault();
+            handleFileTagSelect(fileTagFiltered[fileTagActiveIdx]);
+        } else if (e.key === 'Escape') {
+            setFileTagOpen(false);
+        }
     };
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -103,17 +234,12 @@ const AddPublicationModal: React.FC<AddPublicationModalProps> = ({ onClose, onPu
         setError(null);
 
         try {
-            const tags = formData.tags
-                .split(',')
-                .map(tag => tag.trim())
-                .filter(tag => tag.length > 0);
-
             const publicationData: CreatePublicationDto = {
                 title: formData.title,
                 abstract: formData.abstract || undefined,
                 doi: formData.doi || undefined,
                 publishedDate: formData.publishedDate || undefined,
-                tags: tags.length > 0 ? tags : undefined
+                tags: manualTags.length > 0 ? manualTags : undefined
             };
 
             await publicationsApi.create(publicationData);
@@ -144,17 +270,11 @@ const AddPublicationModal: React.FC<AddPublicationModalProps> = ({ onClose, onPu
         setError(null);
 
         try {
-            // Parse tags from comma-separated string
-            const tags = fileUploadData.tags
-                .split(',')
-                .map(tag => tag.trim())
-                .filter(tag => tag.length > 0);
-
             // Use centralized upload-and-create function
             await publicationsApi.createPublicationWithFile(selectedFile, {
                 title: fileUploadData.title,
                 abstract: fileUploadData.abstract || undefined,
-                tags: tags.length > 0 ? tags : undefined,
+                tags: fileTags.length > 0 ? fileTags : undefined,
             });
 
             onPublicationAdded();
@@ -248,15 +368,42 @@ const AddPublicationModal: React.FC<AddPublicationModalProps> = ({ onClose, onPu
                             </div>
 
                             <div className="form-group">
-                                <label htmlFor="tags">Tags</label>
-                                <input
-                                    type="text"
-                                    id="tags"
-                                    name="tags"
-                                    value={formData.tags}
-                                    onChange={handleManualInputChange}
-                                    placeholder="Separate tags with commas"
-                                />
+                                <label>Tags ({manualTags.length}/{MAX_TAGS})</label>
+                                {manualTags.length > 0 && (
+                                    <div className="pub-tags-chips">
+                                        {manualTags.map(tag => (
+                                            <span key={tag} className="pub-tag-chip">
+                                                {tag}
+                                                <button type="button" className="pub-tag-chip-remove" onClick={() => handleManualTagRemove(tag)}>×</button>
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
+                                <div className="pub-tag-autocomplete-wrapper" ref={manualTagRef}>
+                                    <input
+                                        type="text"
+                                        value={manualTagQuery}
+                                        onChange={handleManualTagSearch}
+                                        onKeyDown={handleManualTagKeyDown}
+                                        placeholder={manualTags.length >= MAX_TAGS ? `Maximum ${MAX_TAGS} tags reached` : 'Search topics (e.g., Machine Learning...)'}
+                                        autoComplete="off"
+                                        disabled={manualTags.length >= MAX_TAGS}
+                                    />
+                                    {manualTagOpen && manualTagFiltered.length > 0 && (
+                                        <ul className="pub-tag-autocomplete-list" ref={manualTagListRef}>
+                                            {manualTagFiltered.map((topic, idx) => (
+                                                <li
+                                                    key={topic}
+                                                    className={`pub-tag-autocomplete-item ${idx === manualTagActiveIdx ? 'pub-tag-autocomplete-item-active' : ''}`}
+                                                    onMouseDown={(e) => { e.preventDefault(); handleManualTagSelect(topic); }}
+                                                    onMouseEnter={() => setManualTagActiveIdx(idx)}
+                                                >
+                                                    {topic}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                </div>
                             </div>
 
                             <div className="modal-actions">
@@ -342,15 +489,42 @@ const AddPublicationModal: React.FC<AddPublicationModalProps> = ({ onClose, onPu
                             </div>
 
                             <div className="form-group">
-                                <label htmlFor="file-tags">Tags</label>
-                                <input
-                                    type="text"
-                                    id="file-tags"
-                                    name="tags"
-                                    value={fileUploadData.tags}
-                                    onChange={handleFileInputChange}
-                                    placeholder="Separate tags with commas"
-                                />
+                                <label>Tags ({fileTags.length}/{MAX_TAGS})</label>
+                                {fileTags.length > 0 && (
+                                    <div className="pub-tags-chips">
+                                        {fileTags.map(tag => (
+                                            <span key={tag} className="pub-tag-chip">
+                                                {tag}
+                                                <button type="button" className="pub-tag-chip-remove" onClick={() => handleFileTagRemove(tag)}>×</button>
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
+                                <div className="pub-tag-autocomplete-wrapper" ref={fileTagRef}>
+                                    <input
+                                        type="text"
+                                        value={fileTagQuery}
+                                        onChange={handleFileTagSearch}
+                                        onKeyDown={handleFileTagKeyDown}
+                                        placeholder={fileTags.length >= MAX_TAGS ? `Maximum ${MAX_TAGS} tags reached` : 'Search topics (e.g., Machine Learning...)'}
+                                        autoComplete="off"
+                                        disabled={fileTags.length >= MAX_TAGS}
+                                    />
+                                    {fileTagOpen && fileTagFiltered.length > 0 && (
+                                        <ul className="pub-tag-autocomplete-list" ref={fileTagListRef}>
+                                            {fileTagFiltered.map((topic, idx) => (
+                                                <li
+                                                    key={topic}
+                                                    className={`pub-tag-autocomplete-item ${idx === fileTagActiveIdx ? 'pub-tag-autocomplete-item-active' : ''}`}
+                                                    onMouseDown={(e) => { e.preventDefault(); handleFileTagSelect(topic); }}
+                                                    onMouseEnter={() => setFileTagActiveIdx(idx)}
+                                                >
+                                                    {topic}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                </div>
                             </div>
 
                             <div className="modal-actions">

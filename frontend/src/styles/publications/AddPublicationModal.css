@@ -78,3 +78,97 @@
     background: #FFFBF8;
     color: var(--link-color, #E5533D);
 }
+
+/* Publication Tag Chips */
+.pub-tags-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.pub-tag-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 10px;
+    background: linear-gradient(135deg, var(--heading-color, #7A1F2B) 0%, #a0343f 100%);
+    color: white;
+    border-radius: 16px;
+    font-size: 0.82rem;
+    font-weight: 500;
+}
+
+.pub-tag-chip-remove {
+    background: rgba(255, 255, 255, 0.3);
+    border: none;
+    color: white;
+    font-size: 1rem;
+    line-height: 1;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+    padding: 0;
+}
+
+.pub-tag-chip-remove:hover {
+    background: rgba(255, 255, 255, 0.5);
+}
+
+/* Publication Tag Autocomplete */
+.pub-tag-autocomplete-wrapper {
+    position: relative;
+}
+
+.pub-tag-autocomplete-list {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: 180px;
+    overflow-y: auto;
+    background: #fff;
+    border: 2px solid var(--ui-detail, #e0e0e0);
+    border-radius: 10px;
+    margin-top: 4px;
+    padding: 4px 0;
+    list-style: none;
+    z-index: 1100;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.pub-tag-autocomplete-item {
+    padding: 9px 14px;
+    font-size: 0.9rem;
+    color: #333;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.pub-tag-autocomplete-item:hover,
+.pub-tag-autocomplete-item-active {
+    background: rgba(122, 31, 43, 0.08);
+    color: var(--heading-color, #7A1F2B);
+}
+
+.pub-tag-autocomplete-list::-webkit-scrollbar {
+    width: 5px;
+}
+
+.pub-tag-autocomplete-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.pub-tag-autocomplete-list::-webkit-scrollbar-thumb {
+    background: var(--ui-detail, #e0e0e0);
+    border-radius: 3px;
+}
+
+.pub-tag-autocomplete-list::-webkit-scrollbar-thumb:hover {
+    background: var(--heading-color, #7A1F2B);
+}
