@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { usersApi } from '../../services/userService';
-import { tagsApi } from '../../services/tagService';
 import type { Tag } from '../../services/userService';
+import { RESEARCH_TOPICS } from '../../data/researchTopics';
 import '../../styles/profile/TagManagementPopup.css';
 
 interface TagManagementPopupProps {
@@ -16,48 +16,57 @@ const TagManagementPopup: React.FC<TagManagementPopupProps> = ({
     onTagsUpdated,
 }) => {
     const [searchQuery, setSearchQuery] = useState('');
-    const [availableTags, setAvailableTags] = useState<Tag[]>([]);
-    const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [actionLoading, setActionLoading] = useState(false);
+    const [filteredTopics, setFilteredTopics] = useState<string[]>([]);
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [activeIndex, setActiveIndex] = useState(-1);
+    const wrapperRef = useRef<HTMLDivElement>(null);
+    const listRef = useRef<HTMLUListElement>(null);
 
+    // Close dropdown when clicking outside
     useEffect(() => {
-        fetchTags();
+        const handleClickOutside = (e: MouseEvent) => {
+            if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+                setIsDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const fetchTags = async () => {
-        try {
-            setLoading(true);
-            const response = await tagsApi.getAll();
-            setAvailableTags(response.data);
-            setError(null);
-        } catch (err) {
-            console.error('Failed to fetch tags', err);
-            setError('Failed to load tags');
-        } finally {
-            setLoading(false);
+    // Scroll active item into view
+    useEffect(() => {
+        if (activeIndex >= 0 && listRef.current) {
+            const activeItem = listRef.current.children[activeIndex] as HTMLElement;
+            if (activeItem) {
+                activeItem.scrollIntoView({ block: 'nearest' });
+            }
         }
-    };
+    }, [activeIndex]);
 
-    const handleSearch = async (query: string) => {
+    // Get user tag names for filtering
+    const userTagNames = new Set(userTags.map(tag => tag.name.toLowerCase()));
+
+    const filterTopics = useCallback((query: string) => {
+        if (query.trim().length > 0) {
+            const matches = RESEARCH_TOPICS.filter((topic) =>
+                topic.toLowerCase().includes(query.toLowerCase()) &&
+                !userTagNames.has(topic.toLowerCase())
+            );
+            setFilteredTopics(matches.slice(0, 15));
+            setIsDropdownOpen(matches.length > 0);
+        } else {
+            setFilteredTopics([]);
+            setIsDropdownOpen(false);
+        }
+    }, [userTagNames]);
+
+    const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const query = e.target.value;
         setSearchQuery(query);
-
-        if (query.trim() === '') {
-            fetchTags();
-            return;
-        }
-
-        try {
-            setLoading(true);
-            const response = await tagsApi.search(query);
-            setAvailableTags(response.data);
-            setError(null);
-        } catch (err) {
-            console.error('Failed to search tags', err);
-            setError('Failed to search tags');
-        } finally {
-            setLoading(false);
-        }
+        filterTopics(query);
+        setActiveIndex(-1);
     };
 
     const handleAddTag = async (tagName: string) => {
@@ -66,7 +75,9 @@ const TagManagementPopup: React.FC<TagManagementPopupProps> = ({
             await usersApi.addTag(tagName);
             onTagsUpdated();
             setSearchQuery('');
-            fetchTags(); // Refresh available tags
+            setFilteredTopics([]);
+            setIsDropdownOpen(false);
+            setActiveIndex(-1);
             setError(null);
         } catch (err: any) {
             console.error('Failed to add tag', err);
@@ -90,13 +101,28 @@ const TagManagementPopup: React.FC<TagManagementPopupProps> = ({
         }
     };
 
-    const userTagIds = new Set(userTags.map(tag => tag.id));
-    const filteredTags = availableTags.filter(tag => !userTagIds.has(tag.id));
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (!isDropdownOpen) return;
 
-    // Check if we can add new tag from search
-    const canAddNewTag = searchQuery.trim() !== '' &&
-        !availableTags.some(tag => tag.name.toLowerCase() === searchQuery.toLowerCase()) &&
-        !userTags.some(tag => tag.name.toLowerCase() === searchQuery.toLowerCase());
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setActiveIndex((prev) => (prev < filteredTopics.length - 1 ? prev + 1 : prev));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setActiveIndex((prev) => (prev > 0 ? prev - 1 : 0));
+        } else if (e.key === 'Enter' && activeIndex >= 0) {
+            e.preventDefault();
+            handleAddTag(filteredTopics[activeIndex]);
+        } else if (e.key === 'Escape') {
+            setIsDropdownOpen(false);
+        }
+    };
+
+    const handleFocus = () => {
+        if (searchQuery.trim().length > 0) {
+            filterTopics(searchQuery);
+        }
+    };
 
     return (
         <div className="popup-overlay" onClick={onClose}>
@@ -135,49 +161,36 @@ const TagManagementPopup: React.FC<TagManagementPopupProps> = ({
                         )}
                     </div>
 
-                    {/* Search Section */}
-                    <div className="search-section">
-                        <h3>Search Tags</h3>
+                    {/* Search Section with Autocomplete */}
+                    <div className="search-section" ref={wrapperRef}>
+                        <h3>Add Research Interest</h3>
                         <input
                             type="text"
                             className="tag-search-input"
-                            placeholder="Enter tag name (e.g., AI, NLP, Machine Learning)"
+                            placeholder="Search topics (e.g., Machine Learning, Data Science...)"
                             value={searchQuery}
-                            onChange={(e) => handleSearch(e.target.value)}
+                            onChange={handleSearch}
+                            onKeyDown={handleKeyDown}
+                            onFocus={handleFocus}
                             disabled={actionLoading}
+                            autoComplete="off"
                         />
-                    </div>
-
-                    {/* Available Tags Section */}
-                    <div className="available-tags-section">
-                        <h3>Available Tags</h3>
-                        {loading ? (
-                            <p className="loading-text">Loading...</p>
-                        ) : filteredTags.length === 0 && !canAddNewTag ? (
-                            <p className="no-tags">No tags found</p>
-                        ) : (
-                            <div className="tags-list">
-                                {canAddNewTag && (
-                                    <span
-                                        className="tag-item new-tag"
-                                        onClick={() => handleAddTag(searchQuery.trim())}
+                        {isDropdownOpen && filteredTopics.length > 0 && (
+                            <ul className="tag-autocomplete-list" ref={listRef}>
+                                {filteredTopics.map((topic, index) => (
+                                    <li
+                                        key={topic}
+                                        className={`tag-autocomplete-item ${index === activeIndex ? 'tag-autocomplete-item-active' : ''}`}
+                                        onMouseDown={(e) => {
+                                            e.preventDefault();
+                                            handleAddTag(topic);
+                                        }}
+                                        onMouseEnter={() => setActiveIndex(index)}
                                     >
-                                        + Add "{searchQuery.trim()}"
-                                    </span>
-                                )}
-                                {filteredTags.map(tag => (
-                                    <span
-                                        key={tag.id}
-                                        className="tag-item available-tag"
-                                        onClick={() => handleAddTag(tag.name)}
-                                    >
-                                        {tag.name}
-                                        {tag.usageCount > 0 && (
-                                            <span className="tag-count">({tag.usageCount})</span>
-                                        )}
-                                    </span>
+                                        {topic}
+                                    </li>
                                 ))}
-                            </div>
+                            </ul>
                         )}
                     </div>
                 </div>
