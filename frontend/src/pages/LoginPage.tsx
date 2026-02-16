@@ -23,7 +23,7 @@ const LoginPage: React.FC = () => {
             const response = await authApi.login(loginData);
             localStorage.setItem('token', response.data.token);
             localStorage.setItem('user', JSON.stringify(response.data.user));
-            navigate('/profile');
+            navigate('/home');
         } catch (err: any) {
             const errorData = err.response?.data;
             // If email is not verified, redirect to verification page

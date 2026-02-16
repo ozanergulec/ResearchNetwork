@@ -107,24 +107,27 @@ const RegisterPage: React.FC = () => {
                     />
                     <input
                         type="text"
-                        placeholder="Academic Title (optional)"
-                        value={registerData.title || ''}
+                        placeholder="Academic Title"
+                        value={registerData.title}
                         onChange={(e) => setRegisterData({ ...registerData, title: e.target.value })}
                         className="login-input"
+                        required
                     />
                     <input
                         type="text"
-                        placeholder="Institution (optional)"
-                        value={registerData.institution || ''}
+                        placeholder="Institution"
+                        value={registerData.institution}
                         onChange={(e) => setRegisterData({ ...registerData, institution: e.target.value })}
                         className="login-input"
+                        required
                     />
                     <input
                         type="text"
-                        placeholder="Department (optional)"
-                        value={registerData.department || ''}
+                        placeholder="Department"
+                        value={registerData.department}
                         onChange={(e) => setRegisterData({ ...registerData, department: e.target.value })}
                         className="login-input"
+                        required
                     />
                     <button
                         type="submit"

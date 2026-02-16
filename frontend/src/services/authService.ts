@@ -26,9 +26,9 @@ export interface RegisterData {
     email: string;
     password: string;
     fullName: string;
-    title?: string;
-    institution?: string;
-    department?: string;
+    title: string;
+    institution: string;
+    department: string;
 }
 
 export interface LoginData {
