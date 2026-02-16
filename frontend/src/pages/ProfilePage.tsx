@@ -16,6 +16,8 @@ import {
 } from '../components';
 import '../styles/pages/ProfilePage.css';
 
+type ProfileTab = 'publications' | 'saved' | 'shared';
+
 const ProfilePage: React.FC = () => {
     const navigate = useNavigate();
     const { userId } = useParams<{ userId?: string }>();
@@ -26,11 +28,14 @@ const ProfilePage: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [showTagManagement, setShowTagManagement] = useState(false);
     const [publications, setPublications] = useState<Publication[]>([]);
+    const [savedPublications, setSavedPublications] = useState<Publication[]>([]);
+    const [sharedPublications, setSharedPublications] = useState<Publication[]>([]);
     const [loadingPublications, setLoadingPublications] = useState(false);
     const [showAllPublications, setShowAllPublications] = useState(false);
     const [showAddPublicationModal, setShowAddPublicationModal] = useState(false);
     const [toastMessage, setToastMessage] = useState<string | null>(null);
     const [isOwnProfile, setIsOwnProfile] = useState(true);
+    const [activeTab, setActiveTab] = useState<ProfileTab>('publications');
 
     useEffect(() => {
         const fetchProfile = async () => {
@@ -239,6 +244,33 @@ const ProfilePage: React.FC = () => {
         }
     };
 
+    const handleTabChange = async (tab: ProfileTab) => {
+        if (!user) return;
+        setActiveTab(tab);
+
+        try {
+            setLoadingPublications(true);
+            if (tab === 'saved') {
+                // Saved is only for own profile
+                const response = await publicationsApi.getSaved();
+                setSavedPublications(response.data);
+            } else if (tab === 'shared') {
+                const response = await publicationsApi.getShared(user.id);
+                setSharedPublications(response.data);
+            } else {
+                // Refresh authored publications
+                const response = showAllPublications
+                    ? await publicationsApi.getByAuthor(user.id)
+                    : await publicationsApi.getLatestByAuthor(user.id, 4);
+                setPublications(response.data);
+            }
+        } catch (err) {
+            console.error('Failed to fetch tab data', err);
+        } finally {
+            setLoadingPublications(false);
+        }
+    };
+
     if (loading) {
         return <Loading message="Loading profile..." />;
     }
@@ -344,9 +376,29 @@ const ProfilePage: React.FC = () => {
                         {/* Right Main Content */}
                         <div className="profile-main">
                             <div className="profile-card publications-section">
-                                <div className="publications-section-header">
-                                    <h2 className="publications-section-title">{isOwnProfile ? 'My Publications' : 'Publications'}</h2>
+                                {/* Tab Navigation */}
+                                <div className="profile-tabs">
+                                    <button
+                                        className={`profile-tab ${activeTab === 'publications' ? 'profile-tab-active' : ''}`}
+                                        onClick={() => handleTabChange('publications')}
+                                    >
+                                        {isOwnProfile ? 'My Publications' : 'Publications'}
+                                    </button>
                                     {isOwnProfile && (
+                                        <button
+                                            className={`profile-tab ${activeTab === 'saved' ? 'profile-tab-active' : ''}`}
+                                            onClick={() => handleTabChange('saved')}
+                                        >
+                                            Saved
+                                        </button>
+                                    )}
+                                    <button
+                                        className={`profile-tab ${activeTab === 'shared' ? 'profile-tab-active' : ''}`}
+                                        onClick={() => handleTabChange('shared')}
+                                    >
+                                        Shared
+                                    </button>
+                                    {isOwnProfile && activeTab === 'publications' && (
                                         <button
                                             className="add-publication-button"
                                             onClick={handleOpenAddPublication}
@@ -356,9 +408,10 @@ const ProfilePage: React.FC = () => {
                                     )}
                                 </div>
 
+                                {/* Tab Content */}
                                 {loadingPublications ? (
-                                    <Loading message="Loading publications..." />
-                                ) : (
+                                    <Loading message="Loading..." />
+                                ) : activeTab === 'publications' ? (
                                     <PublicationsList
                                         publications={publications}
                                         showAll={showAllPublications}
@@ -366,6 +419,20 @@ const ProfilePage: React.FC = () => {
                                         maxPreview={3}
                                         currentUserId={user.id}
                                         onDelete={handleDeletePublication}
+                                    />
+                                ) : activeTab === 'saved' ? (
+                                    <PublicationsList
+                                        publications={savedPublications}
+                                        showAll={true}
+                                        maxPreview={100}
+                                        currentUserId={user.id}
+                                    />
+                                ) : (
+                                    <PublicationsList
+                                        publications={sharedPublications}
+                                        showAll={true}
+                                        maxPreview={100}
+                                        currentUserId={user.id}
                                     />
                                 )}
                             </div>

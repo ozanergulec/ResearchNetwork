@@ -22,11 +22,22 @@ public class PublicationsController : ControllerBase
         _publicationService = publicationService;
     }
 
+    private Guid? GetCurrentUserId()
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userIdClaim != null && Guid.TryParse(userIdClaim, out var userId))
+            return userId;
+        return null;
+    }
+
     [HttpGet]
     public async Task<ActionResult<IEnumerable<PublicationDto>>> GetAll()
     {
+        var currentUserId = GetCurrentUserId();
         var publications = await _publicationRepository.GetAllAsync();
-        var dtos = publications.Select(p => MapToPublicationDto(p));
+        var dtos = new List<PublicationDto>();
+        foreach (var p in publications)
+            dtos.Add(await MapToPublicationDto(p, currentUserId));
         return Ok(dtos);
     }
 
@@ -37,8 +48,11 @@ public class PublicationsController : ControllerBase
         if (pageSize < 1) pageSize = 10;
         if (pageSize > 50) pageSize = 50;
 
+        var currentUserId = GetCurrentUserId();
         var (items, totalCount) = await _publicationRepository.GetFeedAsync(page, pageSize);
-        var dtos = items.Select(p => MapToPublicationDto(p));
+        var dtos = new List<PublicationDto>();
+        foreach (var p in items)
+            dtos.Add(await MapToPublicationDto(p, currentUserId));
 
         var result = new PagedResult<PublicationDto>(
             dtos,
@@ -60,22 +74,29 @@ public class PublicationsController : ControllerBase
             return NotFound();
         }
 
-        return Ok(MapToPublicationDto(publication));
+        var currentUserId = GetCurrentUserId();
+        return Ok(await MapToPublicationDto(publication, currentUserId));
     }
 
     [HttpGet("author/{authorId:guid}")]
     public async Task<ActionResult<IEnumerable<PublicationDto>>> GetByAuthor(Guid authorId)
     {
+        var currentUserId = GetCurrentUserId();
         var publications = await _publicationRepository.GetByAuthorIdAsync(authorId);
-        var dtos = publications.Select(p => MapToPublicationDto(p));
+        var dtos = new List<PublicationDto>();
+        foreach (var p in publications)
+            dtos.Add(await MapToPublicationDto(p, currentUserId));
         return Ok(dtos);
     }
 
     [HttpGet("author/{authorId:guid}/latest")]
     public async Task<ActionResult<IEnumerable<PublicationDto>>> GetLatestByAuthor(Guid authorId, [FromQuery] int count = 3)
     {
+        var currentUserId = GetCurrentUserId();
         var publications = await _publicationRepository.GetLatestPublicationsByAuthorAsync(authorId, count);
-        var dtos = publications.Select(p => MapToPublicationDto(p));
+        var dtos = new List<PublicationDto>();
+        foreach (var p in publications)
+            dtos.Add(await MapToPublicationDto(p, currentUserId));
         return Ok(dtos);
     }
 
@@ -107,7 +128,7 @@ public class PublicationsController : ControllerBase
             return CreatedAtAction(
                 nameof(GetById),
                 new { id = publication.Id },
-                MapToPublicationDto(createdPublication)
+                await MapToPublicationDto(createdPublication, authorId)
             );
         }
         catch (Exception ex)
@@ -199,9 +220,162 @@ public class PublicationsController : ControllerBase
         var fileBytes = System.IO.File.ReadAllBytes(filePath);
         return File(fileBytes, contentType, fileName);
     }
-    
-    private static PublicationDto MapToPublicationDto(Publication p)
+
+    // ==================== RATE ====================
+
+    [Authorize]
+    [HttpPost("{id:guid}/rate")]
+    public async Task<ActionResult> RatePublication(Guid id, [FromBody] RatePublicationDto dto)
     {
+        if (dto.Score < 1 || dto.Score > 5)
+            return BadRequest(new { message = "Score must be between 1 and 5." });
+
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+
+        var publication = await _publicationRepository.GetByIdAsync(id);
+        if (publication == null) return NotFound();
+
+        var existingRating = await _publicationRepository.GetRatingAsync(id, userId.Value);
+        if (existingRating != null)
+        {
+            // Update existing rating
+            await _publicationRepository.UpdateRatingScoreAsync(existingRating.Id, dto.Score);
+        }
+        else
+        {
+            // Create new rating
+            var rating = new PublicationRating(id, userId.Value, dto.Score);
+            await _publicationRepository.AddRatingAsync(rating);
+        }
+
+        // Recalculate average
+        var avg = await _publicationRepository.CalculateAverageRatingAsync(id);
+        publication.UpdateAverageRating(avg);
+        await _publicationRepository.UpdateAsync(publication);
+
+        return Ok(new { averageRating = avg, userRating = dto.Score });
+    }
+
+    // ==================== SAVE ====================
+
+    [Authorize]
+    [HttpPost("{id:guid}/save")]
+    public async Task<ActionResult> ToggleSave(Guid id)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+
+        var publication = await _publicationRepository.GetByIdAsync(id);
+        if (publication == null) return NotFound();
+
+        var existing = await _publicationRepository.GetSavedAsync(id, userId.Value);
+        if (existing != null)
+        {
+            // Unsave
+            await _publicationRepository.RemoveSavedAsync(id, userId.Value);
+            publication.DecrementSaveCount();
+            await _publicationRepository.UpdateAsync(publication);
+            return Ok(new { saved = false, saveCount = publication.SaveCount });
+        }
+        else
+        {
+            // Save
+            var saved = new SavedPublication(userId.Value, id);
+            await _publicationRepository.AddSavedAsync(saved);
+            publication.IncrementSaveCount();
+            await _publicationRepository.UpdateAsync(publication);
+            return Ok(new { saved = true, saveCount = publication.SaveCount });
+        }
+    }
+
+    [Authorize]
+    [HttpGet("saved")]
+    public async Task<ActionResult<IEnumerable<PublicationDto>>> GetSaved()
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+
+        var publications = await _publicationRepository.GetSavedByUserAsync(userId.Value);
+        var dtos = new List<PublicationDto>();
+        foreach (var p in publications)
+            dtos.Add(await MapToPublicationDto(p, userId));
+        return Ok(dtos);
+    }
+
+    // ==================== SHARE ====================
+
+    [Authorize]
+    [HttpPost("{id:guid}/share")]
+    public async Task<ActionResult> SharePublication(Guid id)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+
+        var publication = await _publicationRepository.GetByIdAsync(id);
+        if (publication == null) return NotFound();
+
+        var existing = await _publicationRepository.GetShareAsync(id, userId.Value);
+        if (existing != null)
+        {
+            return BadRequest(new { message = "You have already shared this publication." });
+        }
+
+        var share = new PublicationShare(userId.Value, id);
+        await _publicationRepository.AddShareAsync(share);
+        publication.IncrementShareCount();
+        await _publicationRepository.UpdateAsync(publication);
+
+        return Ok(new { shared = true, shareCount = publication.ShareCount });
+    }
+
+    [HttpGet("shared/{userId:guid}")]
+    public async Task<ActionResult<IEnumerable<PublicationDto>>> GetSharedByUser(Guid userId)
+    {
+        var currentUserId = GetCurrentUserId();
+        var publications = await _publicationRepository.GetSharedByUserAsync(userId);
+        var dtos = new List<PublicationDto>();
+        foreach (var p in publications)
+            dtos.Add(await MapToPublicationDto(p, currentUserId));
+        return Ok(dtos);
+    }
+
+    // ==================== DELETE ====================
+
+    [Authorize]
+    [HttpDelete("{id:guid}")]
+    public async Task<ActionResult> Delete(Guid id)
+    {
+        var publication = await _publicationRepository.GetByIdAsync(id);
+        if (publication == null)
+        {
+            return NotFound();
+        }
+
+        await _publicationRepository.DeleteAsync(id);
+        return NoContent();
+    }
+
+    // ==================== HELPERS ====================
+
+    private async Task<PublicationDto> MapToPublicationDto(Publication p, Guid? currentUserId = null)
+    {
+        bool isSaved = false;
+        bool isShared = false;
+        int? userRating = null;
+
+        if (currentUserId.HasValue)
+        {
+            var savedCheck = await _publicationRepository.GetSavedAsync(p.Id, currentUserId.Value);
+            isSaved = savedCheck != null;
+
+            var shareCheck = await _publicationRepository.GetShareAsync(p.Id, currentUserId.Value);
+            isShared = shareCheck != null;
+
+            var ratingCheck = await _publicationRepository.GetRatingAsync(p.Id, currentUserId.Value);
+            userRating = ratingCheck?.Score;
+        }
+
         return new PublicationDto(
             p.Id,
             p.Title,
@@ -223,21 +397,10 @@ public class PublicationsController : ControllerBase
             p.CitationCount,
             p.SaveCount,
             p.ShareCount,
-            p.CreatedAt
+            p.CreatedAt,
+            isSaved,
+            isShared,
+            userRating
         );
-    }
-
-    [Authorize]
-    [HttpDelete("{id:guid}")]
-    public async Task<ActionResult> Delete(Guid id)
-    {
-        var publication = await _publicationRepository.GetByIdAsync(id);
-        if (publication == null)
-        {
-            return NotFound();
-        }
-
-        await _publicationRepository.DeleteAsync(id);
-        return NoContent();
     }
 }

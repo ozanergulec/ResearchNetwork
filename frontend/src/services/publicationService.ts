@@ -25,6 +25,9 @@ export interface Publication {
     saveCount: number;
     shareCount: number;
     createdAt: string;
+    isSaved: boolean;
+    isShared: boolean;
+    userRating: number | null;
 }
 
 // Create Publication DTO
@@ -79,6 +82,31 @@ export const publicationsApi = {
     delete: (id: string) =>
         api.delete(`/publications/${id}`),
 
+    // --- Rating ---
+    rate: (publicationId: string, score: number) =>
+        api.post<{ averageRating: number; userRating: number }>(
+            `/publications/${publicationId}/rate`,
+            { score }
+        ),
+
+    // --- Save/Bookmark ---
+    toggleSave: (publicationId: string) =>
+        api.post<{ saved: boolean; saveCount: number }>(
+            `/publications/${publicationId}/save`
+        ),
+
+    getSaved: () =>
+        api.get<Publication[]>('/publications/saved'),
+
+    // --- Share ---
+    share: (publicationId: string) =>
+        api.post<{ shared: boolean; shareCount: number }>(
+            `/publications/${publicationId}/share`
+        ),
+
+    getShared: (userId: string) =>
+        api.get<Publication[]>(`/publications/shared/${userId}`),
+
     /**
      * Centralized function to handle the two-phase process:
      * 1. Upload file to server
@@ -120,4 +148,3 @@ export const publicationsApi = {
         }
     },
 };
-

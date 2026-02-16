@@ -13,7 +13,10 @@ public record PublicationDto(
     int CitationCount,
     int SaveCount,
     int ShareCount,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    bool IsSaved = false,
+    bool IsShared = false,
+    int? UserRating = null
 );
 
 public record CreatePublicationDto(
@@ -23,6 +26,10 @@ public record CreatePublicationDto(
     string? FileUrl,
     DateTime? PublishedDate,
     List<string>? Tags
+);
+
+public record RatePublicationDto(
+    int Score
 );
 
 public record PagedResult<T>(

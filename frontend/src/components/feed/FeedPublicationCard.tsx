@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Publication } from '../../services/publicationService';
+import { publicationsApi } from '../../services/publicationService';
 import { API_SERVER_URL } from '../../services/apiClient';
 import PublicationDetailModal from './PublicationDetailModal';
 import '../../styles/feed/FeedPublicationCard.css';
@@ -11,7 +12,30 @@ interface FeedPublicationCardProps {
 
 const FeedPublicationCard: React.FC<FeedPublicationCardProps> = ({ publication }) => {
     const [showDetail, setShowDetail] = useState(false);
+    const [showRatingPopup, setShowRatingPopup] = useState(false);
+    const [hoverRating, setHoverRating] = useState(0);
+    const [userRating, setUserRating] = useState<number | null>(publication.userRating);
+    const [averageRating, setAverageRating] = useState(publication.averageRating);
+    const [isSaved, setIsSaved] = useState(publication.isSaved);
+    const [saveCount, setSaveCount] = useState(publication.saveCount);
+    const [isShared, setIsShared] = useState(publication.isShared);
+    const [shareCount, setShareCount] = useState(publication.shareCount);
+    const [savingAction, setSavingAction] = useState(false);
+    const ratingRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
+
+    // Close rating popup on outside click
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (ratingRef.current && !ratingRef.current.contains(e.target as Node)) {
+                setShowRatingPopup(false);
+            }
+        };
+        if (showRatingPopup) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [showRatingPopup]);
 
     const getTimeAgo = (dateString: string): string => {
         const now = new Date();
@@ -48,6 +72,56 @@ const FeedPublicationCard: React.FC<FeedPublicationCardProps> = ({ publication }
     const handleAuthorClick = (e: React.MouseEvent) => {
         e.stopPropagation();
         navigate(`/profile/${publication.author.id}`);
+    };
+
+    const handleRateClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setShowRatingPopup(!showRatingPopup);
+    };
+
+    const handleStarClick = async (score: number) => {
+        try {
+            const res = await publicationsApi.rate(publication.id, score);
+            setUserRating(res.data.userRating);
+            setAverageRating(res.data.averageRating);
+            setShowRatingPopup(false);
+        } catch (err) {
+            console.error('Failed to rate publication', err);
+        }
+    };
+
+    const handleSaveClick = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (savingAction) return;
+        setSavingAction(true);
+        try {
+            const res = await publicationsApi.toggleSave(publication.id);
+            setIsSaved(res.data.saved);
+            setSaveCount(res.data.saveCount);
+        } catch (err) {
+            console.error('Failed to toggle save', err);
+        } finally {
+            setSavingAction(false);
+        }
+    };
+
+    const handleShareClick = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (isShared || savingAction) return;
+
+        const confirmed = window.confirm('Share this publication to your profile?');
+        if (!confirmed) return;
+
+        setSavingAction(true);
+        try {
+            const res = await publicationsApi.share(publication.id);
+            setIsShared(res.data.shared);
+            setShareCount(res.data.shareCount);
+        } catch (err) {
+            console.error('Failed to share publication', err);
+        } finally {
+            setSavingAction(false);
+        }
     };
 
     return (
@@ -116,14 +190,51 @@ const FeedPublicationCard: React.FC<FeedPublicationCardProps> = ({ publication }
                     </div>
                 )}
 
-                {/* Stats Bar */}
+                {/* Interactive Stats Bar */}
                 <div className="feed-card-stats" onClick={(e) => e.stopPropagation()}>
-                    <div className="feed-card-stat">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18">
-                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                        </svg>
-                        <span>{publication.averageRating.toFixed(1)}</span>
+                    {/* Rating */}
+                    <div className="feed-card-stat-wrapper" ref={ratingRef}>
+                        <button
+                            className={`feed-card-stat feed-card-stat-btn ${userRating ? 'feed-card-stat-active' : ''}`}
+                            onClick={handleRateClick}
+                            title={userRating ? `Your rating: ${userRating}/5` : 'Rate this publication'}
+                        >
+                            <svg viewBox="0 0 24 24" fill={userRating ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" width="18" height="18">
+                                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                            </svg>
+                            <span>{averageRating.toFixed(1)}</span>
+                        </button>
+
+                        {/* Star Rating Popup */}
+                        {showRatingPopup && (
+                            <div className="feed-card-rating-popup">
+                                <div className="feed-card-rating-stars">
+                                    {[1, 2, 3, 4, 5].map((star) => (
+                                        <button
+                                            key={star}
+                                            className={`feed-card-star ${(hoverRating || userRating || 0) >= star ? 'feed-card-star-filled' : ''
+                                                }`}
+                                            onClick={() => handleStarClick(star)}
+                                            onMouseEnter={() => setHoverRating(star)}
+                                            onMouseLeave={() => setHoverRating(0)}
+                                            title={`${star} star${star > 1 ? 's' : ''}`}
+                                        >
+                                            ★
+                                        </button>
+                                    ))}
+                                </div>
+                                <span className="feed-card-rating-label">
+                                    {hoverRating > 0
+                                        ? `${hoverRating}/5`
+                                        : userRating
+                                            ? `Your rating: ${userRating}/5`
+                                            : 'Select a rating'}
+                                </span>
+                            </div>
+                        )}
                     </div>
+
+                    {/* Citations - static for now */}
                     <div className="feed-card-stat">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18">
                             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -133,22 +244,36 @@ const FeedPublicationCard: React.FC<FeedPublicationCardProps> = ({ publication }
                         </svg>
                         <span>{publication.citationCount} citations</span>
                     </div>
-                    <div className="feed-card-stat">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18">
+
+                    {/* Save/Bookmark */}
+                    <button
+                        className={`feed-card-stat feed-card-stat-btn ${isSaved ? 'feed-card-stat-active' : ''}`}
+                        onClick={handleSaveClick}
+                        disabled={savingAction}
+                        title={isSaved ? 'Unsave' : 'Save to your library'}
+                    >
+                        <svg viewBox="0 0 24 24" fill={isSaved ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" width="18" height="18">
                             <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
                         </svg>
-                        <span>{publication.saveCount} saves</span>
-                    </div>
-                    <div className="feed-card-stat">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18">
+                        <span>{saveCount} saves</span>
+                    </button>
+
+                    {/* Share */}
+                    <button
+                        className={`feed-card-stat feed-card-stat-btn ${isShared ? 'feed-card-stat-active' : ''}`}
+                        onClick={handleShareClick}
+                        disabled={savingAction || isShared}
+                        title={isShared ? 'Already shared' : 'Share to your profile'}
+                    >
+                        <svg viewBox="0 0 24 24" fill={isShared ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" width="18" height="18">
                             <circle cx="18" cy="5" r="3" />
                             <circle cx="6" cy="12" r="3" />
                             <circle cx="18" cy="19" r="3" />
                             <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
                             <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
                         </svg>
-                        <span>{publication.shareCount} shares</span>
-                    </div>
+                        <span>{shareCount} shares</span>
+                    </button>
                 </div>
             </article>
 

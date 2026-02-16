@@ -72,7 +72,6 @@ public class PublicationRepository : IPublicationRepository
 
     public async Task<Publication> CreateAsync(Publication publication)
     {
-        // Id and CreatedAt are set in Constructor
         _context.Publications.Add(publication);
         await _context.SaveChangesAsync();
         return publication;
@@ -93,5 +92,119 @@ public class PublicationRepository : IPublicationRepository
             _context.Publications.Remove(publication);
             await _context.SaveChangesAsync();
         }
+    }
+
+    // --- Rating ---
+
+    public async Task<PublicationRating?> GetRatingAsync(Guid publicationId, Guid userId)
+    {
+        return await _context.PublicationRatings
+            .FirstOrDefaultAsync(r => r.PublicationId == publicationId && r.UserId == userId);
+    }
+
+    public async Task AddRatingAsync(PublicationRating rating)
+    {
+        _context.PublicationRatings.Add(rating);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task UpdateRatingScoreAsync(Guid ratingId, int newScore)
+    {
+        var rating = await _context.PublicationRatings.FindAsync(ratingId);
+        if (rating != null)
+        {
+            // Use reflection to update private setter
+            var scoreProp = typeof(PublicationRating).GetProperty("Score");
+            scoreProp?.SetValue(rating, newScore);
+            await _context.SaveChangesAsync();
+        }
+    }
+
+    public async Task<double> CalculateAverageRatingAsync(Guid publicationId)
+    {
+        var ratings = await _context.PublicationRatings
+            .Where(r => r.PublicationId == publicationId)
+            .ToListAsync();
+
+        if (ratings.Count == 0) return 0;
+        return ratings.Average(r => r.Score);
+    }
+
+    // --- Save ---
+
+    public async Task<SavedPublication?> GetSavedAsync(Guid publicationId, Guid userId)
+    {
+        return await _context.SavedPublications
+            .FirstOrDefaultAsync(s => s.PublicationId == publicationId && s.UserId == userId);
+    }
+
+    public async Task AddSavedAsync(SavedPublication saved)
+    {
+        _context.SavedPublications.Add(saved);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task RemoveSavedAsync(Guid publicationId, Guid userId)
+    {
+        var saved = await _context.SavedPublications
+            .FirstOrDefaultAsync(s => s.PublicationId == publicationId && s.UserId == userId);
+        if (saved != null)
+        {
+            _context.SavedPublications.Remove(saved);
+            await _context.SaveChangesAsync();
+        }
+    }
+
+    public async Task<IEnumerable<Publication>> GetSavedByUserAsync(Guid userId)
+    {
+        return await _context.SavedPublications
+            .Where(s => s.UserId == userId)
+            .Include(s => s.Publication)
+                .ThenInclude(p => p.Author)
+            .Include(s => s.Publication)
+                .ThenInclude(p => p.Tags)
+                    .ThenInclude(pt => pt.Tag)
+            .OrderByDescending(s => s.SavedAt)
+            .Select(s => s.Publication)
+            .ToListAsync();
+    }
+
+    // --- Share ---
+
+    public async Task<PublicationShare?> GetShareAsync(Guid publicationId, Guid userId)
+    {
+        return await _context.PublicationShares
+            .FirstOrDefaultAsync(s => s.PublicationId == publicationId && s.UserId == userId);
+    }
+
+    public async Task AddShareAsync(PublicationShare share)
+    {
+        _context.PublicationShares.Add(share);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task RemoveShareAsync(Guid publicationId, Guid userId)
+    {
+        var share = await _context.PublicationShares
+            .FirstOrDefaultAsync(s => s.PublicationId == publicationId && s.UserId == userId);
+        if (share != null)
+        {
+            _context.PublicationShares.Remove(share);
+            await _context.SaveChangesAsync();
+        }
+    }
+
+    public async Task<IEnumerable<Publication>> GetSharedByUserAsync(Guid userId)
+    {
+        return await _context.PublicationShares
+            .Where(s => s.UserId == userId)
+            .Include(s => s.Publication)
+                .ThenInclude(p => p.Author)
+            .Include(s => s.Publication)
+                .ThenInclude(p => p.Tags)
+                    .ThenInclude(pt => pt.Tag)
+            .OrderByDescending(s => s.SharedAt)
+            .Select(s => s.Publication)
+            .ToListAsync();
     }
 }
