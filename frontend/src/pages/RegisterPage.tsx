@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authApi } from '../services/authService';
 import type { RegisterData } from '../services/authService';
+import Autocomplete from '../components/common/Autocomplete';
+import { TURKISH_UNIVERSITIES, TURKISH_DEPARTMENTS } from '../data/turkishUniversities';
 import '../styles/pages/LoginPage.css';
 
 // Accepted academic email domains
@@ -113,20 +115,18 @@ const RegisterPage: React.FC = () => {
                         className="login-input"
                         required
                     />
-                    <input
-                        type="text"
-                        placeholder="Institution"
+                    <Autocomplete
+                        suggestions={TURKISH_UNIVERSITIES}
                         value={registerData.institution}
-                        onChange={(e) => setRegisterData({ ...registerData, institution: e.target.value })}
-                        className="login-input"
+                        onChange={(val) => setRegisterData({ ...registerData, institution: val })}
+                        placeholder="Institution"
                         required
                     />
-                    <input
-                        type="text"
-                        placeholder="Department"
+                    <Autocomplete
+                        suggestions={TURKISH_DEPARTMENTS}
                         value={registerData.department}
-                        onChange={(e) => setRegisterData({ ...registerData, department: e.target.value })}
-                        className="login-input"
+                        onChange={(val) => setRegisterData({ ...registerData, department: val })}
+                        placeholder="Department"
                         required
                     />
                     <button
