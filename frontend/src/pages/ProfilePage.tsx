@@ -278,7 +278,7 @@ const ProfilePage: React.FC = () => {
     if (!user) {
         return (
             <div className="profile-container">
-                <Navbar currentPage="profile" />
+                <Navbar currentPage={isOwnProfile ? "profile" : "none"} />
                 <div className="profile-content">
                     <div className="profile-error">
                         <p>{error || 'Failed to load profile'}</p>
@@ -291,7 +291,7 @@ const ProfilePage: React.FC = () => {
 
     return (
         <div className="profile-container">
-            <Navbar currentPage="profile" />
+            <Navbar currentPage={isOwnProfile ? "profile" : "none"} />
 
             <div className="profile-content">
                 {/* Header Card - Full Width */}
@@ -433,6 +433,7 @@ const ProfilePage: React.FC = () => {
                                         showAll={true}
                                         maxPreview={100}
                                         currentUserId={user.id}
+                                        showAuthor={true}
                                     />
                                 )}
                             </div>

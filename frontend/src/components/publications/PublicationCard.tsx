@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { Publication } from '../../services/publicationService';
 import { API_SERVER_URL } from '../../services/apiClient';
 import DocumentViewerModal from './DocumentViewerModal';
@@ -8,12 +9,18 @@ interface PublicationCardProps {
     publication: Publication;
     currentUserId?: string;
     onDelete?: (id: string) => void;
+    showAuthor?: boolean;
 }
 
-const PublicationCard: React.FC<PublicationCardProps> = ({ publication, currentUserId, onDelete }) => {
+const PublicationCard: React.FC<PublicationCardProps> = ({ publication, currentUserId, onDelete, showAuthor }) => {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [showDocumentViewer, setShowDocumentViewer] = useState(false);
+    const navigate = useNavigate();
+
+    const authorImageUrl = publication.author.profileImageUrl
+        ? `${API_SERVER_URL}${publication.author.profileImageUrl}`
+        : null;
 
     const formatDate = (dateString: string) => {
         const date = new Date(dateString);
@@ -59,6 +66,23 @@ const PublicationCard: React.FC<PublicationCardProps> = ({ publication, currentU
 
     return (
         <div className="publication-card">
+            {showAuthor && (
+                <div className="publication-author-row" onClick={() => navigate(`/profile/${publication.author.id}`)}>
+                    {authorImageUrl ? (
+                        <img src={authorImageUrl} alt={publication.author.fullName} className="publication-author-avatar" />
+                    ) : (
+                        <div className="publication-author-avatar-placeholder">
+                            {publication.author.fullName.charAt(0).toUpperCase()}
+                        </div>
+                    )}
+                    <div className="publication-author-info">
+                        <span className="publication-author-name">{publication.author.fullName}</span>
+                        {publication.author.title && (
+                            <span className="publication-author-title">{publication.author.title}</span>
+                        )}
+                    </div>
+                </div>
+            )}
             <div className="publication-header">
                 <h3 className="publication-title">{publication.title}</h3>
                 <div className="publication-header-actions">

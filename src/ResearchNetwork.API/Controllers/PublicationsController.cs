@@ -227,8 +227,8 @@ public class PublicationsController : ControllerBase
     [HttpPost("{id:guid}/rate")]
     public async Task<ActionResult> RatePublication(Guid id, [FromBody] RatePublicationDto dto)
     {
-        if (dto.Score < 1 || dto.Score > 5)
-            return BadRequest(new { message = "Score must be between 1 and 5." });
+        if (dto.Score < 0 || dto.Score > 5)
+            return BadRequest(new { message = "Score must be between 0 and 5 (0 to remove)." });
 
         var userId = GetCurrentUserId();
         if (userId == null) return Unauthorized();
@@ -237,24 +237,36 @@ public class PublicationsController : ControllerBase
         if (publication == null) return NotFound();
 
         var existingRating = await _publicationRepository.GetRatingAsync(id, userId.Value);
+
+        if (dto.Score == 0)
+        {
+            // Remove rating
+            if (existingRating != null)
+            {
+                await _publicationRepository.RemoveRatingAsync(existingRating.Id);
+            }
+
+            var avg = await _publicationRepository.CalculateAverageRatingAsync(id);
+            publication.UpdateAverageRating(avg);
+            await _publicationRepository.UpdateAsync(publication);
+            return Ok(new { averageRating = avg, userRating = (int?)null });
+        }
+
         if (existingRating != null)
         {
-            // Update existing rating
             await _publicationRepository.UpdateRatingScoreAsync(existingRating.Id, dto.Score);
         }
         else
         {
-            // Create new rating
             var rating = new PublicationRating(id, userId.Value, dto.Score);
             await _publicationRepository.AddRatingAsync(rating);
         }
 
-        // Recalculate average
-        var avg = await _publicationRepository.CalculateAverageRatingAsync(id);
-        publication.UpdateAverageRating(avg);
+        var newAvg = await _publicationRepository.CalculateAverageRatingAsync(id);
+        publication.UpdateAverageRating(newAvg);
         await _publicationRepository.UpdateAsync(publication);
 
-        return Ok(new { averageRating = avg, userRating = dto.Score });
+        return Ok(new { averageRating = newAvg, userRating = dto.Score });
     }
 
     // ==================== SAVE ====================

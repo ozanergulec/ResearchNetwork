@@ -120,6 +120,16 @@ public class PublicationRepository : IPublicationRepository
         }
     }
 
+    public async Task RemoveRatingAsync(Guid ratingId)
+    {
+        var rating = await _context.PublicationRatings.FindAsync(ratingId);
+        if (rating != null)
+        {
+            _context.PublicationRatings.Remove(rating);
+            await _context.SaveChangesAsync();
+        }
+    }
+
     public async Task<double> CalculateAverageRatingAsync(Guid publicationId)
     {
         var ratings = await _context.PublicationRatings

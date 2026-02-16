@@ -74,14 +74,27 @@ const FeedPublicationCard: React.FC<FeedPublicationCardProps> = ({ publication }
         navigate(`/profile/${publication.author.id}`);
     };
 
-    const handleRateClick = (e: React.MouseEvent) => {
+    const handleRateClick = async (e: React.MouseEvent) => {
         e.stopPropagation();
-        setShowRatingPopup(!showRatingPopup);
+        if (userRating) {
+            // Already rated — remove rating directly
+            try {
+                const res = await publicationsApi.rate(publication.id, 0);
+                setUserRating(res.data.userRating);
+                setAverageRating(res.data.averageRating);
+            } catch (err) {
+                console.error('Failed to remove rating', err);
+            }
+        } else {
+            setShowRatingPopup(!showRatingPopup);
+        }
     };
 
     const handleStarClick = async (score: number) => {
         try {
-            const res = await publicationsApi.rate(publication.id, score);
+            // If clicking the same star, remove rating (send 0)
+            const newScore = score === userRating ? 0 : score;
+            const res = await publicationsApi.rate(publication.id, newScore);
             setUserRating(res.data.userRating);
             setAverageRating(res.data.averageRating);
             setShowRatingPopup(false);

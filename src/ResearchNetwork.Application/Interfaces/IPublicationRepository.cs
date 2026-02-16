@@ -17,6 +17,7 @@ public interface IPublicationRepository
     Task<PublicationRating?> GetRatingAsync(Guid publicationId, Guid userId);
     Task AddRatingAsync(PublicationRating rating);
     Task UpdateRatingScoreAsync(Guid ratingId, int newScore);
+    Task RemoveRatingAsync(Guid ratingId);
     Task<double> CalculateAverageRatingAsync(Guid publicationId);
 
     // Save

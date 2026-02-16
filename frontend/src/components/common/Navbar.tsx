@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import '../../styles/common/Navbar.css';
 
 interface NavbarProps {
-    currentPage: 'home' | 'profile' | 'recommendations';
+    currentPage: 'home' | 'profile' | 'recommendations' | 'none';
 }
 
 const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
