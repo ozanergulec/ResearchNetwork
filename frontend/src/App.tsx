@@ -6,6 +6,7 @@ import VerifyEmailPage from './pages/VerifyEmailPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ProfilePage from './pages/ProfilePage';
 import RecommendationsPage from './pages/RecommendationsPage';
+import HomePage from './pages/HomePage';
 
 function App() {
   return (
@@ -15,12 +16,14 @@ function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/verify-email" element={<VerifyEmailPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/home" element={<HomePage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/recommendations" element={<RecommendationsPage />} />
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/" element={<Navigate to="/home" replace />} />
       </Routes>
     </Router>
   );
 }
 
 export default App;
+

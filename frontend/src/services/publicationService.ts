@@ -37,10 +37,22 @@ export interface CreatePublicationDto {
     tags?: string[];
 }
 
+// Paged Result Interface (for feed pagination)
+export interface PagedResult<T> {
+    items: T[];
+    totalCount: number;
+    page: number;
+    pageSize: number;
+    hasMore: boolean;
+}
+
 // Publications API
 export const publicationsApi = {
     getAll: () =>
         api.get<Publication[]>('/publications'),
+
+    getFeed: (page: number = 1, pageSize: number = 10) =>
+        api.get<PagedResult<Publication>>(`/publications/feed?page=${page}&pageSize=${pageSize}`),
 
     getById: (id: string) =>
         api.get<Publication>(`/publications/${id}`),

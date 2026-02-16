@@ -9,3 +9,6 @@ export { AddPublicationModal, DocumentViewerModal, PublicationCard, Publications
 
 // Recommendations components
 export { UserCard } from './recommendations';
+
+// Feed components
+export { FeedPublicationCard } from './feed';

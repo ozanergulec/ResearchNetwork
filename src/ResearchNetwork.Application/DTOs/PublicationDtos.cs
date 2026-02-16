@@ -24,3 +24,11 @@ public record CreatePublicationDto(
     DateTime? PublishedDate,
     List<string>? Tags
 );
+
+public record PagedResult<T>(
+    IEnumerable<T> Items,
+    int TotalCount,
+    int Page,
+    int PageSize,
+    bool HasMore
+);

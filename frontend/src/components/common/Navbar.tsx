@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import '../../styles/common/Navbar.css';
 
 interface NavbarProps {
-    currentPage: 'profile' | 'recommendations';
+    currentPage: 'home' | 'profile' | 'recommendations';
 }
 
 const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
@@ -19,6 +19,12 @@ const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
         <nav className="navbar">
             <h2 className="navbar-logo">Research Network</h2>
             <div className="navbar-links">
+                <button
+                    onClick={() => navigate('/home')}
+                    className={`navbar-button ${currentPage === 'home' ? 'active' : ''}`}
+                >
+                    Home
+                </button>
                 <button
                     onClick={() => navigate('/profile')}
                     className={`navbar-button ${currentPage === 'profile' ? 'active' : ''}`}
@@ -40,3 +46,4 @@ const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
 };
 
 export default Navbar;
+

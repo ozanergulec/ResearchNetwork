@@ -30,6 +30,23 @@ public class PublicationRepository : IPublicationRepository
             .ToListAsync();
     }
 
+    public async Task<(IEnumerable<Publication> Items, int TotalCount)> GetFeedAsync(int page, int pageSize)
+    {
+        var query = _context.Publications
+            .Include(p => p.Author)
+            .Include(p => p.Tags)
+                .ThenInclude(pt => pt.Tag)
+            .OrderByDescending(p => p.CreatedAt);
+
+        var totalCount = await query.CountAsync();
+        var items = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        return (items, totalCount);
+    }
+
     public async Task<IEnumerable<Publication>> GetByAuthorIdAsync(Guid authorId)
     {
         return await _context.Publications

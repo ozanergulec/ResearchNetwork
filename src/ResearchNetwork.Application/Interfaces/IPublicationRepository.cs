@@ -6,6 +6,7 @@ public interface IPublicationRepository
 {
     Task<Publication?> GetByIdAsync(Guid id);
     Task<IEnumerable<Publication>> GetAllAsync();
+    Task<(IEnumerable<Publication> Items, int TotalCount)> GetFeedAsync(int page, int pageSize);
     Task<IEnumerable<Publication>> GetByAuthorIdAsync(Guid authorId);
     Task<IEnumerable<Publication>> GetLatestPublicationsByAuthorAsync(Guid authorId, int count);
     Task<Publication> CreateAsync(Publication publication);

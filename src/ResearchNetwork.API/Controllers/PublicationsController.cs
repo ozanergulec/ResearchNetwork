@@ -30,6 +30,27 @@ public class PublicationsController : ControllerBase
         return Ok(dtos);
     }
 
+    [HttpGet("feed")]
+    public async Task<ActionResult<PagedResult<PublicationDto>>> GetFeed([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+    {
+        if (page < 1) page = 1;
+        if (pageSize < 1) pageSize = 10;
+        if (pageSize > 50) pageSize = 50;
+
+        var (items, totalCount) = await _publicationRepository.GetFeedAsync(page, pageSize);
+        var dtos = items.Select(p => MapToPublicationDto(p));
+
+        var result = new PagedResult<PublicationDto>(
+            dtos,
+            totalCount,
+            page,
+            pageSize,
+            page * pageSize < totalCount
+        );
+
+        return Ok(result);
+    }
+
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<PublicationDto>> GetById(Guid id)
     {
