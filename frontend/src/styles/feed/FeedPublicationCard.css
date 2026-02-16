@@ -24,6 +24,17 @@
 
 .feed-card-avatar-wrapper {
     flex-shrink: 0;
+    cursor: pointer;
+}
+
+.feed-card-author-link {
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.feed-card-author-link:hover {
+    color: var(--heading-color);
+    text-decoration: underline;
 }
 
 .feed-card-avatar {

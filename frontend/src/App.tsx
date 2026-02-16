@@ -18,6 +18,7 @@ function App() {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/home" element={<HomePage />} />
         <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/profile/:userId" element={<ProfilePage />} />
         <Route path="/recommendations" element={<RecommendationsPage />} />
         <Route path="/" element={<Navigate to="/home" replace />} />
       </Routes>

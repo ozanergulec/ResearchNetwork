@@ -1,38 +1,40 @@
-/* ===== Home Page ===== */
+/* ===== Home Page — Desktop Single-Column Feed ===== */
 .home-container {
     min-height: 100vh;
     background: var(--bg-primary);
 }
 
 .home-content {
-    max-width: 680px;
+    max-width: 780px;
     margin: 0 auto;
-    padding: 32px 16px 64px;
+    padding: 40px 24px 64px;
 }
 
 /* Page Header */
 .home-header {
-    margin-bottom: 24px;
+    margin-bottom: 28px;
+    border-bottom: 1px solid rgba(42, 31, 29, 0.08);
+    padding-bottom: 16px;
 }
 
 .home-title {
-    font-size: 1.6rem;
+    font-size: 1.8rem;
     font-weight: 700;
     color: var(--heading-color);
-    margin: 0 0 4px;
+    margin: 0 0 6px;
 }
 
 .home-subtitle {
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     color: #888;
     margin: 0;
 }
 
-/* Feed List */
+/* Feed List — single column, scroll down */
 .home-feed {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 20px;
 }
 
 /* Loading States */

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { usersApi } from '../services/userService';
 import type { User, UpdateUserData } from '../services/userService';
 import { publicationsApi, type Publication } from '../services/publicationService';
@@ -18,6 +18,7 @@ import '../styles/pages/ProfilePage.css';
 
 const ProfilePage: React.FC = () => {
     const navigate = useNavigate();
+    const { userId } = useParams<{ userId?: string }>();
     const [user, setUser] = useState<User | null>(null);
     const [editing, setEditing] = useState(false);
     const [loading, setLoading] = useState(true);
@@ -29,6 +30,7 @@ const ProfilePage: React.FC = () => {
     const [showAllPublications, setShowAllPublications] = useState(false);
     const [showAddPublicationModal, setShowAddPublicationModal] = useState(false);
     const [toastMessage, setToastMessage] = useState<string | null>(null);
+    const [isOwnProfile, setIsOwnProfile] = useState(true);
 
     useEffect(() => {
         const fetchProfile = async () => {
@@ -40,13 +42,22 @@ const ProfilePage: React.FC = () => {
 
             try {
                 setLoading(true);
-                const response = await usersApi.getProfile();
-                setUser(response.data);
+                if (userId) {
+                    // Viewing another user's profile
+                    const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+                    setIsOwnProfile(currentUser.id === userId);
+                    const response = await usersApi.getById(userId);
+                    setUser(response.data);
+                } else {
+                    // Viewing own profile
+                    setIsOwnProfile(true);
+                    const response = await usersApi.getProfile();
+                    setUser(response.data);
+                }
                 setError(null);
             } catch (err: any) {
                 console.error('Failed to fetch profile', err);
                 if (err.response?.status === 401) {
-                    // Unauthorized - redirect to login
                     localStorage.removeItem('token');
                     localStorage.removeItem('user');
                     navigate('/login');
@@ -59,7 +70,7 @@ const ProfilePage: React.FC = () => {
         };
 
         fetchProfile();
-    }, [navigate]);
+    }, [navigate, userId]);
 
     useEffect(() => {
         const fetchPublications = async () => {
@@ -259,7 +270,7 @@ const ProfilePage: React.FC = () => {
                         </div>
                     )}
 
-                    {editing ? (
+                    {editing && isOwnProfile ? (
                         <>
                             <ProfileHeader
                                 fullName={user.fullName}
@@ -291,9 +302,9 @@ const ProfilePage: React.FC = () => {
                             isVerified={user.isVerified}
                             profileImageUrl={user.profileImageUrl}
                             coverImageUrl={user.coverImageUrl}
-                            onEditClick={handleEditClick}
-                            onImageUpload={handleImageUpload}
-                            onImageRemove={handleImageRemove}
+                            onEditClick={isOwnProfile ? handleEditClick : undefined}
+                            onImageUpload={isOwnProfile ? handleImageUpload : undefined}
+                            onImageRemove={isOwnProfile ? handleImageRemove : undefined}
                         />
                     )}
                 </div>
@@ -305,7 +316,7 @@ const ProfilePage: React.FC = () => {
                         <div className="profile-sidebar">
                             {/* About + Tags */}
                             <div className="profile-card">
-                                <ProfileInfo user={user} onEditTags={handleEditTags} />
+                                <ProfileInfo user={user} onEditTags={isOwnProfile ? handleEditTags : undefined} />
                             </div>
 
                             {/* Statistics */}
@@ -334,13 +345,15 @@ const ProfilePage: React.FC = () => {
                         <div className="profile-main">
                             <div className="profile-card publications-section">
                                 <div className="publications-section-header">
-                                    <h2 className="publications-section-title">My Publications</h2>
-                                    <button
-                                        className="add-publication-button"
-                                        onClick={handleOpenAddPublication}
-                                    >
-                                        + Add New Publication
-                                    </button>
+                                    <h2 className="publications-section-title">{isOwnProfile ? 'My Publications' : 'Publications'}</h2>
+                                    {isOwnProfile && (
+                                        <button
+                                            className="add-publication-button"
+                                            onClick={handleOpenAddPublication}
+                                        >
+                                            + Add New Publication
+                                        </button>
+                                    )}
                                 </div>
 
                                 {loadingPublications ? (

@@ -9,7 +9,7 @@ interface ProfileHeaderProps {
     isVerified: boolean;
     profileImageUrl?: string;
     coverImageUrl?: string;
-    onEditClick: () => void;
+    onEditClick?: () => void;
     onImageUpload?: (file: File, type: 'profile' | 'cover') => void;
     onImageRemove?: (type: 'profile' | 'cover') => void;
 }
@@ -105,9 +105,11 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                     </div>
 
                     {/* Edit Button */}
-                    <button onClick={onEditClick} className="profile-edit-button">
-                        Edit Profile
-                    </button>
+                    {onEditClick && (
+                        <button onClick={onEditClick} className="profile-edit-button">
+                            Edit Profile
+                        </button>
+                    )}
                 </div>
             </div>
 

@@ -92,13 +92,17 @@ const PublicationDetailModal: React.FC<PublicationDetailModalProps> = ({ publica
         }
     };
 
-    // Close on Escape key
+    // Lock background scroll & close on Escape key
     useEffect(() => {
+        document.body.style.overflow = 'hidden';
         const handleKey = (e: KeyboardEvent) => {
             if (e.key === 'Escape') onClose();
         };
         window.addEventListener('keydown', handleKey);
-        return () => window.removeEventListener('keydown', handleKey);
+        return () => {
+            document.body.style.overflow = '';
+            window.removeEventListener('keydown', handleKey);
+        };
     }, [onClose]);
 
     return (

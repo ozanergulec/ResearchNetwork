@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { Publication } from '../../services/publicationService';
 import { API_SERVER_URL } from '../../services/apiClient';
 import PublicationDetailModal from './PublicationDetailModal';
@@ -10,6 +11,7 @@ interface FeedPublicationCardProps {
 
 const FeedPublicationCard: React.FC<FeedPublicationCardProps> = ({ publication }) => {
     const [showDetail, setShowDetail] = useState(false);
+    const navigate = useNavigate();
 
     const getTimeAgo = (dateString: string): string => {
         const now = new Date();
@@ -43,12 +45,17 @@ const FeedPublicationCard: React.FC<FeedPublicationCardProps> = ({ publication }
         setShowDetail(true);
     };
 
+    const handleAuthorClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        navigate(`/profile/${publication.author.id}`);
+    };
+
     return (
         <>
             <article className="feed-card" onClick={handleCardClick}>
                 {/* Author Header */}
                 <div className="feed-card-author">
-                    <div className="feed-card-avatar-wrapper">
+                    <div className="feed-card-avatar-wrapper" onClick={handleAuthorClick}>
                         {authorImageUrl ? (
                             <img
                                 src={authorImageUrl}
@@ -63,7 +70,9 @@ const FeedPublicationCard: React.FC<FeedPublicationCardProps> = ({ publication }
                     </div>
                     <div className="feed-card-author-info">
                         <h4 className="feed-card-author-name">
-                            {publication.author.fullName}
+                            <span className="feed-card-author-link" onClick={handleAuthorClick}>
+                                {publication.author.fullName}
+                            </span>
                             {publication.author.isVerified && (
                                 <span className="feed-card-verified" title="Verified">✓</span>
                             )}
