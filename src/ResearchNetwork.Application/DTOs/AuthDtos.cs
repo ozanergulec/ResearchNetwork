@@ -9,9 +9,9 @@ public record RegisterDto(
     string FullName,
     string Email,
     string Password,
-    string? Title = null,
-    string? Institution = null,
-    string? Department = null
+    string Title,
+    string Institution,
+    string Department
 );
 
 public record AuthResponseDto(
