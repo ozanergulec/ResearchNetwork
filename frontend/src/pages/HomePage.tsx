@@ -1,15 +1,15 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { publicationsApi, type Publication } from '../services/publicationService';
+import { publicationsApi, type FeedItem } from '../services/publicationService';
 import { Navbar, Loading } from '../components';
-import { FeedPublicationCard } from '../components/feed';
+import { FeedPublicationCard, SharedFeedCard } from '../components/feed';
 import '../styles/pages/HomePage.css';
 
 const PAGE_SIZE = 10;
 
 const HomePage: React.FC = () => {
     const navigate = useNavigate();
-    const [publications, setPublications] = useState<Publication[]>([]);
+    const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
     const [hasMore, setHasMore] = useState(true);
@@ -35,7 +35,7 @@ const HomePage: React.FC = () => {
             try {
                 setLoading(true);
                 const response = await publicationsApi.getFeed(1, PAGE_SIZE);
-                setPublications(response.data.items);
+                setFeedItems(response.data.items);
                 setHasMore(response.data.hasMore);
                 hasMoreRef.current = response.data.hasMore;
                 pageRef.current = 1;
@@ -67,7 +67,7 @@ const HomePage: React.FC = () => {
 
         try {
             const response = await publicationsApi.getFeed(nextPage, PAGE_SIZE);
-            setPublications(prev => [...prev, ...response.data.items]);
+            setFeedItems(prev => [...prev, ...response.data.items]);
             setHasMore(response.data.hasMore);
             hasMoreRef.current = response.data.hasMore;
             pageRef.current = nextPage;
@@ -124,7 +124,7 @@ const HomePage: React.FC = () => {
                     </div>
                 )}
 
-                {!error && publications.length === 0 ? (
+                {!error && feedItems.length === 0 ? (
                     <div className="home-empty">
                         <div className="home-empty-icon">📚</div>
                         <h3>No Publications Yet</h3>
@@ -132,12 +132,24 @@ const HomePage: React.FC = () => {
                     </div>
                 ) : (
                     <div className="home-feed">
-                        {publications.map((pub) => (
-                            <FeedPublicationCard
-                                key={pub.id}
-                                publication={pub}
-                            />
-                        ))}
+                        {feedItems.map((item) => {
+                            if (item.type === 'share' && item.sharedPublication) {
+                                return (
+                                    <SharedFeedCard
+                                        key={`share-${item.sharedPublication.shareId}`}
+                                        sharedPublication={item.sharedPublication}
+                                    />
+                                );
+                            } else if (item.publication) {
+                                return (
+                                    <FeedPublicationCard
+                                        key={`pub-${item.publication.id}`}
+                                        publication={item.publication}
+                                    />
+                                );
+                            }
+                            return null;
+                        })}
 
                         {/* Infinite Scroll Sentinel */}
                         {hasMore && (
@@ -152,7 +164,7 @@ const HomePage: React.FC = () => {
                             </>
                         )}
 
-                        {!hasMore && publications.length > 0 && (
+                        {!hasMore && feedItems.length > 0 && (
                             <div className="home-end">
                                 You've reached the end of the feed
                             </div>

@@ -49,13 +49,29 @@ export interface PagedResult<T> {
     hasMore: boolean;
 }
 
+// Shared Publication Interface
+export interface SharedPublication {
+    shareId: string;
+    sharedBy: UserSummary;
+    note: string | null;
+    sharedAt: string;
+    publication: Publication;
+}
+
+// Feed Item (discriminated union)
+export interface FeedItem {
+    type: 'publication' | 'share';
+    publication: Publication | null;
+    sharedPublication: SharedPublication | null;
+}
+
 // Publications API
 export const publicationsApi = {
     getAll: () =>
         api.get<Publication[]>('/publications'),
 
     getFeed: (page: number = 1, pageSize: number = 10) =>
-        api.get<PagedResult<Publication>>(`/publications/feed?page=${page}&pageSize=${pageSize}`),
+        api.get<PagedResult<FeedItem>>(`/publications/feed?page=${page}&pageSize=${pageSize}`),
 
     getById: (id: string) =>
         api.get<Publication>(`/publications/${id}`),
@@ -99,13 +115,14 @@ export const publicationsApi = {
         api.get<Publication[]>('/publications/saved'),
 
     // --- Share ---
-    share: (publicationId: string) =>
+    share: (publicationId: string, note?: string) =>
         api.post<{ shared: boolean; shareCount: number }>(
-            `/publications/${publicationId}/share`
+            `/publications/${publicationId}/share`,
+            { note: note || null }
         ),
 
     getShared: (userId: string) =>
-        api.get<Publication[]>(`/publications/shared/${userId}`),
+        api.get<SharedPublication[]>(`/publications/shared/${userId}`),
 
     unshare: (publicationId: string) =>
         api.delete<{ shared: boolean; shareCount: number }>(

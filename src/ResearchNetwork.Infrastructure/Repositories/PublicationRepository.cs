@@ -204,17 +204,37 @@ public class PublicationRepository : IPublicationRepository
         }
     }
 
-    public async Task<IEnumerable<Publication>> GetSharedByUserAsync(Guid userId)
+    public async Task<IEnumerable<PublicationShare>> GetSharedByUserAsync(Guid userId)
     {
         return await _context.PublicationShares
             .Where(s => s.UserId == userId)
+            .Include(s => s.User)
             .Include(s => s.Publication)
                 .ThenInclude(p => p.Author)
             .Include(s => s.Publication)
                 .ThenInclude(p => p.Tags)
                     .ThenInclude(pt => pt.Tag)
             .OrderByDescending(s => s.SharedAt)
-            .Select(s => s.Publication)
             .ToListAsync();
+    }
+
+    public async Task<(IEnumerable<PublicationShare> Items, int TotalCount)> GetAllSharesForFeedAsync(int page, int pageSize)
+    {
+        var query = _context.PublicationShares
+            .Include(s => s.User)
+            .Include(s => s.Publication)
+                .ThenInclude(p => p.Author)
+            .Include(s => s.Publication)
+                .ThenInclude(p => p.Tags)
+                    .ThenInclude(pt => pt.Tag)
+            .OrderByDescending(s => s.SharedAt);
+
+        var totalCount = await query.CountAsync();
+        var items = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        return (items, totalCount);
     }
 }

@@ -32,6 +32,24 @@ public record RatePublicationDto(
     int Score
 );
 
+public record SharePublicationDto(
+    string? Note
+);
+
+public record SharedPublicationDto(
+    Guid ShareId,
+    UserSummaryDto SharedBy,
+    string? Note,
+    DateTime SharedAt,
+    PublicationDto Publication
+);
+
+public record FeedItemDto(
+    string Type,  // "publication" or "share"
+    PublicationDto? Publication,
+    SharedPublicationDto? SharedPublication
+);
+
 public record PagedResult<T>(
     IEnumerable<T> Items,
     int TotalCount,

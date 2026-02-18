@@ -87,8 +87,9 @@ const ProfilePage: React.FC = () => {
                 const authoredResponse = await publicationsApi.getLatestByAuthor(user.id, 4);
                 // Fetch shared publications
                 const sharedResponse = await publicationsApi.getShared(user.id);
-                // Merge and sort by date descending
-                const merged = [...authoredResponse.data, ...sharedResponse.data]
+                // Extract publications from shared items, merge and sort
+                const sharedPubs = sharedResponse.data.map(s => s.publication);
+                const merged = [...authoredResponse.data, ...sharedPubs]
                     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
                 setPublications(merged);
             } catch (err) {
@@ -188,7 +189,7 @@ const ProfilePage: React.FC = () => {
                     publicationsApi.getByAuthor(user.id),
                     publicationsApi.getShared(user.id),
                 ]);
-                const merged = [...authoredRes.data, ...sharedRes.data]
+                const merged = [...authoredRes.data, ...sharedRes.data.map(s => s.publication)]
                     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
                 setPublications(merged);
             } else {
@@ -197,7 +198,7 @@ const ProfilePage: React.FC = () => {
                     publicationsApi.getLatestByAuthor(user.id, 4),
                     publicationsApi.getShared(user.id),
                 ]);
-                const merged = [...authoredRes.data, ...sharedRes.data]
+                const merged = [...authoredRes.data, ...sharedRes.data.map(s => s.publication)]
                     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
                 setPublications(merged);
             }
@@ -271,7 +272,7 @@ const ProfilePage: React.FC = () => {
                         : publicationsApi.getLatestByAuthor(user.id, 4),
                     publicationsApi.getShared(user.id),
                 ]);
-                const merged = [...authoredRes.data, ...sharedRes.data]
+                const merged = [...authoredRes.data, ...sharedRes.data.map(s => s.publication)]
                     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
                 setPublications(merged);
             }
@@ -299,7 +300,7 @@ const ProfilePage: React.FC = () => {
                         : publicationsApi.getLatestByAuthor(user.id, 4),
                     publicationsApi.getShared(user.id),
                 ]);
-                const merged = [...authoredRes.data, ...sharedRes.data]
+                const merged = [...authoredRes.data, ...sharedRes.data.map(s => s.publication)]
                     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
                 setPublications(merged);
             }

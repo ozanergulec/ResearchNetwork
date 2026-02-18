@@ -4,6 +4,7 @@ import type { Publication } from '../../services/publicationService';
 import { publicationsApi } from '../../services/publicationService';
 import { API_SERVER_URL } from '../../services/apiClient';
 import PublicationDetailModal from './PublicationDetailModal';
+import ShareModal from './ShareModal';
 import '../../styles/feed/FeedPublicationCard.css';
 
 interface FeedPublicationCardProps {
@@ -21,6 +22,7 @@ const FeedPublicationCard: React.FC<FeedPublicationCardProps> = ({ publication }
     const [isShared, setIsShared] = useState(publication.isShared);
     const [shareCount, setShareCount] = useState(publication.shareCount);
     const [savingAction, setSavingAction] = useState(false);
+    const [showShareModal, setShowShareModal] = useState(false);
     const ratingRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
 
@@ -121,15 +123,16 @@ const FeedPublicationCard: React.FC<FeedPublicationCardProps> = ({ publication }
     const handleShareClick = async (e: React.MouseEvent) => {
         e.stopPropagation();
         if (isShared || savingAction) return;
+        setShowShareModal(true);
+    };
 
-        const confirmed = window.confirm('Share this publication to your profile?');
-        if (!confirmed) return;
-
+    const handleShareSubmit = async (note: string) => {
         setSavingAction(true);
         try {
-            const res = await publicationsApi.share(publication.id);
+            const res = await publicationsApi.share(publication.id, note || undefined);
             setIsShared(res.data.shared);
             setShareCount(res.data.shareCount);
+            setShowShareModal(false);
         } catch (err) {
             console.error('Failed to share publication', err);
         } finally {
@@ -294,6 +297,14 @@ const FeedPublicationCard: React.FC<FeedPublicationCardProps> = ({ publication }
                 <PublicationDetailModal
                     publication={publication}
                     onClose={() => setShowDetail(false)}
+                />
+            )}
+
+            {showShareModal && (
+                <ShareModal
+                    publication={publication}
+                    onShare={handleShareSubmit}
+                    onClose={() => setShowShareModal(false)}
                 />
             )}
         </>
