@@ -341,6 +341,29 @@ public class PublicationsController : ControllerBase
         return Ok(new { shared = true, shareCount = publication.ShareCount });
     }
 
+    [Authorize]
+    [HttpDelete("{id:guid}/share")]
+    public async Task<ActionResult> UnsharePublication(Guid id)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+
+        var publication = await _publicationRepository.GetByIdAsync(id);
+        if (publication == null) return NotFound();
+
+        var existing = await _publicationRepository.GetShareAsync(id, userId.Value);
+        if (existing == null)
+        {
+            return BadRequest(new { message = "You have not shared this publication." });
+        }
+
+        await _publicationRepository.RemoveShareAsync(id, userId.Value);
+        publication.DecrementShareCount();
+        await _publicationRepository.UpdateAsync(publication);
+
+        return Ok(new { shared = false, shareCount = publication.ShareCount });
+    }
+
     [HttpGet("shared/{userId:guid}")]
     public async Task<ActionResult<IEnumerable<PublicationDto>>> GetSharedByUser(Guid userId)
     {

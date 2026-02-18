@@ -107,6 +107,11 @@ export const publicationsApi = {
     getShared: (userId: string) =>
         api.get<Publication[]>(`/publications/shared/${userId}`),
 
+    unshare: (publicationId: string) =>
+        api.delete<{ shared: boolean; shareCount: number }>(
+            `/publications/${publicationId}/share`
+        ),
+
     /**
      * Centralized function to handle the two-phase process:
      * 1. Upload file to server

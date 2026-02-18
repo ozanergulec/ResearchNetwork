@@ -10,11 +10,14 @@ interface PublicationCardProps {
     currentUserId?: string;
     onDelete?: (id: string) => void;
     showAuthor?: boolean;
+    isSharedPost?: boolean;
+    onUnshare?: (id: string) => void;
 }
 
-const PublicationCard: React.FC<PublicationCardProps> = ({ publication, currentUserId, onDelete, showAuthor }) => {
+const PublicationCard: React.FC<PublicationCardProps> = ({ publication, currentUserId, onDelete, showAuthor, isSharedPost, onUnshare }) => {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [deleting, setDeleting] = useState(false);
+    const [unsharing, setUnsharing] = useState(false);
     const [showDocumentViewer, setShowDocumentViewer] = useState(false);
     const navigate = useNavigate();
 
@@ -64,8 +67,42 @@ const PublicationCard: React.FC<PublicationCardProps> = ({ publication, currentU
         setShowDocumentViewer(true);
     };
 
+    const handleUnshare = async () => {
+        if (!onUnshare) return;
+        setUnsharing(true);
+        try {
+            await onUnshare(publication.id);
+        } catch (error) {
+            console.error('Unshare failed:', error);
+            setUnsharing(false);
+        }
+    };
+
     return (
         <div className="publication-card">
+            {isSharedPost && (
+                <div className="publication-shared-banner">
+                    <div className="shared-banner-left">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                            <polyline points="17 1 21 5 17 9" />
+                            <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+                            <polyline points="7 23 3 19 7 15" />
+                            <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+                        </svg>
+                        <span>You shared this post</span>
+                    </div>
+                    {onUnshare && (
+                        <button
+                            className="unshare-btn"
+                            onClick={handleUnshare}
+                            disabled={unsharing}
+                            title="Remove from your posts"
+                        >
+                            {unsharing ? 'Removing...' : 'Remove'}
+                        </button>
+                    )}
+                </div>
+            )}
             {showAuthor && (
                 <div className="publication-author-row" onClick={() => navigate(`/profile/${publication.author.id}`)}>
                     {authorImageUrl ? (

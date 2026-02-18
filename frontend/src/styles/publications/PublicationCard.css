@@ -256,6 +256,56 @@
     font-size: 0.9rem;
 }
 
+/* Shared Post Banner */
+.publication-shared-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 12px;
+    margin: -1.5rem -1.5rem 1rem -1.5rem;
+    background: rgba(122, 31, 43, 0.06);
+    border-bottom: 1px solid rgba(122, 31, 43, 0.1);
+    border-radius: 12px 12px 0 0;
+    font-size: 0.82rem;
+    color: var(--heading-color, #7A1F2B);
+}
+
+.shared-banner-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 500;
+}
+
+.shared-banner-left svg {
+    flex-shrink: 0;
+    opacity: 0.7;
+}
+
+.unshare-btn {
+    background: none;
+    border: 1px solid rgba(122, 31, 43, 0.25);
+    color: var(--heading-color, #7A1F2B);
+    font-size: 0.78rem;
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.unshare-btn:hover:not(:disabled) {
+    background: rgba(122, 31, 43, 0.1);
+    border-color: rgba(122, 31, 43, 0.4);
+}
+
+.unshare-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .publication-header {

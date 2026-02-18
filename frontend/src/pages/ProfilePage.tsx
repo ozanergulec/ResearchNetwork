@@ -16,7 +16,7 @@ import {
 } from '../components';
 import '../styles/pages/ProfilePage.css';
 
-type ProfileTab = 'publications' | 'saved' | 'shared';
+type ProfileTab = 'publications' | 'saved';
 
 const ProfilePage: React.FC = () => {
     const navigate = useNavigate();
@@ -29,7 +29,7 @@ const ProfilePage: React.FC = () => {
     const [showTagManagement, setShowTagManagement] = useState(false);
     const [publications, setPublications] = useState<Publication[]>([]);
     const [savedPublications, setSavedPublications] = useState<Publication[]>([]);
-    const [sharedPublications, setSharedPublications] = useState<Publication[]>([]);
+
     const [loadingPublications, setLoadingPublications] = useState(false);
     const [showAllPublications, setShowAllPublications] = useState(false);
     const [showAddPublicationModal, setShowAddPublicationModal] = useState(false);
@@ -83,9 +83,14 @@ const ProfilePage: React.FC = () => {
 
             try {
                 setLoadingPublications(true);
-                // Fetch 4 publications to check if there are more than 3 (for "Show All" button)
-                const response = await publicationsApi.getLatestByAuthor(user.id, 4);
-                setPublications(response.data);
+                // Fetch authored publications
+                const authoredResponse = await publicationsApi.getLatestByAuthor(user.id, 4);
+                // Fetch shared publications
+                const sharedResponse = await publicationsApi.getShared(user.id);
+                // Merge and sort by date descending
+                const merged = [...authoredResponse.data, ...sharedResponse.data]
+                    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+                setPublications(merged);
             } catch (err) {
                 console.error('Failed to fetch publications', err);
             } finally {
@@ -178,13 +183,23 @@ const ProfilePage: React.FC = () => {
         try {
             setLoadingPublications(true);
             if (newShowAll) {
-                // Fetch all publications when showing all
-                const response = await publicationsApi.getByAuthor(user.id);
-                setPublications(response.data);
+                // Fetch all authored + shared publications when showing all
+                const [authoredRes, sharedRes] = await Promise.all([
+                    publicationsApi.getByAuthor(user.id),
+                    publicationsApi.getShared(user.id),
+                ]);
+                const merged = [...authoredRes.data, ...sharedRes.data]
+                    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+                setPublications(merged);
             } else {
-                // Fetch 4 when collapsing to check if button should show
-                const response = await publicationsApi.getLatestByAuthor(user.id, 4);
-                setPublications(response.data);
+                // Fetch limited when collapsing
+                const [authoredRes, sharedRes] = await Promise.all([
+                    publicationsApi.getLatestByAuthor(user.id, 4),
+                    publicationsApi.getShared(user.id),
+                ]);
+                const merged = [...authoredRes.data, ...sharedRes.data]
+                    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+                setPublications(merged);
             }
         } catch (err) {
             console.error('Failed to fetch publications', err);
@@ -244,6 +259,28 @@ const ProfilePage: React.FC = () => {
         }
     };
 
+    const handleUnshare = async (publicationId: string) => {
+        try {
+            await publicationsApi.unshare(publicationId);
+
+            // Refresh publications list after unsharing
+            if (user) {
+                const [authoredRes, sharedRes] = await Promise.all([
+                    showAllPublications
+                        ? publicationsApi.getByAuthor(user.id)
+                        : publicationsApi.getLatestByAuthor(user.id, 4),
+                    publicationsApi.getShared(user.id),
+                ]);
+                const merged = [...authoredRes.data, ...sharedRes.data]
+                    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+                setPublications(merged);
+            }
+        } catch (err: any) {
+            console.error('Failed to unshare publication', err);
+            throw err;
+        }
+    };
+
     const handleTabChange = async (tab: ProfileTab) => {
         if (!user) return;
         setActiveTab(tab);
@@ -254,15 +291,17 @@ const ProfilePage: React.FC = () => {
                 // Saved is only for own profile
                 const response = await publicationsApi.getSaved();
                 setSavedPublications(response.data);
-            } else if (tab === 'shared') {
-                const response = await publicationsApi.getShared(user.id);
-                setSharedPublications(response.data);
             } else {
-                // Refresh authored publications
-                const response = showAllPublications
-                    ? await publicationsApi.getByAuthor(user.id)
-                    : await publicationsApi.getLatestByAuthor(user.id, 4);
-                setPublications(response.data);
+                // Refresh authored + shared publications
+                const [authoredRes, sharedRes] = await Promise.all([
+                    showAllPublications
+                        ? publicationsApi.getByAuthor(user.id)
+                        : publicationsApi.getLatestByAuthor(user.id, 4),
+                    publicationsApi.getShared(user.id),
+                ]);
+                const merged = [...authoredRes.data, ...sharedRes.data]
+                    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+                setPublications(merged);
             }
         } catch (err) {
             console.error('Failed to fetch tab data', err);
@@ -382,7 +421,7 @@ const ProfilePage: React.FC = () => {
                                         className={`profile-tab ${activeTab === 'publications' ? 'profile-tab-active' : ''}`}
                                         onClick={() => handleTabChange('publications')}
                                     >
-                                        {isOwnProfile ? 'My Publications' : 'Publications'}
+                                        Posts
                                     </button>
                                     {isOwnProfile && (
                                         <button
@@ -392,12 +431,7 @@ const ProfilePage: React.FC = () => {
                                             Saved
                                         </button>
                                     )}
-                                    <button
-                                        className={`profile-tab ${activeTab === 'shared' ? 'profile-tab-active' : ''}`}
-                                        onClick={() => handleTabChange('shared')}
-                                    >
-                                        Shared
-                                    </button>
+
                                     {isOwnProfile && activeTab === 'publications' && (
                                         <button
                                             className="add-publication-button"
@@ -419,21 +453,14 @@ const ProfilePage: React.FC = () => {
                                         maxPreview={3}
                                         currentUserId={user.id}
                                         onDelete={handleDeletePublication}
+                                        onUnshare={isOwnProfile ? handleUnshare : undefined}
                                     />
-                                ) : activeTab === 'saved' ? (
+                                ) : (
                                     <PublicationsList
                                         publications={savedPublications}
                                         showAll={true}
                                         maxPreview={100}
                                         currentUserId={user.id}
-                                    />
-                                ) : (
-                                    <PublicationsList
-                                        publications={sharedPublications}
-                                        showAll={true}
-                                        maxPreview={100}
-                                        currentUserId={user.id}
-                                        showAuthor={true}
                                     />
                                 )}
                             </div>

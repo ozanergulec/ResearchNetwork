@@ -11,6 +11,7 @@ interface PublicationsListProps {
     currentUserId?: string;
     onDelete?: (id: string) => void;
     showAuthor?: boolean;
+    onUnshare?: (id: string) => void;
 }
 
 const PublicationsList: React.FC<PublicationsListProps> = ({
@@ -20,7 +21,8 @@ const PublicationsList: React.FC<PublicationsListProps> = ({
     maxPreview = 3,
     currentUserId,
     onDelete,
-    showAuthor
+    showAuthor,
+    onUnshare
 }) => {
     const displayedPublications = showAll
         ? publications
@@ -39,15 +41,20 @@ const PublicationsList: React.FC<PublicationsListProps> = ({
     return (
         <div className="publications-list">
             <div className="publications-grid">
-                {displayedPublications.map((publication) => (
-                    <PublicationCard
-                        key={publication.id}
-                        publication={publication}
-                        currentUserId={currentUserId}
-                        onDelete={onDelete}
-                        showAuthor={showAuthor}
-                    />
-                ))}
+                {displayedPublications.map((publication) => {
+                    const isSharedPost = currentUserId ? publication.author.id !== currentUserId : false;
+                    return (
+                        <PublicationCard
+                            key={`${publication.id}-${isSharedPost ? 'shared' : 'own'}`}
+                            publication={publication}
+                            currentUserId={currentUserId}
+                            onDelete={onDelete}
+                            showAuthor={isSharedPost || showAuthor}
+                            isSharedPost={isSharedPost}
+                            onUnshare={isSharedPost ? onUnshare : undefined}
+                        />
+                    );
+                })}
             </div>
 
             {hasMore && onToggleShowAll && (
