@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { usersApi } from '../services/userService';
 import type { User, UpdateUserData } from '../services/userService';
-import { publicationsApi, type Publication } from '../services/publicationService';
+import { publicationsApi, type Publication, type SharedPublication } from '../services/publicationService';
 import {
     Navbar,
     Loading,
@@ -14,6 +14,8 @@ import {
     AddPublicationModal,
     Toast
 } from '../components';
+import { SharedFeedCard } from '../components/feed';
+import PublicationCard from '../components/publications/PublicationCard';
 import '../styles/pages/ProfilePage.css';
 
 type ProfileTab = 'publications' | 'saved';
@@ -28,6 +30,7 @@ const ProfilePage: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [showTagManagement, setShowTagManagement] = useState(false);
     const [publications, setPublications] = useState<Publication[]>([]);
+    const [sharedPublications, setSharedPublications] = useState<SharedPublication[]>([]);
     const [savedPublications, setSavedPublications] = useState<Publication[]>([]);
 
     const [loadingPublications, setLoadingPublications] = useState(false);
@@ -87,11 +90,8 @@ const ProfilePage: React.FC = () => {
                 const authoredResponse = await publicationsApi.getLatestByAuthor(user.id, 4);
                 // Fetch shared publications
                 const sharedResponse = await publicationsApi.getShared(user.id);
-                // Extract publications from shared items, merge and sort
-                const sharedPubs = sharedResponse.data.map(s => s.publication);
-                const merged = [...authoredResponse.data, ...sharedPubs]
-                    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-                setPublications(merged);
+                setPublications(authoredResponse.data);
+                setSharedPublications(sharedResponse.data);
             } catch (err) {
                 console.error('Failed to fetch publications', err);
             } finally {
@@ -189,18 +189,16 @@ const ProfilePage: React.FC = () => {
                     publicationsApi.getByAuthor(user.id),
                     publicationsApi.getShared(user.id),
                 ]);
-                const merged = [...authoredRes.data, ...sharedRes.data.map(s => s.publication)]
-                    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-                setPublications(merged);
+                setPublications(authoredRes.data);
+                setSharedPublications(sharedRes.data);
             } else {
                 // Fetch limited when collapsing
                 const [authoredRes, sharedRes] = await Promise.all([
                     publicationsApi.getLatestByAuthor(user.id, 4),
                     publicationsApi.getShared(user.id),
                 ]);
-                const merged = [...authoredRes.data, ...sharedRes.data.map(s => s.publication)]
-                    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-                setPublications(merged);
+                setPublications(authoredRes.data);
+                setSharedPublications(sharedRes.data);
             }
         } catch (err) {
             console.error('Failed to fetch publications', err);
@@ -272,9 +270,8 @@ const ProfilePage: React.FC = () => {
                         : publicationsApi.getLatestByAuthor(user.id, 4),
                     publicationsApi.getShared(user.id),
                 ]);
-                const merged = [...authoredRes.data, ...sharedRes.data.map(s => s.publication)]
-                    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-                setPublications(merged);
+                setPublications(authoredRes.data);
+                setSharedPublications(sharedRes.data);
             }
         } catch (err: any) {
             console.error('Failed to unshare publication', err);
@@ -300,9 +297,8 @@ const ProfilePage: React.FC = () => {
                         : publicationsApi.getLatestByAuthor(user.id, 4),
                     publicationsApi.getShared(user.id),
                 ]);
-                const merged = [...authoredRes.data, ...sharedRes.data.map(s => s.publication)]
-                    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-                setPublications(merged);
+                setPublications(authoredRes.data);
+                setSharedPublications(sharedRes.data);
             }
         } catch (err) {
             console.error('Failed to fetch tab data', err);
@@ -447,15 +443,65 @@ const ProfilePage: React.FC = () => {
                                 {loadingPublications ? (
                                     <Loading message="Loading..." />
                                 ) : activeTab === 'publications' ? (
-                                    <PublicationsList
-                                        publications={publications}
-                                        showAll={showAllPublications}
-                                        onToggleShowAll={handleTogglePublications}
-                                        maxPreview={3}
-                                        currentUserId={user.id}
-                                        onDelete={handleDeletePublication}
-                                        onUnshare={isOwnProfile ? handleUnshare : undefined}
-                                    />
+                                    (() => {
+                                        // Build unified timeline interleaving authored and shared items
+                                        type TimelineItem =
+                                            | { type: 'authored'; date: string; publication: Publication }
+                                            | { type: 'shared'; date: string; sharedPublication: SharedPublication };
+
+                                        const timeline: TimelineItem[] = [
+                                            ...publications.map(p => ({ type: 'authored' as const, date: p.createdAt, publication: p })),
+                                            ...sharedPublications.map(s => ({ type: 'shared' as const, date: s.sharedAt, sharedPublication: s })),
+                                        ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+                                        const displayedItems = showAllPublications ? timeline : timeline.slice(0, 3);
+                                        const hasMore = timeline.length > 3;
+
+                                        if (timeline.length === 0) {
+                                            return (
+                                                <div className="publications-empty">
+                                                    <p>No publications added yet.</p>
+                                                </div>
+                                            );
+                                        }
+
+                                        return (
+                                            <div className="publications-list">
+                                                <div className="publications-grid">
+                                                    {displayedItems.map((item) => {
+                                                        if (item.type === 'shared') {
+                                                            return (
+                                                                <SharedFeedCard
+                                                                    key={`share-${item.sharedPublication.shareId}`}
+                                                                    sharedPublication={item.sharedPublication}
+                                                                />
+                                                            );
+                                                        } else {
+                                                            return (
+                                                                <PublicationCard
+                                                                    key={`pub-${item.publication.id}`}
+                                                                    publication={item.publication}
+                                                                    currentUserId={user.id}
+                                                                    onDelete={handleDeletePublication}
+                                                                />
+                                                            );
+                                                        }
+                                                    })}
+                                                </div>
+
+                                                {hasMore && (
+                                                    <div className="publications-toggle">
+                                                        <button
+                                                            className="toggle-button"
+                                                            onClick={handleTogglePublications}
+                                                        >
+                                                            {showAllPublications ? 'Show Less' : 'View All'}
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })()
                                 ) : (
                                     <PublicationsList
                                         publications={savedPublications}
