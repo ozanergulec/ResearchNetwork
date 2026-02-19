@@ -124,6 +124,12 @@ export const publicationsApi = {
     getShared: (userId: string) =>
         api.get<SharedPublication[]>(`/publications/shared/${userId}`),
 
+    updateShareNote: (publicationId: string, note?: string) =>
+        api.put<{ updated: boolean }>(
+            `/publications/${publicationId}/share`,
+            { note: note || null }
+        ),
+
     unshare: (publicationId: string) =>
         api.delete<{ shared: boolean; shareCount: number }>(
             `/publications/${publicationId}/share`

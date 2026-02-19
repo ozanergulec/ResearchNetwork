@@ -193,6 +193,12 @@ public class PublicationRepository : IPublicationRepository
         await _context.SaveChangesAsync();
     }
 
+    public async Task UpdateShareAsync(PublicationShare share)
+    {
+        _context.PublicationShares.Update(share);
+        await _context.SaveChangesAsync();
+    }
+
     public async Task RemoveShareAsync(Guid publicationId, Guid userId)
     {
         var share = await _context.PublicationShares

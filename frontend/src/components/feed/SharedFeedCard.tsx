@@ -1,18 +1,45 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { SharedPublication } from '../../services/publicationService';
+import { publicationsApi } from '../../services/publicationService';
 import { API_SERVER_URL } from '../../services/apiClient';
 import PublicationDetailModal from './PublicationDetailModal';
 import '../../styles/feed/SharedFeedCard.css';
 
 interface SharedFeedCardProps {
     sharedPublication: SharedPublication;
+    onDeleted?: (shareId: string) => void;
 }
 
-const SharedFeedCard: React.FC<SharedFeedCardProps> = ({ sharedPublication }) => {
+const SharedFeedCard: React.FC<SharedFeedCardProps> = ({ sharedPublication, onDeleted }) => {
     const [showDetail, setShowDetail] = useState(false);
+    const [showMenu, setShowMenu] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
+    const [editNote, setEditNote] = useState(sharedPublication.note || '');
+    const [currentNote, setCurrentNote] = useState(sharedPublication.note);
+    const [saving, setSaving] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+    const menuRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
-    const { sharedBy, note, sharedAt, publication } = sharedPublication;
+    const { sharedBy, sharedAt, publication } = sharedPublication;
+
+    // Get current user from localStorage
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+    const isOwner = currentUser.id === sharedBy.id;
+
+    // Close menu when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+                setShowMenu(false);
+            }
+        };
+        if (showMenu) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [showMenu]);
 
     const getTimeAgo = (dateString: string): string => {
         const now = new Date();
@@ -56,6 +83,65 @@ const SharedFeedCard: React.FC<SharedFeedCardProps> = ({ sharedPublication }) =>
         navigate(`/profile/${publication.author.id}`);
     };
 
+    const handleMenuToggle = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setShowMenu(prev => !prev);
+    };
+
+    const handleEdit = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setShowMenu(false);
+        setEditNote(currentNote || '');
+        setIsEditing(true);
+    };
+
+    const handleEditSave = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setSaving(true);
+        try {
+            await publicationsApi.updateShareNote(publication.id, editNote || undefined);
+            setCurrentNote(editNote || null);
+            setIsEditing(false);
+        } catch (err) {
+            console.error('Failed to update note', err);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleEditCancel = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setIsEditing(false);
+        setEditNote(currentNote || '');
+    };
+
+    const handleDeleteClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setShowMenu(false);
+        setShowDeleteConfirm(true);
+    };
+
+    const handleDeleteConfirm = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setDeleting(true);
+        try {
+            await publicationsApi.unshare(publication.id);
+            setShowDeleteConfirm(false);
+            if (onDeleted) {
+                onDeleted(sharedPublication.shareId);
+            }
+        } catch (err) {
+            console.error('Failed to delete share', err);
+        } finally {
+            setDeleting(false);
+        }
+    };
+
+    const handleDeleteCancel = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setShowDeleteConfirm(false);
+    };
+
     return (
         <>
             <article className="shared-feed-card" onClick={() => setShowDetail(true)}>
@@ -86,12 +172,87 @@ const SharedFeedCard: React.FC<SharedFeedCardProps> = ({ sharedPublication }) =>
                         </div>
                         <span className="shared-feed-time">{getTimeAgo(sharedAt)}</span>
                     </div>
+
+                    {/* 3-dot menu - only for owner */}
+                    {isOwner && (
+                        <div className="shared-feed-menu-wrapper" ref={menuRef}>
+                            <button
+                                className="shared-feed-menu-btn"
+                                onClick={handleMenuToggle}
+                                title="More options"
+                            >
+                                ⋮
+                            </button>
+                            {showMenu && (
+                                <div className="shared-feed-dropdown">
+                                    <button className="shared-feed-dropdown-item" onClick={handleEdit}>
+                                        ✏️ Düzenle
+                                    </button>
+                                    <button className="shared-feed-dropdown-item shared-feed-dropdown-delete" onClick={handleDeleteClick}>
+                                        🗑️ Sil
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
 
-                {/* Sharer's Note */}
-                {note && (
-                    <div className="shared-feed-note">
-                        <p>{note}</p>
+                {/* Sharer's Note - editable */}
+                {isEditing ? (
+                    <div className="shared-feed-note-edit" onClick={(e) => e.stopPropagation()}>
+                        <textarea
+                            className="shared-feed-note-textarea"
+                            value={editNote}
+                            onChange={(e) => setEditNote(e.target.value)}
+                            placeholder="Notunuzu yazın..."
+                            rows={3}
+                            autoFocus
+                        />
+                        <div className="shared-feed-note-edit-actions">
+                            <button
+                                className="shared-feed-note-save-btn"
+                                onClick={handleEditSave}
+                                disabled={saving}
+                            >
+                                {saving ? 'Kaydediliyor...' : 'Kaydet'}
+                            </button>
+                            <button
+                                className="shared-feed-note-cancel-btn"
+                                onClick={handleEditCancel}
+                                disabled={saving}
+                            >
+                                İptal
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    currentNote && (
+                        <div className="shared-feed-note">
+                            <p>{currentNote}</p>
+                        </div>
+                    )
+                )}
+
+                {/* Delete Confirmation */}
+                {showDeleteConfirm && (
+                    <div className="shared-feed-delete-confirm" onClick={(e) => e.stopPropagation()}>
+                        <p>Bu paylaşımı silmek istediğinize emin misiniz?</p>
+                        <div className="shared-feed-delete-actions">
+                            <button
+                                className="shared-feed-delete-yes"
+                                onClick={handleDeleteConfirm}
+                                disabled={deleting}
+                            >
+                                {deleting ? 'Siliniyor...' : 'Evet, Sil'}
+                            </button>
+                            <button
+                                className="shared-feed-delete-no"
+                                onClick={handleDeleteCancel}
+                                disabled={deleting}
+                            >
+                                İptal
+                            </button>
+                        </div>
                     </div>
                 )}
 

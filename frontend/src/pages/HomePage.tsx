@@ -138,6 +138,11 @@ const HomePage: React.FC = () => {
                                     <SharedFeedCard
                                         key={`share-${item.sharedPublication.shareId}`}
                                         sharedPublication={item.sharedPublication}
+                                        onDeleted={(shareId) => {
+                                            setFeedItems(prev => prev.filter(
+                                                fi => !(fi.type === 'share' && fi.sharedPublication?.shareId === shareId)
+                                            ));
+                                        }}
                                     />
                                 );
                             } else if (item.publication) {

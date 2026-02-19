@@ -29,6 +29,7 @@ public interface IPublicationRepository
     // Share
     Task<PublicationShare?> GetShareAsync(Guid publicationId, Guid userId);
     Task AddShareAsync(PublicationShare share);
+    Task UpdateShareAsync(PublicationShare share);
     Task RemoveShareAsync(Guid publicationId, Guid userId);
     Task<IEnumerable<PublicationShare>> GetSharedByUserAsync(Guid userId);
     Task<(IEnumerable<PublicationShare> Items, int TotalCount)> GetAllSharesForFeedAsync(int page, int pageSize);

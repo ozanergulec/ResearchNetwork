@@ -474,6 +474,11 @@ const ProfilePage: React.FC = () => {
                                                                 <SharedFeedCard
                                                                     key={`share-${item.sharedPublication.shareId}`}
                                                                     sharedPublication={item.sharedPublication}
+                                                                    onDeleted={(shareId) => {
+                                                                        setSharedPublications(prev =>
+                                                                            prev.filter(sp => sp.shareId !== shareId)
+                                                                        );
+                                                                    }}
                                                                 />
                                                             );
                                                         } else {

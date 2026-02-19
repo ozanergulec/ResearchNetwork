@@ -28,4 +28,9 @@ public class PublicationShare
         Note = note;
         SharedAt = DateTime.UtcNow;
     }
+
+    public void UpdateNote(string? note)
+    {
+        Note = note;
+    }
 }

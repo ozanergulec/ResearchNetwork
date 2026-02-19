@@ -95,6 +95,224 @@
     color: #aaa;
 }
 
+/* ===== 3-Dot Menu ===== */
+.shared-feed-menu-wrapper {
+    position: relative;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+.shared-feed-menu-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.3rem;
+    color: #888;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s, color 0.2s;
+    line-height: 1;
+    padding: 0;
+}
+
+.shared-feed-menu-btn:hover {
+    background: rgba(42, 31, 29, 0.08);
+    color: var(--heading-color, #7A1F2B);
+}
+
+.shared-feed-dropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    min-width: 150px;
+    z-index: 100;
+    overflow: hidden;
+    animation: shared-feed-dropdown-appear 0.15s ease-out;
+}
+
+@keyframes shared-feed-dropdown-appear {
+    from {
+        opacity: 0;
+        transform: translateY(-6px) scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.shared-feed-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 16px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 0.88rem;
+    color: var(--text-primary, #333);
+    transition: background 0.15s;
+    text-align: left;
+}
+
+.shared-feed-dropdown-item:hover {
+    background: rgba(42, 31, 29, 0.06);
+}
+
+.shared-feed-dropdown-delete {
+    color: #d32f2f;
+}
+
+.shared-feed-dropdown-delete:hover {
+    background: rgba(211, 47, 47, 0.06);
+}
+
+/* ===== Note Edit ===== */
+.shared-feed-note-edit {
+    padding: 12px 24px 0;
+}
+
+.shared-feed-note-textarea {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1.5px solid rgba(42, 31, 29, 0.15);
+    border-radius: 8px;
+    font-size: 0.92rem;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 60px;
+    color: var(--text-primary, #333);
+    background: #fff;
+    transition: border-color 0.2s;
+    box-sizing: border-box;
+}
+
+.shared-feed-note-textarea:focus {
+    outline: none;
+    border-color: var(--heading-color, #7A1F2B);
+}
+
+.shared-feed-note-edit-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    justify-content: flex-end;
+}
+
+.shared-feed-note-save-btn {
+    padding: 6px 18px;
+    border: none;
+    border-radius: 6px;
+    background: var(--heading-color, #7A1F2B);
+    color: #fff;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.shared-feed-note-save-btn:hover {
+    opacity: 0.9;
+}
+
+.shared-feed-note-save-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.shared-feed-note-cancel-btn {
+    padding: 6px 18px;
+    border: 1.5px solid rgba(42, 31, 29, 0.15);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--text-primary, #333);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.shared-feed-note-cancel-btn:hover {
+    background: rgba(42, 31, 29, 0.04);
+}
+
+.shared-feed-note-cancel-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* ===== Delete Confirmation ===== */
+.shared-feed-delete-confirm {
+    margin: 12px 24px 0;
+    padding: 14px 16px;
+    border-radius: 10px;
+    background: rgba(211, 47, 47, 0.05);
+    border: 1px solid rgba(211, 47, 47, 0.15);
+}
+
+.shared-feed-delete-confirm p {
+    margin: 0 0 12px;
+    font-size: 0.9rem;
+    color: #333;
+    font-weight: 500;
+}
+
+.shared-feed-delete-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.shared-feed-delete-yes {
+    padding: 6px 18px;
+    border: none;
+    border-radius: 6px;
+    background: #d32f2f;
+    color: #fff;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.shared-feed-delete-yes:hover {
+    opacity: 0.9;
+}
+
+.shared-feed-delete-yes:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.shared-feed-delete-no {
+    padding: 6px 18px;
+    border: 1.5px solid rgba(42, 31, 29, 0.15);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--text-primary, #333);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.shared-feed-delete-no:hover {
+    background: rgba(42, 31, 29, 0.04);
+}
+
+.shared-feed-delete-no:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
 /* Sharer's Note */
 .shared-feed-note {
     padding: 12px 24px 0;

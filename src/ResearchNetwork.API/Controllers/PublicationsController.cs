@@ -362,6 +362,28 @@ public class PublicationsController : ControllerBase
     }
 
     [Authorize]
+    [HttpPut("{id:guid}/share")]
+    public async Task<ActionResult> UpdateShareNote(Guid id, [FromBody] SharePublicationDto? dto)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+
+        var publication = await _publicationRepository.GetByIdAsync(id);
+        if (publication == null) return NotFound();
+
+        var existing = await _publicationRepository.GetShareAsync(id, userId.Value);
+        if (existing == null)
+        {
+            return BadRequest(new { message = "You have not shared this publication." });
+        }
+
+        existing.UpdateNote(dto?.Note);
+        await _publicationRepository.UpdateShareAsync(existing);
+
+        return Ok(new { updated = true });
+    }
+
+    [Authorize]
     [HttpDelete("{id:guid}/share")]
     public async Task<ActionResult> UnsharePublication(Guid id)
     {
