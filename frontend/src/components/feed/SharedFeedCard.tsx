@@ -186,10 +186,10 @@ const SharedFeedCard: React.FC<SharedFeedCardProps> = ({ sharedPublication, onDe
                             {showMenu && (
                                 <div className="shared-feed-dropdown">
                                     <button className="shared-feed-dropdown-item" onClick={handleEdit}>
-                                        ✏️ Düzenle
+                                         Edit
                                     </button>
                                     <button className="shared-feed-dropdown-item shared-feed-dropdown-delete" onClick={handleDeleteClick}>
-                                        🗑️ Sil
+                                         Delete
                                     </button>
                                 </div>
                             )}
@@ -204,7 +204,7 @@ const SharedFeedCard: React.FC<SharedFeedCardProps> = ({ sharedPublication, onDe
                             className="shared-feed-note-textarea"
                             value={editNote}
                             onChange={(e) => setEditNote(e.target.value)}
-                            placeholder="Notunuzu yazın..."
+                            placeholder="Write your note..."
                             rows={3}
                             autoFocus
                         />
@@ -214,14 +214,14 @@ const SharedFeedCard: React.FC<SharedFeedCardProps> = ({ sharedPublication, onDe
                                 onClick={handleEditSave}
                                 disabled={saving}
                             >
-                                {saving ? 'Kaydediliyor...' : 'Kaydet'}
+                                {saving ? 'Saving...' : 'Save'}
                             </button>
                             <button
                                 className="shared-feed-note-cancel-btn"
                                 onClick={handleEditCancel}
                                 disabled={saving}
                             >
-                                İptal
+                                Cancel
                             </button>
                         </div>
                     </div>
@@ -236,21 +236,21 @@ const SharedFeedCard: React.FC<SharedFeedCardProps> = ({ sharedPublication, onDe
                 {/* Delete Confirmation */}
                 {showDeleteConfirm && (
                     <div className="shared-feed-delete-confirm" onClick={(e) => e.stopPropagation()}>
-                        <p>Bu paylaşımı silmek istediğinize emin misiniz?</p>
+                        <p>Are you sure you want to delete this share?</p>
                         <div className="shared-feed-delete-actions">
                             <button
                                 className="shared-feed-delete-yes"
                                 onClick={handleDeleteConfirm}
                                 disabled={deleting}
                             >
-                                {deleting ? 'Siliniyor...' : 'Evet, Sil'}
+                                {deleting ? 'Deleting...' : 'Yes, Delete'}
                             </button>
                             <button
                                 className="shared-feed-delete-no"
                                 onClick={handleDeleteCancel}
                                 disabled={deleting}
                             >
-                                İptal
+                                Cancel
                             </button>
                         </div>
                     </div>
