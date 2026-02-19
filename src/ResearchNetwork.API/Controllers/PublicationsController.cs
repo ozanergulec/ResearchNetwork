@@ -241,6 +241,40 @@ public class PublicationsController : ControllerBase
         return File(fileBytes, contentType, fileName);
     }
 
+    // ==================== UPDATE ====================
+
+    [Authorize]
+    [HttpPut("{id:guid}")]
+    public async Task<ActionResult<PublicationDto>> Update(Guid id, [FromBody] UpdatePublicationDto dto)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+
+        try
+        {
+            var publication = await _publicationService.UpdatePublicationAsync(id, userId.Value, dto);
+
+            // Reload with navigation properties
+            var updated = await _publicationRepository.GetByIdAsync(publication.Id);
+            if (updated == null)
+                return StatusCode(500, "Failed to retrieve updated publication");
+
+            return Ok(await MapToPublicationDto(updated, userId));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Forbid();
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Publication update failed", error = ex.Message });
+        }
+    }
+
     // ==================== RATE ====================
 
     [Authorize]

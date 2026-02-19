@@ -150,6 +150,11 @@ const HomePage: React.FC = () => {
                                     <FeedPublicationCard
                                         key={`pub-${item.publication.id}`}
                                         publication={item.publication}
+                                        onDeleted={(pubId) => {
+                                            setFeedItems(prev => prev.filter(
+                                                fi => !(fi.type === 'publication' && fi.publication?.id === pubId)
+                                            ));
+                                        }}
                                     />
                                 );
                             }

@@ -28,6 +28,14 @@ public record CreatePublicationDto(
     List<string>? Tags
 );
 
+public record UpdatePublicationDto(
+    string Title,
+    string? Abstract,
+    string? DOI,
+    DateTime? PublishedDate,
+    List<string>? Tags
+);
+
 public record RatePublicationDto(
     int Score
 );

@@ -9,9 +9,12 @@ import '../../styles/feed/FeedPublicationCard.css';
 
 interface FeedPublicationCardProps {
     publication: Publication;
+    onDeleted?: (publicationId: string) => void;
+    onUpdated?: (updatedPublication: Publication) => void;
 }
 
-const FeedPublicationCard: React.FC<FeedPublicationCardProps> = ({ publication }) => {
+const FeedPublicationCard: React.FC<FeedPublicationCardProps> = ({ publication: initialPublication, onDeleted, onUpdated }) => {
+    const [publication, setPublication] = useState(initialPublication);
     const [showDetail, setShowDetail] = useState(false);
     const [showRatingPopup, setShowRatingPopup] = useState(false);
     const [hoverRating, setHoverRating] = useState(0);
@@ -23,8 +26,22 @@ const FeedPublicationCard: React.FC<FeedPublicationCardProps> = ({ publication }
     const [shareCount, setShareCount] = useState(publication.shareCount);
     const [savingAction, setSavingAction] = useState(false);
     const [showShareModal, setShowShareModal] = useState(false);
+    const [showMenu, setShowMenu] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
+    const [editTitle, setEditTitle] = useState(publication.title);
+    const [editAbstract, setEditAbstract] = useState(publication.abstract || '');
+    const [editDoi, setEditDoi] = useState(publication.doi || '');
+    const [editTags, setEditTags] = useState(publication.tags.join(', '));
+    const [saving, setSaving] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [deleting, setDeleting] = useState(false);
     const ratingRef = useRef<HTMLDivElement>(null);
+    const menuRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
+
+    // Get current user for ownership check
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+    const isOwner = currentUser.id === publication.author.id;
 
     // Close rating popup on outside click
     useEffect(() => {
@@ -38,6 +55,19 @@ const FeedPublicationCard: React.FC<FeedPublicationCardProps> = ({ publication }
         }
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [showRatingPopup]);
+
+    // Close menu on outside click
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+                setShowMenu(false);
+            }
+        };
+        if (showMenu) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [showMenu]);
 
     const getTimeAgo = (dateString: string): string => {
         const now = new Date();
@@ -140,6 +170,78 @@ const FeedPublicationCard: React.FC<FeedPublicationCardProps> = ({ publication }
         }
     };
 
+    const handleMenuToggle = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setShowMenu(prev => !prev);
+    };
+
+    const handleEditOpen = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setShowMenu(false);
+        setEditTitle(publication.title);
+        setEditAbstract(publication.abstract || '');
+        setEditDoi(publication.doi || '');
+        setEditTags(publication.tags.join(', '));
+        setIsEditing(true);
+    };
+
+    const handleEditSave = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!editTitle.trim()) return;
+        setSaving(true);
+        try {
+            const tagsArray = editTags
+                .split(',')
+                .map(t => t.trim())
+                .filter(t => t.length > 0);
+
+            const res = await publicationsApi.update(publication.id, {
+                title: editTitle.trim(),
+                abstract: editAbstract.trim() || undefined,
+                doi: editDoi.trim() || undefined,
+                publishedDate: publication.publishedDate || undefined,
+                tags: tagsArray,
+            });
+            setPublication(res.data);
+            setIsEditing(false);
+            if (onUpdated) onUpdated(res.data);
+        } catch (err) {
+            console.error('Failed to update publication', err);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleEditCancel = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setIsEditing(false);
+    };
+
+    const handleDeleteClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setShowMenu(false);
+        setShowDeleteConfirm(true);
+    };
+
+    const handleDeleteConfirm = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setDeleting(true);
+        try {
+            await publicationsApi.delete(publication.id);
+            setShowDeleteConfirm(false);
+            if (onDeleted) onDeleted(publication.id);
+        } catch (err) {
+            console.error('Failed to delete publication', err);
+        } finally {
+            setDeleting(false);
+        }
+    };
+
+    const handleDeleteCancel = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setShowDeleteConfirm(false);
+    };
+
     return (
         <>
             <article className="feed-card" onClick={handleCardClick}>
@@ -174,24 +276,131 @@ const FeedPublicationCard: React.FC<FeedPublicationCardProps> = ({ publication }
                         </p>
                         <span className="feed-card-time">{getTimeAgo(publication.createdAt)}</span>
                     </div>
-                </div>
 
-                {/* Publication Content */}
-                <div className="feed-card-content">
-                    <h3 className="feed-card-title">{publication.title}</h3>
-                    {publication.abstract && (
-                        <p className="feed-card-abstract">
-                            {truncateText(publication.abstract, 300)}
-                        </p>
+                    {/* 3-dot menu - only for owner */}
+                    {isOwner && (
+                        <div className="feed-card-menu-wrapper" ref={menuRef}>
+                            <button
+                                className="feed-card-menu-btn"
+                                onClick={handleMenuToggle}
+                                title="More options"
+                            >
+                                ⋮
+                            </button>
+                            {showMenu && (
+                                <div className="feed-card-dropdown">
+                                    <button className="feed-card-dropdown-item" onClick={handleEditOpen}>
+                                         Edit
+                                    </button>
+                                    <button className="feed-card-dropdown-item feed-card-dropdown-delete" onClick={handleDeleteClick}>
+                                         Delete
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                     )}
                 </div>
 
-                {/* Tags */}
-                {publication.tags.length > 0 && (
-                    <div className="feed-card-tags">
-                        {publication.tags.map((tag, index) => (
-                            <span key={index} className="feed-card-tag">{tag}</span>
-                        ))}
+                {/* Edit Form */}
+                {isEditing ? (
+                    <div className="feed-card-edit-form" onClick={(e) => e.stopPropagation()}>
+                        <div className="feed-card-edit-field">
+                            <label>Title</label>
+                            <input
+                                type="text"
+                                value={editTitle}
+                                onChange={(e) => setEditTitle(e.target.value)}
+                                placeholder="Publication title"
+                                autoFocus
+                            />
+                        </div>
+                        <div className="feed-card-edit-field">
+                            <label>Abstract</label>
+                            <textarea
+                                value={editAbstract}
+                                onChange={(e) => setEditAbstract(e.target.value)}
+                                placeholder="Abstract"
+                                rows={3}
+                            />
+                        </div>
+                        <div className="feed-card-edit-field">
+                            <label>DOI</label>
+                            <input
+                                type="text"
+                                value={editDoi}
+                                onChange={(e) => setEditDoi(e.target.value)}
+                                placeholder="DOI"
+                            />
+                        </div>
+                        <div className="feed-card-edit-field">
+                            <label>Tags (comma separated)</label>
+                            <input
+                                type="text"
+                                value={editTags}
+                                onChange={(e) => setEditTags(e.target.value)}
+                                placeholder="e.g. AI, Machine Learning"
+                            />
+                        </div>
+                        <div className="feed-card-edit-actions">
+                            <button
+                                className="feed-card-edit-save-btn"
+                                onClick={handleEditSave}
+                                disabled={saving || !editTitle.trim()}
+                            >
+                                {saving ? 'Saving...' : 'Save'}
+                            </button>
+                            <button
+                                className="feed-card-edit-cancel-btn"
+                                onClick={handleEditCancel}
+                                disabled={saving}
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <>
+                        {/* Publication Content */}
+                        <div className="feed-card-content">
+                            <h3 className="feed-card-title">{publication.title}</h3>
+                            {publication.abstract && (
+                                <p className="feed-card-abstract">
+                                    {truncateText(publication.abstract, 300)}
+                                </p>
+                            )}
+                        </div>
+
+                        {/* Tags */}
+                        {publication.tags.length > 0 && (
+                            <div className="feed-card-tags">
+                                {publication.tags.map((tag, index) => (
+                                    <span key={index} className="feed-card-tag">{tag}</span>
+                                ))}
+                            </div>
+                        )}
+                    </>
+                )}
+
+                {/* Delete Confirmation */}
+                {showDeleteConfirm && (
+                    <div className="feed-card-delete-confirm" onClick={(e) => e.stopPropagation()}>
+                        <p>Are you sure you want to delete this publication?</p>
+                        <div className="feed-card-delete-actions">
+                            <button
+                                className="feed-card-delete-yes"
+                                onClick={handleDeleteConfirm}
+                                disabled={deleting}
+                            >
+                                {deleting ? 'Deleting...' : 'Yes, Delete'}
+                            </button>
+                            <button
+                                className="feed-card-delete-no"
+                                onClick={handleDeleteCancel}
+                                disabled={deleting}
+                            >
+                                Cancel
+                            </button>
+                        </div>
                     </div>
                 )}
 

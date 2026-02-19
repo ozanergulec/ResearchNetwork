@@ -40,6 +40,15 @@ export interface CreatePublicationDto {
     tags?: string[];
 }
 
+// Update Publication DTO
+export interface UpdatePublicationDto {
+    title: string;
+    abstract?: string;
+    doi?: string;
+    publishedDate?: string;
+    tags?: string[];
+}
+
 // Paged Result Interface (for feed pagination)
 export interface PagedResult<T> {
     items: T[];
@@ -94,6 +103,9 @@ export const publicationsApi = {
 
     create: (data: CreatePublicationDto) =>
         api.post<Publication>('/publications', data),
+
+    update: (id: string, data: UpdatePublicationDto) =>
+        api.put<Publication>(`/publications/${id}`, data),
 
     delete: (id: string) =>
         api.delete(`/publications/${id}`),

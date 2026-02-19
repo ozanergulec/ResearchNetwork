@@ -60,6 +60,43 @@ public class PublicationService : IPublicationService
         return publication;
     }
 
+    public async Task<Publication> UpdatePublicationAsync(Guid publicationId, Guid authorId, UpdatePublicationDto dto)
+    {
+        var publication = await _publicationRepository.GetByIdAsync(publicationId);
+        if (publication == null)
+            throw new InvalidOperationException($"Publication with ID {publicationId} not found.");
+
+        if (publication.AuthorId != authorId)
+            throw new UnauthorizedAccessException("You can only edit your own publications.");
+
+        // Update basic fields
+        publication.Title = dto.Title;
+        publication.Abstract = dto.Abstract;
+        publication.DOI = dto.DOI;
+        publication.PublishedDate = dto.PublishedDate;
+
+        // Update tags if provided
+        if (dto.Tags != null)
+        {
+            publication.Tags.Clear();
+            if (dto.Tags.Count > 0)
+            {
+                var tags = await FindOrCreateTagsAsync(dto.Tags);
+                foreach (var tag in tags)
+                {
+                    publication.Tags.Add(new PublicationTag
+                    {
+                        Publication = publication,
+                        Tag = tag
+                    });
+                }
+            }
+        }
+
+        await _publicationRepository.UpdateAsync(publication);
+        return publication;
+    }
+
     public async Task<List<Tag>> FindOrCreateTagsAsync(List<string> tagNames)
     {
         var tags = new List<Tag>();

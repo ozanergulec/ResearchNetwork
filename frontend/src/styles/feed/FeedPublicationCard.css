@@ -100,6 +100,246 @@
     color: #aaa;
 }
 
+/* ===== 3-Dot Menu ===== */
+.feed-card-menu-wrapper {
+    position: relative;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+.feed-card-menu-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.3rem;
+    color: #888;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s, color 0.2s;
+    line-height: 1;
+    padding: 0;
+}
+
+.feed-card-menu-btn:hover {
+    background: rgba(42, 31, 29, 0.08);
+    color: var(--heading-color, #7A1F2B);
+}
+
+.feed-card-dropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    min-width: 150px;
+    z-index: 100;
+    overflow: hidden;
+    animation: feed-dropdown-appear 0.15s ease-out;
+}
+
+@keyframes feed-dropdown-appear {
+    from {
+        opacity: 0;
+        transform: translateY(-6px) scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.feed-card-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 16px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 0.88rem;
+    color: var(--text-primary, #333);
+    transition: background 0.15s;
+    text-align: left;
+}
+
+.feed-card-dropdown-item:hover {
+    background: rgba(42, 31, 29, 0.06);
+}
+
+.feed-card-dropdown-delete {
+    color: #d32f2f;
+}
+
+.feed-card-dropdown-delete:hover {
+    background: rgba(211, 47, 47, 0.06);
+}
+
+/* ===== Edit Form ===== */
+.feed-card-edit-form {
+    padding: 16px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.feed-card-edit-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.feed-card-edit-field label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.feed-card-edit-field input,
+.feed-card-edit-field textarea {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1.5px solid rgba(42, 31, 29, 0.15);
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-family: inherit;
+    color: var(--text-primary, #333);
+    background: #fff;
+    transition: border-color 0.2s;
+    box-sizing: border-box;
+}
+
+.feed-card-edit-field input:focus,
+.feed-card-edit-field textarea:focus {
+    outline: none;
+    border-color: var(--heading-color, #7A1F2B);
+}
+
+.feed-card-edit-field textarea {
+    resize: vertical;
+    min-height: 60px;
+}
+
+.feed-card-edit-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 4px;
+}
+
+.feed-card-edit-save-btn {
+    padding: 7px 20px;
+    border: none;
+    border-radius: 6px;
+    background: var(--heading-color, #7A1F2B);
+    color: #fff;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.feed-card-edit-save-btn:hover {
+    opacity: 0.9;
+}
+
+.feed-card-edit-save-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.feed-card-edit-cancel-btn {
+    padding: 7px 20px;
+    border: 1.5px solid rgba(42, 31, 29, 0.15);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--text-primary, #333);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.feed-card-edit-cancel-btn:hover {
+    background: rgba(42, 31, 29, 0.04);
+}
+
+.feed-card-edit-cancel-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* ===== Delete Confirmation ===== */
+.feed-card-delete-confirm {
+    margin: 0 24px;
+    padding: 14px 16px;
+    border-radius: 10px;
+    background: rgba(211, 47, 47, 0.05);
+    border: 1px solid rgba(211, 47, 47, 0.15);
+}
+
+.feed-card-delete-confirm p {
+    margin: 0 0 12px;
+    font-size: 0.9rem;
+    color: #333;
+    font-weight: 500;
+}
+
+.feed-card-delete-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.feed-card-delete-yes {
+    padding: 6px 18px;
+    border: none;
+    border-radius: 6px;
+    background: #d32f2f;
+    color: #fff;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.feed-card-delete-yes:hover {
+    opacity: 0.9;
+}
+
+.feed-card-delete-yes:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.feed-card-delete-no {
+    padding: 6px 18px;
+    border: 1.5px solid rgba(42, 31, 29, 0.15);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--text-primary, #333);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.feed-card-delete-no:hover {
+    background: rgba(42, 31, 29, 0.04);
+}
+
+.feed-card-delete-no:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
 /* Content */
 .feed-card-content {
     padding: 16px 24px;
