@@ -423,10 +423,19 @@ public class PublicationsController : ControllerBase
     [HttpDelete("{id:guid}")]
     public async Task<ActionResult> Delete(Guid id)
     {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+
         var publication = await _publicationRepository.GetByIdAsync(id);
         if (publication == null)
         {
             return NotFound();
+        }
+
+        // Only the author can delete their own publication
+        if (publication.AuthorId != userId.Value)
+        {
+            return Forbid();
         }
 
         await _publicationRepository.DeleteAsync(id);

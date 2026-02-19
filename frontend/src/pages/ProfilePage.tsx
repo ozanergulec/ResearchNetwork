@@ -40,6 +40,10 @@ const ProfilePage: React.FC = () => {
     const [isOwnProfile, setIsOwnProfile] = useState(true);
     const [activeTab, setActiveTab] = useState<ProfileTab>('publications');
 
+    // Always use the logged-in user's ID for ownership checks
+    const loggedInUser = JSON.parse(localStorage.getItem('user') || '{}');
+    const loggedInUserId: string | undefined = loggedInUser.id;
+
     useEffect(() => {
         const fetchProfile = async () => {
             const token = localStorage.getItem('token');
@@ -486,7 +490,7 @@ const ProfilePage: React.FC = () => {
                                                                 <PublicationCard
                                                                     key={`pub-${item.publication.id}`}
                                                                     publication={item.publication}
-                                                                    currentUserId={user.id}
+                                                                    currentUserId={loggedInUserId}
                                                                     onDelete={handleDeletePublication}
                                                                 />
                                                             );
@@ -512,7 +516,7 @@ const ProfilePage: React.FC = () => {
                                         publications={savedPublications}
                                         showAll={true}
                                         maxPreview={100}
-                                        currentUserId={user.id}
+                                        currentUserId={loggedInUserId}
                                     />
                                 )}
                             </div>
