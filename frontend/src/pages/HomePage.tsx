@@ -79,6 +79,19 @@ const HomePage: React.FC = () => {
         }
     }, []);
 
+    // Refresh feed from scratch (e.g. after sharing)
+    const refreshFeed = useCallback(async () => {
+        try {
+            const response = await publicationsApi.getFeed(1, PAGE_SIZE);
+            setFeedItems(response.data.items);
+            setHasMore(response.data.hasMore);
+            hasMoreRef.current = response.data.hasMore;
+            pageRef.current = 1;
+        } catch (err) {
+            console.error('Failed to refresh feed', err);
+        }
+    }, []);
+
     // Intersection Observer for infinite scroll — stable, no dependency churn
     useEffect(() => {
         if (loading) return;
@@ -155,6 +168,7 @@ const HomePage: React.FC = () => {
                                                 fi => !(fi.type === 'publication' && fi.publication?.id === pubId)
                                             ));
                                         }}
+                                        onShared={refreshFeed}
                                     />
                                 );
                             }

@@ -11,9 +11,10 @@ interface FeedPublicationCardProps {
     publication: Publication;
     onDeleted?: (publicationId: string) => void;
     onUpdated?: (updatedPublication: Publication) => void;
+    onShared?: () => void;
 }
 
-const FeedPublicationCard: React.FC<FeedPublicationCardProps> = ({ publication: initialPublication, onDeleted, onUpdated }) => {
+const FeedPublicationCard: React.FC<FeedPublicationCardProps> = ({ publication: initialPublication, onDeleted, onUpdated, onShared }) => {
     const [publication, setPublication] = useState(initialPublication);
     const [showDetail, setShowDetail] = useState(false);
     const [showRatingPopup, setShowRatingPopup] = useState(false);
@@ -163,6 +164,7 @@ const FeedPublicationCard: React.FC<FeedPublicationCardProps> = ({ publication: 
             setIsShared(res.data.shared);
             setShareCount(res.data.shareCount);
             setShowShareModal(false);
+            if (onShared) onShared();
         } catch (err) {
             console.error('Failed to share publication', err);
         } finally {
