@@ -14,4 +14,10 @@ public interface IUserRepository
     Task<bool> ExistsAsync(string email);
     Task AddUserTagAsync(Guid userId, Guid tagId);
     Task RemoveUserTagAsync(Guid userId, Guid tagId);
+
+    // Follow
+    Task<UserFollow?> GetFollowAsync(Guid followerId, Guid followeeId);
+    Task AddFollowAsync(UserFollow follow);
+    Task RemoveFollowAsync(Guid followerId, Guid followeeId);
+    Task<IEnumerable<Guid>> GetFollowingIdsAsync(Guid userId);
 }

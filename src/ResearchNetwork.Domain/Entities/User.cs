@@ -104,6 +104,11 @@ public class User
         AvgScore = newScore;
     }
 
+    public void IncrementFollowerCount() => FollowerCount++;
+    public void DecrementFollowerCount() { if (FollowerCount > 0) FollowerCount--; }
+    public void IncrementFollowingCount() => FollowingCount++;
+    public void DecrementFollowingCount() { if (FollowingCount > 0) FollowingCount--; }
+
 
 
     public void SetInstitutionalEmail(string institutionalEmail)

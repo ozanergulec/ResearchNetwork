@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ResearchNetwork.Application.DTOs;
 using ResearchNetwork.Application.Interfaces;
+using ResearchNetwork.Domain.Entities;
 
 namespace ResearchNetwork.API.Controllers;
 
@@ -260,6 +261,80 @@ public class UsersController : ControllerBase
         }
 
         return Ok(MapToUserDto(user));
+    }
+
+    // ==================== FOLLOW ====================
+
+    [Authorize]
+    [HttpPost("{id:guid}/follow")]
+    public async Task<ActionResult> FollowUser(Guid id)
+    {
+        var currentUserId = GetUserIdFromClaims();
+        if (currentUserId == null) return Unauthorized();
+        if (currentUserId.Value == id)
+            return BadRequest(new { message = "You cannot follow yourself." });
+
+        var targetUser = await _userRepository.GetByIdAsync(id);
+        if (targetUser == null) return NotFound();
+
+        var existingFollow = await _userRepository.GetFollowAsync(currentUserId.Value, id);
+        if (existingFollow != null)
+            return Ok(new { following = true, followerCount = targetUser.FollowerCount });
+
+        var follow = new UserFollow(currentUserId.Value, id);
+        await _userRepository.AddFollowAsync(follow);
+
+        targetUser.IncrementFollowerCount();
+        await _userRepository.UpdateAsync(targetUser);
+
+        var currentUser = await _userRepository.GetByIdAsync(currentUserId.Value);
+        if (currentUser != null)
+        {
+            currentUser.IncrementFollowingCount();
+            await _userRepository.UpdateAsync(currentUser);
+        }
+
+        return Ok(new { following = true, followerCount = targetUser.FollowerCount });
+    }
+
+    [Authorize]
+    [HttpDelete("{id:guid}/follow")]
+    public async Task<ActionResult> UnfollowUser(Guid id)
+    {
+        var currentUserId = GetUserIdFromClaims();
+        if (currentUserId == null) return Unauthorized();
+
+        var targetUser = await _userRepository.GetByIdAsync(id);
+        if (targetUser == null) return NotFound();
+
+        var existingFollow = await _userRepository.GetFollowAsync(currentUserId.Value, id);
+        if (existingFollow == null)
+            return Ok(new { following = false, followerCount = targetUser.FollowerCount });
+
+        await _userRepository.RemoveFollowAsync(currentUserId.Value, id);
+
+        targetUser.DecrementFollowerCount();
+        await _userRepository.UpdateAsync(targetUser);
+
+        var currentUser = await _userRepository.GetByIdAsync(currentUserId.Value);
+        if (currentUser != null)
+        {
+            currentUser.DecrementFollowingCount();
+            await _userRepository.UpdateAsync(currentUser);
+        }
+
+        return Ok(new { following = false, followerCount = targetUser.FollowerCount });
+    }
+
+    [Authorize]
+    [HttpGet("following/ids")]
+    public async Task<ActionResult<IEnumerable<Guid>>> GetFollowingIds()
+    {
+        var currentUserId = GetUserIdFromClaims();
+        if (currentUserId == null) return Unauthorized();
+
+        var ids = await _userRepository.GetFollowingIdsAsync(currentUserId.Value);
+        return Ok(ids);
     }
 
     [Authorize]

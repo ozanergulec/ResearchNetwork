@@ -74,4 +74,14 @@ export const usersApi = {
             headers: { 'Content-Type': 'multipart/form-data' },
         });
     },
+
+    // Follow
+    follow: (userId: string) =>
+        api.post<{ following: boolean; followerCount: number }>(`/users/${userId}/follow`),
+
+    unfollow: (userId: string) =>
+        api.delete<{ following: boolean; followerCount: number }>(`/users/${userId}/follow`),
+
+    getFollowingIds: () =>
+        api.get<string[]>('/users/following/ids'),
 };

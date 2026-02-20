@@ -124,4 +124,37 @@ public class UserRepository : IUserRepository
 
         await _context.SaveChangesAsync();
     }
+
+    // --- Follow ---
+
+    public async Task<UserFollow?> GetFollowAsync(Guid followerId, Guid followeeId)
+    {
+        return await _context.UserFollows
+            .FirstOrDefaultAsync(f => f.FollowerId == followerId && f.FolloweeId == followeeId);
+    }
+
+    public async Task AddFollowAsync(UserFollow follow)
+    {
+        _context.UserFollows.Add(follow);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task RemoveFollowAsync(Guid followerId, Guid followeeId)
+    {
+        var follow = await _context.UserFollows
+            .FirstOrDefaultAsync(f => f.FollowerId == followerId && f.FolloweeId == followeeId);
+        if (follow != null)
+        {
+            _context.UserFollows.Remove(follow);
+            await _context.SaveChangesAsync();
+        }
+    }
+
+    public async Task<IEnumerable<Guid>> GetFollowingIdsAsync(Guid userId)
+    {
+        return await _context.UserFollows
+            .Where(f => f.FollowerId == userId)
+            .Select(f => f.FolloweeId)
+            .ToListAsync();
+    }
 }

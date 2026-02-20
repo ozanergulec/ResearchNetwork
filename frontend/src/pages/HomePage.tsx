@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { publicationsApi, type FeedItem } from '../services/publicationService';
+import { usersApi } from '../services/userService';
 import { Navbar, Loading } from '../components';
 import { FeedPublicationCard, SharedFeedCard } from '../components/feed';
 import '../styles/pages/HomePage.css';
@@ -10,6 +11,7 @@ const PAGE_SIZE = 10;
 const HomePage: React.FC = () => {
     const navigate = useNavigate();
     const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
+    const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
     const [hasMore, setHasMore] = useState(true);
@@ -34,11 +36,15 @@ const HomePage: React.FC = () => {
         const fetchInitialFeed = async () => {
             try {
                 setLoading(true);
-                const response = await publicationsApi.getFeed(1, PAGE_SIZE);
-                setFeedItems(response.data.items);
-                setHasMore(response.data.hasMore);
-                hasMoreRef.current = response.data.hasMore;
+                const [feedResponse, followingResponse] = await Promise.all([
+                    publicationsApi.getFeed(1, PAGE_SIZE),
+                    usersApi.getFollowingIds(),
+                ]);
+                setFeedItems(feedResponse.data.items);
+                setHasMore(feedResponse.data.hasMore);
+                hasMoreRef.current = feedResponse.data.hasMore;
                 pageRef.current = 1;
+                setFollowingIds(new Set(followingResponse.data));
                 setError(null);
             } catch (err: any) {
                 console.error('Failed to fetch feed', err);
@@ -163,6 +169,14 @@ const HomePage: React.FC = () => {
                                     <FeedPublicationCard
                                         key={`pub-${item.publication.id}`}
                                         publication={item.publication}
+                                        isFollowing={followingIds.has(item.publication.author.id)}
+                                        onFollowChange={(authorId, following) => {
+                                            setFollowingIds(prev => {
+                                                const next = new Set(prev);
+                                                following ? next.add(authorId) : next.delete(authorId);
+                                                return next;
+                                            });
+                                        }}
                                         onDeleted={(pubId) => {
                                             setFeedItems(prev => prev.filter(
                                                 fi => !(fi.type === 'publication' && fi.publication?.id === pubId)

@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Publication } from '../../services/publicationService';
 import { publicationsApi } from '../../services/publicationService';
+import { usersApi } from '../../services/userService';
 import { API_SERVER_URL } from '../../services/apiClient';
 import PublicationDetailModal from './PublicationDetailModal';
 import ShareModal from './ShareModal';
@@ -9,12 +10,14 @@ import '../../styles/feed/FeedPublicationCard.css';
 
 interface FeedPublicationCardProps {
     publication: Publication;
+    isFollowing?: boolean;
+    onFollowChange?: (authorId: string, following: boolean) => void;
     onDeleted?: (publicationId: string) => void;
     onUpdated?: (updatedPublication: Publication) => void;
     onShared?: () => void;
 }
 
-const FeedPublicationCard: React.FC<FeedPublicationCardProps> = ({ publication: initialPublication, onDeleted, onUpdated, onShared }) => {
+const FeedPublicationCard: React.FC<FeedPublicationCardProps> = ({ publication: initialPublication, isFollowing: initialIsFollowing = false, onFollowChange, onDeleted, onUpdated, onShared }) => {
     const [publication, setPublication] = useState(initialPublication);
     const [showDetail, setShowDetail] = useState(false);
     const [showRatingPopup, setShowRatingPopup] = useState(false);
@@ -36,6 +39,8 @@ const FeedPublicationCard: React.FC<FeedPublicationCardProps> = ({ publication: 
     const [saving, setSaving] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [deleting, setDeleting] = useState(false);
+    const [following, setFollowing] = useState(initialIsFollowing);
+    const [followLoading, setFollowLoading] = useState(false);
     const ratingRef = useRef<HTMLDivElement>(null);
     const menuRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
@@ -43,6 +48,10 @@ const FeedPublicationCard: React.FC<FeedPublicationCardProps> = ({ publication: 
     // Get current user for ownership check
     const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
     const isOwner = currentUser.id === publication.author.id;
+
+    useEffect(() => {
+        setFollowing(initialIsFollowing);
+    }, [initialIsFollowing]);
 
     // Close rating popup on outside click
     useEffect(() => {
@@ -244,6 +253,27 @@ const FeedPublicationCard: React.FC<FeedPublicationCardProps> = ({ publication: 
         setShowDeleteConfirm(false);
     };
 
+    const handleFollowToggle = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (followLoading) return;
+        setFollowLoading(true);
+        try {
+            if (following) {
+                await usersApi.unfollow(publication.author.id);
+                setFollowing(false);
+                onFollowChange?.(publication.author.id, false);
+            } else {
+                await usersApi.follow(publication.author.id);
+                setFollowing(true);
+                onFollowChange?.(publication.author.id, true);
+            }
+        } catch (err) {
+            console.error('Failed to toggle follow', err);
+        } finally {
+            setFollowLoading(false);
+        }
+    };
+
     return (
         <>
             <article className="feed-card" onClick={handleCardClick}>
@@ -269,6 +299,15 @@ const FeedPublicationCard: React.FC<FeedPublicationCardProps> = ({ publication: 
                             </span>
                             {publication.author.isVerified && (
                                 <span className="feed-card-verified" title="Verified">✓</span>
+                            )}
+                            {!isOwner && (
+                                <button
+                                    className={`feed-card-follow-btn ${following ? 'feed-card-follow-btn-following' : ''}`}
+                                    onClick={handleFollowToggle}
+                                    disabled={followLoading}
+                                >
+                                    {followLoading ? '...' : following ? 'Unfollow' : 'Follow'}
+                                </button>
                             )}
                         </h4>
                         <p className="feed-card-author-detail">
