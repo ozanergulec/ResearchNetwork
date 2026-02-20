@@ -1,3 +1,4 @@
+export { default as FollowListModal } from './FollowListModal';
 export { default as ProfileEditForm } from './ProfileEditForm';
 export { default as ProfileHeader } from './ProfileHeader';
 export { default as ProfileInfo } from './ProfileInfo';

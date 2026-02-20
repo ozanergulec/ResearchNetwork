@@ -1,4 +1,5 @@
 import api from './apiClient';
+import type { UserSummary } from './publicationService';
 
 // Types
 export interface Tag {
@@ -84,4 +85,10 @@ export const usersApi = {
 
     getFollowingIds: () =>
         api.get<string[]>('/users/following/ids'),
+
+    getFollowers: (userId: string) =>
+        api.get<UserSummary[]>(`/users/${userId}/followers`),
+
+    getFollowing: (userId: string) =>
+        api.get<UserSummary[]>(`/users/${userId}/following`),
 };

@@ -60,6 +60,38 @@ public class UsersController : ControllerBase
         ));
     }
 
+    [HttpGet("{id:guid}/followers")]
+    public async Task<ActionResult<IEnumerable<UserSummaryDto>>> GetFollowers(Guid id)
+    {
+        var follows = await _userRepository.GetFollowersAsync(id);
+        var dtos = follows.Select(f => new UserSummaryDto(
+            f.Follower.Id,
+            f.Follower.FullName,
+            f.Follower.Title,
+            f.Follower.Institution,
+            f.Follower.ProfileImageUrl,
+            f.Follower.CoverImageUrl,
+            f.Follower.IsVerified
+        ));
+        return Ok(dtos);
+    }
+
+    [HttpGet("{id:guid}/following")]
+    public async Task<ActionResult<IEnumerable<UserSummaryDto>>> GetFollowing(Guid id)
+    {
+        var follows = await _userRepository.GetFollowingAsync(id);
+        var dtos = follows.Select(f => new UserSummaryDto(
+            f.Followee.Id,
+            f.Followee.FullName,
+            f.Followee.Title,
+            f.Followee.Institution,
+            f.Followee.ProfileImageUrl,
+            f.Followee.CoverImageUrl,
+            f.Followee.IsVerified
+        ));
+        return Ok(dtos);
+    }
+
     [Authorize]
     [HttpGet("profile")]
     public async Task<ActionResult<UserDto>> GetProfile()

@@ -20,4 +20,6 @@ public interface IUserRepository
     Task AddFollowAsync(UserFollow follow);
     Task RemoveFollowAsync(Guid followerId, Guid followeeId);
     Task<IEnumerable<Guid>> GetFollowingIdsAsync(Guid userId);
+    Task<IEnumerable<UserFollow>> GetFollowersAsync(Guid userId);
+    Task<IEnumerable<UserFollow>> GetFollowingAsync(Guid userId);
 }

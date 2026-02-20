@@ -126,6 +126,22 @@
     gap: 4px;
 }
 
+.profile-stat-clickable {
+    cursor: pointer;
+    border-radius: 8px;
+    padding: 8px;
+    margin: -8px;
+    transition: background 0.2s;
+}
+
+.profile-stat-clickable:hover {
+    background: rgba(122, 31, 43, 0.06);
+}
+
+.profile-stat-clickable:hover .stat-value {
+    text-decoration: underline;
+}
+
 .stat-value {
     font-size: 1.5rem;
     font-weight: 700;

@@ -157,4 +157,20 @@ public class UserRepository : IUserRepository
             .Select(f => f.FolloweeId)
             .ToListAsync();
     }
+
+    public async Task<IEnumerable<UserFollow>> GetFollowersAsync(Guid userId)
+    {
+        return await _context.UserFollows
+            .Where(f => f.FolloweeId == userId)
+            .Include(f => f.Follower)
+            .ToListAsync();
+    }
+
+    public async Task<IEnumerable<UserFollow>> GetFollowingAsync(Guid userId)
+    {
+        return await _context.UserFollows
+            .Where(f => f.FollowerId == userId)
+            .Include(f => f.Followee)
+            .ToListAsync();
+    }
 }
