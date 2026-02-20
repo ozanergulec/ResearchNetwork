@@ -222,18 +222,15 @@ const ProfilePage: React.FC = () => {
         }
     };
 
-    const handleDeletePublication = async (publicationId: string) => {
+    const handleDeletePublication = async () => {
+        if (!user) return;
         try {
-            await publicationsApi.delete(publicationId);
-            if (user) {
-                const response = showAllPublications
-                    ? await publicationsApi.getByAuthor(user.id)
-                    : await publicationsApi.getLatestByAuthor(user.id, 4);
-                setPublications(response.data);
-            }
-        } catch (err: any) {
-            console.error('Failed to delete publication', err);
-            throw err;
+            const response = showAllPublications
+                ? await publicationsApi.getByAuthor(user.id)
+                : await publicationsApi.getLatestByAuthor(user.id, 4);
+            setPublications(response.data);
+        } catch (err) {
+            console.error('Failed to refresh publications', err);
         }
     };
 
