@@ -13,10 +13,10 @@ import {
     AddPublicationModal,
     Toast
 } from '../components';
-import { SharedFeedCard, FeedPublicationCard } from '../components/feed';
+import ProfileStats from '../components/profile/ProfileStats';
+import ProfileTabContent from '../components/profile/ProfileTabContent';
+import type { ProfileTab } from '../components/profile/ProfileTabContent';
 import '../styles/pages/ProfilePage.css';
-
-type ProfileTab = 'publications' | 'my-publications' | 'saved';
 
 const ProfilePage: React.FC = () => {
     const navigate = useNavigate();
@@ -30,7 +30,6 @@ const ProfilePage: React.FC = () => {
     const [publications, setPublications] = useState<Publication[]>([]);
     const [sharedPublications, setSharedPublications] = useState<SharedPublication[]>([]);
     const [savedPublications, setSavedPublications] = useState<Publication[]>([]);
-
     const [loadingPublications, setLoadingPublications] = useState(false);
     const [showAllPublications, setShowAllPublications] = useState(false);
     const [showAddPublicationModal, setShowAddPublicationModal] = useState(false);
@@ -39,10 +38,6 @@ const ProfilePage: React.FC = () => {
     const [activeTab, setActiveTab] = useState<ProfileTab>('publications');
     const [isFollowing, setIsFollowing] = useState(false);
     const [followLoading, setFollowLoading] = useState(false);
-
-    // Always use the logged-in user's ID for ownership checks
-    const loggedInUser = JSON.parse(localStorage.getItem('user') || '{}');
-    const loggedInUserId: string | undefined = loggedInUser.id;
 
     useEffect(() => {
         const fetchProfile = async () => {
@@ -91,15 +86,14 @@ const ProfilePage: React.FC = () => {
     useEffect(() => {
         const fetchPublications = async () => {
             if (!user) return;
-
             try {
                 setLoadingPublications(true);
-                // Fetch authored publications
-                const authoredResponse = await publicationsApi.getLatestByAuthor(user.id, 4);
-                // Fetch shared publications
-                const sharedResponse = await publicationsApi.getShared(user.id);
-                setPublications(authoredResponse.data);
-                setSharedPublications(sharedResponse.data);
+                const [authoredRes, sharedRes] = await Promise.all([
+                    publicationsApi.getLatestByAuthor(user.id, 4),
+                    publicationsApi.getShared(user.id),
+                ]);
+                setPublications(authoredRes.data);
+                setSharedPublications(sharedRes.data);
             } catch (err) {
                 console.error('Failed to fetch publications', err);
             } finally {
@@ -113,11 +107,9 @@ const ProfilePage: React.FC = () => {
     const handleSave = async (data: UpdateUserData) => {
         setSaving(true);
         setError(null);
-
         try {
             const response = await usersApi.updateProfile(data);
             setUser(response.data);
-            // Update localStorage with new user data
             localStorage.setItem('user', JSON.stringify(response.data));
             setEditing(false);
         } catch (err: any) {
@@ -126,20 +118,6 @@ const ProfilePage: React.FC = () => {
         } finally {
             setSaving(false);
         }
-    };
-
-    const handleEditClick = () => {
-        setEditing(true);
-        setError(null);
-    };
-
-    const handleCancel = () => {
-        setEditing(false);
-        setError(null);
-    };
-
-    const handleEditTags = () => {
-        setShowTagManagement(true);
     };
 
     const handleImageUpload = async (file: File, type: 'profile' | 'cover') => {
@@ -168,122 +146,12 @@ const ProfilePage: React.FC = () => {
         }
     };
 
-    const handleCloseTagManagement = () => {
-        setShowTagManagement(false);
-    };
-
     const handleTagsUpdated = async () => {
-        // Refresh user profile to get updated tags
         try {
             const response = await usersApi.getProfile();
             setUser(response.data);
         } catch (err) {
             console.error('Failed to refresh profile', err);
-        }
-    };
-
-    const handleTogglePublications = async () => {
-        if (!user) return;
-
-        const newShowAll = !showAllPublications;
-        setShowAllPublications(newShowAll);
-
-        // Fetch publications based on the new state
-        try {
-            setLoadingPublications(true);
-            if (newShowAll) {
-                // Fetch all authored + shared publications when showing all
-                const [authoredRes, sharedRes] = await Promise.all([
-                    publicationsApi.getByAuthor(user.id),
-                    publicationsApi.getShared(user.id),
-                ]);
-                setPublications(authoredRes.data);
-                setSharedPublications(sharedRes.data);
-            } else {
-                // Fetch limited when collapsing
-                const [authoredRes, sharedRes] = await Promise.all([
-                    publicationsApi.getLatestByAuthor(user.id, 4),
-                    publicationsApi.getShared(user.id),
-                ]);
-                setPublications(authoredRes.data);
-                setSharedPublications(sharedRes.data);
-            }
-        } catch (err) {
-            console.error('Failed to fetch publications', err);
-        } finally {
-            setLoadingPublications(false);
-        }
-    };
-
-    const handleOpenAddPublication = async () => {
-        // Refresh publications list when opening modal
-        if (user) {
-            try {
-                const response = showAllPublications
-                    ? await publicationsApi.getByAuthor(user.id)
-                    : await publicationsApi.getLatestByAuthor(user.id, 4);
-                setPublications(response.data);
-            } catch (err) {
-                console.error('Failed to refresh publications', err);
-            }
-        }
-
-        setShowAddPublicationModal(true);
-    };
-
-    const handleCloseAddPublication = () => {
-        setShowAddPublicationModal(false);
-    };
-
-    const handlePublicationAdded = async () => {
-        // Refresh publications list
-        if (!user) return;
-
-        try {
-            const response = showAllPublications
-                ? await publicationsApi.getByAuthor(user.id)
-                : await publicationsApi.getLatestByAuthor(user.id, 4);
-            setPublications(response.data);
-        } catch (err) {
-            console.error('Failed to refresh publications', err);
-        }
-    };
-
-    const handleDeletePublication = async (publicationId: string) => {
-        try {
-            await publicationsApi.delete(publicationId);
-
-            // Refresh publications list after deletion
-            if (user) {
-                const response = showAllPublications
-                    ? await publicationsApi.getByAuthor(user.id)
-                    : await publicationsApi.getLatestByAuthor(user.id, 4);
-                setPublications(response.data);
-            }
-        } catch (err: any) {
-            console.error('Failed to delete publication', err);
-            throw err; // Re-throw to let the component handle the error
-        }
-    };
-
-    const handleUnshare = async (publicationId: string) => {
-        try {
-            await publicationsApi.unshare(publicationId);
-
-            // Refresh publications list after unsharing
-            if (user) {
-                const [authoredRes, sharedRes] = await Promise.all([
-                    showAllPublications
-                        ? publicationsApi.getByAuthor(user.id)
-                        : publicationsApi.getLatestByAuthor(user.id, 4),
-                    publicationsApi.getShared(user.id),
-                ]);
-                setPublications(authoredRes.data);
-                setSharedPublications(sharedRes.data);
-            }
-        } catch (err: any) {
-            console.error('Failed to unshare publication', err);
-            throw err;
         }
     };
 
@@ -307,10 +175,71 @@ const ProfilePage: React.FC = () => {
         }
     };
 
+    const handleTogglePublications = async () => {
+        if (!user) return;
+        const newShowAll = !showAllPublications;
+        setShowAllPublications(newShowAll);
+        try {
+            setLoadingPublications(true);
+            const [authoredRes, sharedRes] = await Promise.all([
+                newShowAll
+                    ? publicationsApi.getByAuthor(user.id)
+                    : publicationsApi.getLatestByAuthor(user.id, 4),
+                publicationsApi.getShared(user.id),
+            ]);
+            setPublications(authoredRes.data);
+            setSharedPublications(sharedRes.data);
+        } catch (err) {
+            console.error('Failed to fetch publications', err);
+        } finally {
+            setLoadingPublications(false);
+        }
+    };
+
+    const handleOpenAddPublication = async () => {
+        if (user) {
+            try {
+                const response = showAllPublications
+                    ? await publicationsApi.getByAuthor(user.id)
+                    : await publicationsApi.getLatestByAuthor(user.id, 4);
+                setPublications(response.data);
+            } catch (err) {
+                console.error('Failed to refresh publications', err);
+            }
+        }
+        setShowAddPublicationModal(true);
+    };
+
+    const handlePublicationAdded = async () => {
+        if (!user) return;
+        try {
+            const response = showAllPublications
+                ? await publicationsApi.getByAuthor(user.id)
+                : await publicationsApi.getLatestByAuthor(user.id, 4);
+            setPublications(response.data);
+        } catch (err) {
+            console.error('Failed to refresh publications', err);
+        }
+    };
+
+    const handleDeletePublication = async (publicationId: string) => {
+        try {
+            await publicationsApi.delete(publicationId);
+            if (user) {
+                const response = showAllPublications
+                    ? await publicationsApi.getByAuthor(user.id)
+                    : await publicationsApi.getLatestByAuthor(user.id, 4);
+                setPublications(response.data);
+            }
+        } catch (err: any) {
+            console.error('Failed to delete publication', err);
+            throw err;
+        }
+    };
+
     const handleTabChange = async (tab: ProfileTab) => {
         if (!user) return;
         setActiveTab(tab);
-
         try {
             setLoadingPublications(true);
             if (tab === 'saved') {
@@ -359,13 +288,9 @@ const ProfilePage: React.FC = () => {
             <Navbar currentPage={isOwnProfile ? "profile" : "none"} />
 
             <div className="profile-content">
-                {/* Header Card - Full Width */}
+                {/* Header Card */}
                 <div className="profile-card">
-                    {error && (
-                        <div className="profile-error-message">
-                            {error}
-                        </div>
-                    )}
+                    {error && <div className="profile-error-message">{error}</div>}
 
                     {editing && isOwnProfile ? (
                         <>
@@ -388,7 +313,7 @@ const ProfilePage: React.FC = () => {
                                     bio: user.bio || '',
                                 }}
                                 onSave={handleSave}
-                                onCancel={handleCancel}
+                                onCancel={() => { setEditing(false); setError(null); }}
                                 loading={saving}
                             />
                         </>
@@ -399,7 +324,7 @@ const ProfilePage: React.FC = () => {
                             isVerified={user.isVerified}
                             profileImageUrl={user.profileImageUrl}
                             coverImageUrl={user.coverImageUrl}
-                            onEditClick={isOwnProfile ? handleEditClick : undefined}
+                            onEditClick={isOwnProfile ? () => { setEditing(true); setError(null); } : undefined}
                             onImageUpload={isOwnProfile ? handleImageUpload : undefined}
                             onImageRemove={isOwnProfile ? handleImageRemove : undefined}
                             isFollowing={isFollowing}
@@ -412,174 +337,32 @@ const ProfilePage: React.FC = () => {
                 {/* Two Column Layout */}
                 {!editing && (
                     <div className="profile-body">
-                        {/* Left Sidebar */}
                         <div className="profile-sidebar">
-                            {/* About + Tags */}
                             <div className="profile-card">
-                                <ProfileInfo user={user} onEditTags={isOwnProfile ? handleEditTags : undefined} />
+                                <ProfileInfo user={user} onEditTags={isOwnProfile ? () => setShowTagManagement(true) : undefined} />
                             </div>
-
-                            {/* Statistics */}
                             <div className="profile-card">
-                                <div className="profile-info-section">
-                                    <h2 className="profile-info-section-title">Statistics</h2>
-                                    <div className="profile-stats">
-                                        <div className="profile-stat">
-                                            <span className="stat-value">{user.followerCount}</span>
-                                            <span className="stat-label">Followers</span>
-                                        </div>
-                                        <div className="profile-stat">
-                                            <span className="stat-value">{user.followingCount}</span>
-                                            <span className="stat-label">Following</span>
-                                        </div>
-                                        <div className="profile-stat">
-                                            <span className="stat-value">{user.avgScore.toFixed(1)}</span>
-                                            <span className="stat-label">Avg Score</span>
-                                        </div>
-                                    </div>
-                                </div>
+                                <ProfileStats user={user} />
                             </div>
                         </div>
 
-                        {/* Right Main Content */}
                         <div className="profile-main">
-                            <div className="profile-card publications-section">
-                                {/* Tab Navigation */}
-                                <div className="profile-tabs">
-                                    <button
-                                        className={`profile-tab ${activeTab === 'publications' ? 'profile-tab-active' : ''}`}
-                                        onClick={() => handleTabChange('publications')}
-                                    >
-                                        Posts
-                                    </button>
-                                    <button
-                                        className={`profile-tab ${activeTab === 'my-publications' ? 'profile-tab-active' : ''}`}
-                                        onClick={() => handleTabChange('my-publications')}
-                                    >
-                                        Publications
-                                    </button>
-                                    {isOwnProfile && (
-                                        <button
-                                            className={`profile-tab ${activeTab === 'saved' ? 'profile-tab-active' : ''}`}
-                                            onClick={() => handleTabChange('saved')}
-                                        >
-                                            Saved
-                                        </button>
-                                    )}
-
-                                    {isOwnProfile && (activeTab === 'publications' || activeTab === 'my-publications') && (
-                                        <button
-                                            className="add-publication-button"
-                                            onClick={handleOpenAddPublication}
-                                        >
-                                            + Add New Publication
-                                        </button>
-                                    )}
-                                </div>
-
-                                {/* Tab Content */}
-                                {loadingPublications ? (
-                                    <Loading message="Loading..." />
-                                ) : activeTab === 'publications' ? (
-                                    (() => {
-                                        type TimelineItem =
-                                            | { type: 'authored'; date: string; publication: Publication }
-                                            | { type: 'shared'; date: string; sharedPublication: SharedPublication };
-
-                                        const timeline: TimelineItem[] = [
-                                            ...publications.map(p => ({ type: 'authored' as const, date: p.createdAt, publication: p })),
-                                            ...sharedPublications.map(s => ({ type: 'shared' as const, date: s.sharedAt, sharedPublication: s })),
-                                        ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-                                        const displayedItems = showAllPublications ? timeline : timeline.slice(0, 3);
-                                        const hasMore = timeline.length > 3;
-
-                                        if (timeline.length === 0) {
-                                            return (
-                                                <div className="publications-empty">
-                                                    <p>No posts yet.</p>
-                                                </div>
-                                            );
-                                        }
-
-                                        return (
-                                            <div className="publications-list">
-                                                <div className="publications-grid">
-                                                    {displayedItems.map((item) => {
-                                                        if (item.type === 'shared') {
-                                                            return (
-                                                                <SharedFeedCard
-                                                                    key={`share-${item.sharedPublication.shareId}`}
-                                                                    sharedPublication={item.sharedPublication}
-                                                                    onDeleted={(shareId) => {
-                                                                        setSharedPublications(prev =>
-                                                                            prev.filter(sp => sp.shareId !== shareId)
-                                                                        );
-                                                                    }}
-                                                                />
-                                                            );
-                                                        } else {
-                                                            return (
-                                                                <FeedPublicationCard
-                                                                    key={`pub-${item.publication.id}`}
-                                                                    publication={item.publication}
-                                                                    onDeleted={handleDeletePublication}
-                                                                />
-                                                            );
-                                                        }
-                                                    })}
-                                                </div>
-
-                                                {hasMore && (
-                                                    <div className="publications-toggle">
-                                                        <button
-                                                            className="toggle-button"
-                                                            onClick={handleTogglePublications}
-                                                        >
-                                                            {showAllPublications ? 'Show Less' : 'View All'}
-                                                        </button>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        );
-                                    })()
-                                ) : activeTab === 'my-publications' ? (
-                                    publications.length === 0 ? (
-                                        <div className="publications-empty">
-                                            <p>No publications yet.</p>
-                                        </div>
-                                    ) : (
-                                        <div className="publications-list">
-                                            <div className="publications-grid">
-                                                {publications.map((pub) => (
-                                                    <FeedPublicationCard
-                                                        key={`mypub-${pub.id}`}
-                                                        publication={pub}
-                                                        onDeleted={handleDeletePublication}
-                                                    />
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )
-                                ) : (
-                                    savedPublications.length === 0 ? (
-                                        <div className="publications-empty">
-                                            <p>No saved publications yet.</p>
-                                        </div>
-                                    ) : (
-                                        <div className="publications-list">
-                                            <div className="publications-grid">
-                                                {savedPublications.map((pub) => (
-                                                    <FeedPublicationCard
-                                                        key={`saved-${pub.id}`}
-                                                        publication={pub}
-                                                    />
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )
-                                )}
-                            </div>
+                            <ProfileTabContent
+                                activeTab={activeTab}
+                                onTabChange={handleTabChange}
+                                isOwnProfile={isOwnProfile}
+                                loading={loadingPublications}
+                                publications={publications}
+                                sharedPublications={sharedPublications}
+                                savedPublications={savedPublications}
+                                showAllPublications={showAllPublications}
+                                onToggleShowAll={handleTogglePublications}
+                                onAddPublication={handleOpenAddPublication}
+                                onDeletePublication={handleDeletePublication}
+                                onSharedDeleted={(shareId) => {
+                                    setSharedPublications(prev => prev.filter(sp => sp.shareId !== shareId));
+                                }}
+                            />
                         </div>
                     </div>
                 )}
@@ -587,14 +370,14 @@ const ProfilePage: React.FC = () => {
                 {showTagManagement && (
                     <TagManagementPopup
                         userTags={user.tags}
-                        onClose={handleCloseTagManagement}
+                        onClose={() => setShowTagManagement(false)}
                         onTagsUpdated={handleTagsUpdated}
                     />
                 )}
 
                 {showAddPublicationModal && (
                     <AddPublicationModal
-                        onClose={handleCloseAddPublication}
+                        onClose={() => setShowAddPublicationModal(false)}
                         onPublicationAdded={handlePublicationAdded}
                     />
                 )}
