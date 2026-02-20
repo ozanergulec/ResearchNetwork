@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { publicationsApi, type FeedItem } from '../services/publicationService';
 import { usersApi } from '../services/userService';
 import { Navbar, Loading } from '../components';
-import { FeedPublicationCard, SharedFeedCard } from '../components/feed';
+import { FeedPublicationCard, SharedFeedCard, HomeProfileSidebar } from '../components/feed';
 import '../styles/pages/HomePage.css';
 
 const PAGE_SIZE = 10;
@@ -131,84 +131,89 @@ const HomePage: React.FC = () => {
         <div className="home-container">
             <Navbar currentPage="home" />
 
-            <div className="home-content">
-                <div className="home-header">
-                    <h1 className="home-title">Feed</h1>
-                    <p className="home-subtitle">Latest publications from the research community</p>
+            <div className="home-layout">
+                <div className="home-sidebar">
+                    <HomeProfileSidebar />
                 </div>
 
-                {error && (
-                    <div className="home-empty">
-                        <p>{error}</p>
+                <div className="home-content">
+                    <div className="home-header">
+                        <h1 className="home-title">Feed</h1>
+                        <p className="home-subtitle">Latest publications from the research community</p>
                     </div>
-                )}
 
-                {!error && feedItems.length === 0 ? (
-                    <div className="home-empty">
-                        <div className="home-empty-icon">📚</div>
-                        <h3>No Publications Yet</h3>
-                        <p>Be the first to share your research with the community!</p>
-                    </div>
-                ) : (
-                    <div className="home-feed">
-                        {feedItems.map((item) => {
-                            if (item.type === 'share' && item.sharedPublication) {
-                                return (
-                                    <SharedFeedCard
-                                        key={`share-${item.sharedPublication.shareId}`}
-                                        sharedPublication={item.sharedPublication}
-                                        onDeleted={(shareId) => {
-                                            setFeedItems(prev => prev.filter(
-                                                fi => !(fi.type === 'share' && fi.sharedPublication?.shareId === shareId)
-                                            ));
-                                        }}
-                                    />
-                                );
-                            } else if (item.publication) {
-                                return (
-                                    <FeedPublicationCard
-                                        key={`pub-${item.publication.id}`}
-                                        publication={item.publication}
-                                        isFollowing={followingIds.has(item.publication.author.id)}
-                                        onFollowChange={(authorId, following) => {
-                                            setFollowingIds(prev => {
-                                                const next = new Set(prev);
-                                                following ? next.add(authorId) : next.delete(authorId);
-                                                return next;
-                                            });
-                                        }}
-                                        onDeleted={(pubId) => {
-                                            setFeedItems(prev => prev.filter(
-                                                fi => !(fi.type === 'publication' && fi.publication?.id === pubId)
-                                            ));
-                                        }}
-                                        onShared={refreshFeed}
-                                    />
-                                );
-                            }
-                            return null;
-                        })}
+                    {error && (
+                        <div className="home-empty">
+                            <p>{error}</p>
+                        </div>
+                    )}
 
-                        {/* Infinite Scroll Sentinel */}
-                        {hasMore && (
-                            <>
-                                <div ref={sentinelRef} className="home-scroll-sentinel" />
-                                {loadingMore && (
-                                    <div className="home-loading-more">
-                                        <div className="home-loading-spinner" />
-                                        <span>Loading more...</span>
-                                    </div>
-                                )}
-                            </>
-                        )}
+                    {!error && feedItems.length === 0 ? (
+                        <div className="home-empty">
+                            <div className="home-empty-icon">📚</div>
+                            <h3>No Publications Yet</h3>
+                            <p>Be the first to share your research with the community!</p>
+                        </div>
+                    ) : (
+                        <div className="home-feed">
+                            {feedItems.map((item) => {
+                                if (item.type === 'share' && item.sharedPublication) {
+                                    return (
+                                        <SharedFeedCard
+                                            key={`share-${item.sharedPublication.shareId}`}
+                                            sharedPublication={item.sharedPublication}
+                                            onDeleted={(shareId) => {
+                                                setFeedItems(prev => prev.filter(
+                                                    fi => !(fi.type === 'share' && fi.sharedPublication?.shareId === shareId)
+                                                ));
+                                            }}
+                                        />
+                                    );
+                                } else if (item.publication) {
+                                    return (
+                                        <FeedPublicationCard
+                                            key={`pub-${item.publication.id}`}
+                                            publication={item.publication}
+                                            isFollowing={followingIds.has(item.publication.author.id)}
+                                            onFollowChange={(authorId, following) => {
+                                                setFollowingIds(prev => {
+                                                    const next = new Set(prev);
+                                                    following ? next.add(authorId) : next.delete(authorId);
+                                                    return next;
+                                                });
+                                            }}
+                                            onDeleted={(pubId) => {
+                                                setFeedItems(prev => prev.filter(
+                                                    fi => !(fi.type === 'publication' && fi.publication?.id === pubId)
+                                                ));
+                                            }}
+                                            onShared={refreshFeed}
+                                        />
+                                    );
+                                }
+                                return null;
+                            })}
 
-                        {!hasMore && feedItems.length > 0 && (
-                            <div className="home-end">
-                                You've reached the end of the feed
-                            </div>
-                        )}
-                    </div>
-                )}
+                            {hasMore && (
+                                <>
+                                    <div ref={sentinelRef} className="home-scroll-sentinel" />
+                                    {loadingMore && (
+                                        <div className="home-loading-more">
+                                            <div className="home-loading-spinner" />
+                                            <span>Loading more...</span>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+
+                            {!hasMore && feedItems.length > 0 && (
+                                <div className="home-end">
+                                    You've reached the end of the feed
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );

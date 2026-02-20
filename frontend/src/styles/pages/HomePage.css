@@ -1,13 +1,28 @@
-/* ===== Home Page — Desktop Single-Column Feed ===== */
+/* ===== Home Page — Feed with Sidebar ===== */
 .home-container {
     min-height: 100vh;
     background: var(--bg-primary);
 }
 
-.home-content {
-    max-width: 780px;
+.home-layout {
+    max-width: 1200px;
     margin: 0 auto;
     padding: 40px 24px 64px;
+    margin: 0 auto 0 60px;
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 24px;
+    align-items: start;
+}
+
+.home-sidebar {
+    position: sticky;
+    top: 24px;
+}
+
+.home-content {
+    max-width: 780px;
+    min-width: 0;
 }
 
 /* Page Header */
@@ -103,9 +118,20 @@
     width: 100%;
 }
 
-/* Responsive */
+/* Responsive — collapse to single column */
+@media (max-width: 1080px) {
+    .home-layout {
+        grid-template-columns: 1fr;
+        max-width: 780px;
+    }
+
+    .home-sidebar {
+        display: none;
+    }
+}
+
 @media (max-width: 600px) {
-    .home-content {
+    .home-layout {
         padding: 16px 8px 48px;
     }
 
