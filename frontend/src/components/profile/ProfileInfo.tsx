@@ -48,7 +48,7 @@ const ProfileInfo: React.FC<ProfileInfoProps> = ({ user, onEditTags }) => {
                     {user.tags && user.tags.length > 0 ? (
                         <div className="profile-tags">
                             {user.tags.map(tag => (
-                                <TagBadge key={tag.id} name={tag.name} usageCount={tag.usageCount} />
+                                <TagBadge key={tag.id} name={tag.name} />
                             ))}
                         </div>
                     ) : (
