@@ -37,27 +37,6 @@ const ProfileEditForm: React.FC<ProfileEditFormProps> = ({
             />
 
             <FormInput
-                label="Title"
-                value={formData.title || ''}
-                onChange={updateField('title')}
-                placeholder="e.g., Prof. Dr., Research Asst."
-            />
-
-            <FormInput
-                label="Institution"
-                value={formData.institution || ''}
-                onChange={updateField('institution')}
-                placeholder="e.g., Harvard University"
-            />
-
-            <FormInput
-                label="Department"
-                value={formData.department || ''}
-                onChange={updateField('department')}
-                placeholder="e.g., Computer Science"
-            />
-
-            <FormInput
                 label="Bio"
                 value={formData.bio || ''}
                 onChange={updateField('bio')}
