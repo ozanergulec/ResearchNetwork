@@ -138,6 +138,40 @@
     color: #fff;
 }
 
+/* Follow Button */
+.profile-follow-button {
+    padding: 8px 24px;
+    border-radius: 8px;
+    border: 2px solid #7A1F2B;
+    background: transparent;
+    color: #7A1F2B;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.profile-follow-button:hover {
+    background: #7A1F2B;
+    color: #fff;
+}
+
+.profile-follow-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.profile-follow-button-following {
+    background: #7A1F2B;
+    color: #fff;
+}
+
+.profile-follow-button-following:hover {
+    background: #d32f2f;
+    border-color: #d32f2f;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .profile-cover {

@@ -12,6 +12,9 @@ interface ProfileHeaderProps {
     onEditClick?: () => void;
     onImageUpload?: (file: File, type: 'profile' | 'cover') => void;
     onImageRemove?: (type: 'profile' | 'cover') => void;
+    isFollowing?: boolean;
+    followLoading?: boolean;
+    onFollowToggle?: () => void;
 }
 
 const ProfileHeader: React.FC<ProfileHeaderProps> = ({
@@ -23,6 +26,9 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     onEditClick,
     onImageUpload,
     onImageRemove,
+    isFollowing,
+    followLoading,
+    onFollowToggle,
 }) => {
     const [previewModal, setPreviewModal] = useState<'profile' | 'cover' | null>(null);
 
@@ -108,6 +114,17 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                     {onEditClick && (
                         <button onClick={onEditClick} className="profile-edit-button">
                             Edit Profile
+                        </button>
+                    )}
+
+                    {/* Follow Button */}
+                    {onFollowToggle && (
+                        <button
+                            onClick={onFollowToggle}
+                            disabled={followLoading}
+                            className={`profile-follow-button ${isFollowing ? 'profile-follow-button-following' : ''}`}
+                        >
+                            {followLoading ? '...' : isFollowing ? 'Unfollow' : 'Follow'}
                         </button>
                     )}
                 </div>

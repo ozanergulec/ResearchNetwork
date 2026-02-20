@@ -39,6 +39,8 @@ const ProfilePage: React.FC = () => {
     const [toastMessage, setToastMessage] = useState<string | null>(null);
     const [isOwnProfile, setIsOwnProfile] = useState(true);
     const [activeTab, setActiveTab] = useState<ProfileTab>('publications');
+    const [isFollowing, setIsFollowing] = useState(false);
+    const [followLoading, setFollowLoading] = useState(false);
 
     // Always use the logged-in user's ID for ownership checks
     const loggedInUser = JSON.parse(localStorage.getItem('user') || '{}');
@@ -55,13 +57,17 @@ const ProfilePage: React.FC = () => {
             try {
                 setLoading(true);
                 if (userId) {
-                    // Viewing another user's profile
                     const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-                    setIsOwnProfile(currentUser.id === userId);
+                    const ownProfile = currentUser.id === userId;
+                    setIsOwnProfile(ownProfile);
                     const response = await usersApi.getById(userId);
                     setUser(response.data);
+
+                    if (!ownProfile) {
+                        const followingRes = await usersApi.getFollowingIds();
+                        setIsFollowing(followingRes.data.includes(userId));
+                    }
                 } else {
-                    // Viewing own profile
                     setIsOwnProfile(true);
                     const response = await usersApi.getProfile();
                     setUser(response.data);
@@ -283,6 +289,26 @@ const ProfilePage: React.FC = () => {
         }
     };
 
+    const handleFollowToggle = async () => {
+        if (!user || followLoading) return;
+        setFollowLoading(true);
+        try {
+            if (isFollowing) {
+                await usersApi.unfollow(user.id);
+                setIsFollowing(false);
+                setUser(prev => prev ? { ...prev, followerCount: Math.max(0, prev.followerCount - 1) } : prev);
+            } else {
+                await usersApi.follow(user.id);
+                setIsFollowing(true);
+                setUser(prev => prev ? { ...prev, followerCount: prev.followerCount + 1 } : prev);
+            }
+        } catch (err) {
+            console.error('Failed to toggle follow', err);
+        } finally {
+            setFollowLoading(false);
+        }
+    };
+
     const handleTabChange = async (tab: ProfileTab) => {
         if (!user) return;
         setActiveTab(tab);
@@ -377,6 +403,9 @@ const ProfilePage: React.FC = () => {
                             onEditClick={isOwnProfile ? handleEditClick : undefined}
                             onImageUpload={isOwnProfile ? handleImageUpload : undefined}
                             onImageRemove={isOwnProfile ? handleImageRemove : undefined}
+                            isFollowing={isFollowing}
+                            followLoading={followLoading}
+                            onFollowToggle={!isOwnProfile ? handleFollowToggle : undefined}
                         />
                     )}
                 </div>
