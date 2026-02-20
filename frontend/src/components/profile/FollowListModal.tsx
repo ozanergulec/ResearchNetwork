@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import ReactDOM from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { usersApi } from '../../services/userService';
@@ -14,6 +14,7 @@ interface FollowListModalProps {
     followerCount: number;
     followingCount: number;
     onClose: () => void;
+    onCountsChanged?: () => void;
 }
 
 const FollowListModal: React.FC<FollowListModalProps> = ({
@@ -22,24 +23,45 @@ const FollowListModal: React.FC<FollowListModalProps> = ({
     followerCount,
     followingCount,
     onClose,
+    onCountsChanged,
 }) => {
     const [activeTab, setActiveTab] = useState<FollowListTab>(initialTab);
     const [followers, setFollowers] = useState<UserSummary[]>([]);
     const [following, setFollowing] = useState<UserSummary[]>([]);
+    const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
+    const [followLoadingId, setFollowLoadingId] = useState<string | null>(null);
+    const [localFollowingCount, setLocalFollowingCount] = useState(followingCount);
+    const [localFollowerCount] = useState(followerCount);
+    const [changed, setChanged] = useState(false);
     const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
+
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+    const currentUserId = currentUser.id as string | undefined;
+    const isOwnProfile = userId === currentUserId;
+
+    const handleClose = useCallback(() => {
+        if (changed && onCountsChanged) onCountsChanged();
+        onClose();
+    }, [changed, onCountsChanged, onClose]);
 
     useEffect(() => {
         document.body.style.overflow = 'hidden';
         const handleKey = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') onClose();
+            if (e.key === 'Escape') handleClose();
         };
         window.addEventListener('keydown', handleKey);
         return () => {
             document.body.style.overflow = '';
             window.removeEventListener('keydown', handleKey);
         };
-    }, [onClose]);
+    }, [handleClose]);
+
+    useEffect(() => {
+        usersApi.getFollowingIds()
+            .then(res => setFollowingIds(new Set(res.data)))
+            .catch(() => {});
+    }, []);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -61,13 +83,35 @@ const FollowListModal: React.FC<FollowListModalProps> = ({
         fetchData();
     }, [activeTab, userId]);
 
+    const handleFollowToggle = async (e: React.MouseEvent, targetId: string) => {
+        e.stopPropagation();
+        if (followLoadingId) return;
+        setFollowLoadingId(targetId);
+        try {
+            if (followingIds.has(targetId)) {
+                await usersApi.unfollow(targetId);
+                setFollowingIds(prev => { const next = new Set(prev); next.delete(targetId); return next; });
+                if (isOwnProfile) setLocalFollowingCount(prev => Math.max(0, prev - 1));
+            } else {
+                await usersApi.follow(targetId);
+                setFollowingIds(prev => new Set(prev).add(targetId));
+                if (isOwnProfile) setLocalFollowingCount(prev => prev + 1);
+            }
+            setChanged(true);
+        } catch (err) {
+            console.error('Failed to toggle follow', err);
+        } finally {
+            setFollowLoadingId(null);
+        }
+    };
+
     const handleUserClick = (id: string) => {
-        onClose();
+        handleClose();
         navigate(`/profile/${id}`);
     };
 
     const handleOverlayClick = (e: React.MouseEvent) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget) handleClose();
     };
 
     const users = activeTab === 'followers' ? followers : following;
@@ -81,16 +125,16 @@ const FollowListModal: React.FC<FollowListModalProps> = ({
                             className={`follow-modal-tab ${activeTab === 'followers' ? 'follow-modal-tab-active' : ''}`}
                             onClick={() => setActiveTab('followers')}
                         >
-                            Followers ({followerCount})
+                            Followers ({localFollowerCount})
                         </button>
                         <button
                             className={`follow-modal-tab ${activeTab === 'following' ? 'follow-modal-tab-active' : ''}`}
                             onClick={() => setActiveTab('following')}
                         >
-                            Following ({followingCount})
+                            Following ({localFollowingCount})
                         </button>
                     </div>
-                    <button className="follow-modal-close" onClick={onClose}>&times;</button>
+                    <button className="follow-modal-close" onClick={handleClose}>&times;</button>
                 </div>
 
                 <div className="follow-modal-body">
@@ -106,6 +150,8 @@ const FollowListModal: React.FC<FollowListModalProps> = ({
                                 const imgUrl = user.profileImageUrl
                                     ? `${API_SERVER_URL}${user.profileImageUrl}`
                                     : null;
+                                const isMe = user.id === currentUserId;
+                                const isFollowed = followingIds.has(user.id);
                                 return (
                                     <li
                                         key={user.id}
@@ -128,6 +174,15 @@ const FollowListModal: React.FC<FollowListModalProps> = ({
                                                 {[user.title, user.institution].filter(Boolean).join(' · ')}
                                             </span>
                                         </div>
+                                        {!isMe && (
+                                            <button
+                                                className={`follow-modal-follow-btn ${isFollowed ? 'follow-modal-follow-btn-active' : ''}`}
+                                                onClick={(e) => handleFollowToggle(e, user.id)}
+                                                disabled={followLoadingId === user.id}
+                                            >
+                                                {followLoadingId === user.id ? '...' : isFollowed ? 'Unfollow' : 'Follow'}
+                                            </button>
+                                        )}
                                     </li>
                                 );
                             })}

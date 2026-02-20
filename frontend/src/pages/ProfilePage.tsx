@@ -155,6 +155,17 @@ const ProfilePage: React.FC = () => {
         }
     };
 
+    const handleRefreshUser = async () => {
+        try {
+            const response = userId && !isOwnProfile
+                ? await usersApi.getById(userId)
+                : await usersApi.getProfile();
+            setUser(response.data);
+        } catch (err) {
+            console.error('Failed to refresh user', err);
+        }
+    };
+
     const handleFollowToggle = async () => {
         if (!user || followLoading) return;
         setFollowLoading(true);
@@ -339,7 +350,7 @@ const ProfilePage: React.FC = () => {
                                 <ProfileInfo user={user} onEditTags={isOwnProfile ? () => setShowTagManagement(true) : undefined} />
                             </div>
                             <div className="profile-card">
-                                <ProfileStats user={user} />
+                                <ProfileStats user={user} onRefresh={handleRefreshUser} />
                             </div>
                         </div>
 

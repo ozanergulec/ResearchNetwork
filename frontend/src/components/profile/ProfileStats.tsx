@@ -4,10 +4,19 @@ import FollowListModal from './FollowListModal';
 
 interface ProfileStatsProps {
     user: User;
+    onRefresh?: () => void;
 }
 
-const ProfileStats: React.FC<ProfileStatsProps> = ({ user }) => {
+const ProfileStats: React.FC<ProfileStatsProps> = ({ user, onRefresh }) => {
     const [followModal, setFollowModal] = useState<'followers' | 'following' | null>(null);
+
+    const handleModalClose = () => {
+        setFollowModal(null);
+    };
+
+    const handleCountsChanged = () => {
+        if (onRefresh) onRefresh();
+    };
 
     return (
         <div className="profile-info-section">
@@ -39,7 +48,8 @@ const ProfileStats: React.FC<ProfileStatsProps> = ({ user }) => {
                     initialTab={followModal}
                     followerCount={user.followerCount}
                     followingCount={user.followingCount}
-                    onClose={() => setFollowModal(null)}
+                    onClose={handleModalClose}
+                    onCountsChanged={handleCountsChanged}
                 />
             )}
         </div>
