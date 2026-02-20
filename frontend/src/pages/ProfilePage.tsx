@@ -16,7 +16,7 @@ import {
 import { SharedFeedCard, FeedPublicationCard } from '../components/feed';
 import '../styles/pages/ProfilePage.css';
 
-type ProfileTab = 'publications' | 'saved';
+type ProfileTab = 'publications' | 'my-publications' | 'saved';
 
 const ProfilePage: React.FC = () => {
     const navigate = useNavigate();
@@ -314,11 +314,12 @@ const ProfilePage: React.FC = () => {
         try {
             setLoadingPublications(true);
             if (tab === 'saved') {
-                // Saved is only for own profile
                 const response = await publicationsApi.getSaved();
                 setSavedPublications(response.data);
+            } else if (tab === 'my-publications') {
+                const response = await publicationsApi.getByAuthor(user.id);
+                setPublications(response.data);
             } else {
-                // Refresh authored + shared publications
                 const [authoredRes, sharedRes] = await Promise.all([
                     showAllPublications
                         ? publicationsApi.getByAuthor(user.id)
@@ -451,6 +452,12 @@ const ProfilePage: React.FC = () => {
                                     >
                                         Posts
                                     </button>
+                                    <button
+                                        className={`profile-tab ${activeTab === 'my-publications' ? 'profile-tab-active' : ''}`}
+                                        onClick={() => handleTabChange('my-publications')}
+                                    >
+                                        Publications
+                                    </button>
                                     {isOwnProfile && (
                                         <button
                                             className={`profile-tab ${activeTab === 'saved' ? 'profile-tab-active' : ''}`}
@@ -460,7 +467,7 @@ const ProfilePage: React.FC = () => {
                                         </button>
                                     )}
 
-                                    {isOwnProfile && activeTab === 'publications' && (
+                                    {isOwnProfile && (activeTab === 'publications' || activeTab === 'my-publications') && (
                                         <button
                                             className="add-publication-button"
                                             onClick={handleOpenAddPublication}
@@ -475,7 +482,6 @@ const ProfilePage: React.FC = () => {
                                     <Loading message="Loading..." />
                                 ) : activeTab === 'publications' ? (
                                     (() => {
-                                        // Build unified timeline interleaving authored and shared items
                                         type TimelineItem =
                                             | { type: 'authored'; date: string; publication: Publication }
                                             | { type: 'shared'; date: string; sharedPublication: SharedPublication };
@@ -491,7 +497,7 @@ const ProfilePage: React.FC = () => {
                                         if (timeline.length === 0) {
                                             return (
                                                 <div className="publications-empty">
-                                                    <p>No publications added yet.</p>
+                                                    <p>No posts yet.</p>
                                                 </div>
                                             );
                                         }
@@ -537,6 +543,24 @@ const ProfilePage: React.FC = () => {
                                             </div>
                                         );
                                     })()
+                                ) : activeTab === 'my-publications' ? (
+                                    publications.length === 0 ? (
+                                        <div className="publications-empty">
+                                            <p>No publications yet.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="publications-list">
+                                            <div className="publications-grid">
+                                                {publications.map((pub) => (
+                                                    <FeedPublicationCard
+                                                        key={`mypub-${pub.id}`}
+                                                        publication={pub}
+                                                        onDeleted={handleDeletePublication}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )
                                 ) : (
                                     savedPublications.length === 0 ? (
                                         <div className="publications-empty">
