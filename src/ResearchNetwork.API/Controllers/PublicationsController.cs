@@ -13,13 +13,16 @@ public class PublicationsController : ControllerBase
 {
     private readonly IPublicationRepository _publicationRepository;
     private readonly IPublicationService _publicationService;
+    private readonly IUserRepository _userRepository;
 
     public PublicationsController(
         IPublicationRepository publicationRepository,
-        IPublicationService publicationService)
+        IPublicationService publicationService,
+        IUserRepository userRepository)
     {
         _publicationRepository = publicationRepository;
         _publicationService = publicationService;
+        _userRepository = userRepository;
     }
 
     private Guid? GetCurrentUserId()
@@ -294,7 +297,6 @@ public class PublicationsController : ControllerBase
 
         if (dto.Score == 0)
         {
-            // Remove rating
             if (existingRating != null)
             {
                 await _publicationRepository.RemoveRatingAsync(existingRating.Id);
@@ -303,6 +305,9 @@ public class PublicationsController : ControllerBase
             var avg = await _publicationRepository.CalculateAverageRatingAsync(id);
             publication.UpdateAverageRating(avg);
             await _publicationRepository.UpdateAsync(publication);
+
+            await UpdateAuthorAvgScore(publication.AuthorId);
+
             return Ok(new { averageRating = avg, userRating = (int?)null });
         }
 
@@ -320,7 +325,19 @@ public class PublicationsController : ControllerBase
         publication.UpdateAverageRating(newAvg);
         await _publicationRepository.UpdateAsync(publication);
 
+        await UpdateAuthorAvgScore(publication.AuthorId);
+
         return Ok(new { averageRating = newAvg, userRating = dto.Score });
+    }
+
+    private async Task UpdateAuthorAvgScore(Guid authorId)
+    {
+        var author = await _userRepository.GetByIdAsync(authorId);
+        if (author == null) return;
+
+        var authorAvg = await _publicationRepository.CalculateAuthorAverageRatingAsync(authorId);
+        author.UpdateReputationScore(authorAvg);
+        await _userRepository.UpdateAsync(author);
     }
 
     // ==================== SAVE ====================

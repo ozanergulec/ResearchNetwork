@@ -140,6 +140,16 @@ public class PublicationRepository : IPublicationRepository
         return ratings.Average(r => r.Score);
     }
 
+    public async Task<double> CalculateAuthorAverageRatingAsync(Guid authorId)
+    {
+        var ratedPublications = await _context.Publications
+            .Where(p => p.AuthorId == authorId && p.AverageRating > 0)
+            .ToListAsync();
+
+        if (ratedPublications.Count == 0) return 0;
+        return ratedPublications.Average(p => p.AverageRating);
+    }
+
     // --- Save ---
 
     public async Task<SavedPublication?> GetSavedAsync(Guid publicationId, Guid userId)

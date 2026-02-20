@@ -12,11 +12,13 @@ public class UsersController : ControllerBase
 {
     private readonly IUserRepository _userRepository;
     private readonly ITagRepository _tagRepository;
+    private readonly IPublicationRepository _publicationRepository;
 
-    public UsersController(IUserRepository userRepository, ITagRepository tagRepository)
+    public UsersController(IUserRepository userRepository, ITagRepository tagRepository, IPublicationRepository publicationRepository)
     {
         _userRepository = userRepository;
         _tagRepository = tagRepository;
+        _publicationRepository = publicationRepository;
     }
 
     [HttpGet]
@@ -35,6 +37,9 @@ public class UsersController : ControllerBase
         {
             return NotFound();
         }
+
+        var avgScore = await _publicationRepository.CalculateAuthorAverageRatingAsync(id);
+        user.UpdateReputationScore(avgScore);
 
         return Ok(MapToUserDto(user));
     }
@@ -69,6 +74,9 @@ public class UsersController : ControllerBase
         {
             return NotFound(new { Message = "User not found." });
         }
+
+        var avgScore = await _publicationRepository.CalculateAuthorAverageRatingAsync(userId.Value);
+        user.UpdateReputationScore(avgScore);
 
         return Ok(MapToUserDto(user));
     }
