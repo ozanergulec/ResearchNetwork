@@ -10,12 +10,10 @@ import {
     ProfileInfo,
     ProfileEditForm,
     TagManagementPopup,
-    PublicationsList,
     AddPublicationModal,
     Toast
 } from '../components';
-import { SharedFeedCard } from '../components/feed';
-import PublicationCard from '../components/publications/PublicationCard';
+import { SharedFeedCard, FeedPublicationCard } from '../components/feed';
 import '../styles/pages/ProfilePage.css';
 
 type ProfileTab = 'publications' | 'saved';
@@ -516,11 +514,10 @@ const ProfilePage: React.FC = () => {
                                                             );
                                                         } else {
                                                             return (
-                                                                <PublicationCard
+                                                                <FeedPublicationCard
                                                                     key={`pub-${item.publication.id}`}
                                                                     publication={item.publication}
-                                                                    currentUserId={loggedInUserId}
-                                                                    onDelete={handleDeletePublication}
+                                                                    onDeleted={handleDeletePublication}
                                                                 />
                                                             );
                                                         }
@@ -541,12 +538,22 @@ const ProfilePage: React.FC = () => {
                                         );
                                     })()
                                 ) : (
-                                    <PublicationsList
-                                        publications={savedPublications}
-                                        showAll={true}
-                                        maxPreview={100}
-                                        currentUserId={loggedInUserId}
-                                    />
+                                    savedPublications.length === 0 ? (
+                                        <div className="publications-empty">
+                                            <p>No saved publications yet.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="publications-list">
+                                            <div className="publications-grid">
+                                                {savedPublications.map((pub) => (
+                                                    <FeedPublicationCard
+                                                        key={`saved-${pub.id}`}
+                                                        publication={pub}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )
                                 )}
                             </div>
                         </div>
