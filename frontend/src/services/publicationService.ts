@@ -80,7 +80,7 @@ export const publicationsApi = {
         api.get<Publication[]>('/publications'),
 
     getFeed: (page: number = 1, pageSize: number = 10) =>
-        api.get<PagedResult<FeedItem>>(`/publications/feed?page=${page}&pageSize=${pageSize}`),
+        api.get<PagedResult<FeedItem>>(`/feed?page=${page}&pageSize=${pageSize}`),
 
     getById: (id: string) =>
         api.get<Publication>(`/publications/${id}`),
@@ -113,38 +113,38 @@ export const publicationsApi = {
     // --- Rating ---
     rate: (publicationId: string, score: number) =>
         api.post<{ averageRating: number; userRating: number }>(
-            `/publications/${publicationId}/rate`,
+            `/feed/${publicationId}/rate`,
             { score }
         ),
 
     // --- Save/Bookmark ---
     toggleSave: (publicationId: string) =>
         api.post<{ saved: boolean; saveCount: number }>(
-            `/publications/${publicationId}/save`
+            `/feed/${publicationId}/save`
         ),
 
     getSaved: () =>
-        api.get<Publication[]>('/publications/saved'),
+        api.get<Publication[]>('/feed/saved'),
 
     // --- Share ---
     share: (publicationId: string, note?: string) =>
         api.post<{ shared: boolean; shareCount: number }>(
-            `/publications/${publicationId}/share`,
+            `/feed/${publicationId}/share`,
             { note: note || null }
         ),
 
     getShared: (userId: string) =>
-        api.get<SharedPublication[]>(`/publications/shared/${userId}`),
+        api.get<SharedPublication[]>(`/feed/shared/${userId}`),
 
     updateShareNote: (publicationId: string, note?: string) =>
         api.put<{ updated: boolean }>(
-            `/publications/${publicationId}/share`,
+            `/feed/${publicationId}/share`,
             { note: note || null }
         ),
 
     unshare: (publicationId: string) =>
         api.delete<{ shared: boolean; shareCount: number }>(
-            `/publications/${publicationId}/share`
+            `/feed/${publicationId}/share`
         ),
 
     /**
