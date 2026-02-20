@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { publicationsApi, type FeedItem } from '../services/publicationService';
 import { usersApi } from '../services/userService';
 import { Navbar, Loading } from '../components';
-import { FeedPublicationCard, SharedFeedCard, HomeProfileSidebar } from '../components/feed';
+import { CreatePostBar, FeedPublicationCard, SharedFeedCard, HomeProfileSidebar } from '../components/feed';
 import '../styles/pages/HomePage.css';
 
 const PAGE_SIZE = 10;
@@ -137,10 +137,7 @@ const HomePage: React.FC = () => {
                 </div>
 
                 <div className="home-content">
-                    <div className="home-header">
-                        <h1 className="home-title">Feed</h1>
-                        <p className="home-subtitle">Latest publications from the research community</p>
-                    </div>
+                    <CreatePostBar onPublicationAdded={refreshFeed} />
 
                     {error && (
                         <div className="home-empty">

@@ -1,0 +1,48 @@
+/* ===== Create Post Bar ===== */
+.create-post-bar {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 16px 24px;
+    margin-bottom: 20px;
+    border: 2px dashed rgba(122, 31, 43, 0.25);
+    border-radius: 12px;
+    background: rgba(122, 31, 43, 0.03);
+    color: var(--heading-color, #7A1F2B);
+    font-size: 0.95rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, transform 0.15s, box-shadow 0.2s;
+}
+
+.create-post-bar:hover {
+    background: rgba(122, 31, 43, 0.07);
+    border-color: var(--heading-color, #7A1F2B);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(122, 31, 43, 0.1);
+}
+
+.create-post-bar:active {
+    transform: translateY(0);
+    box-shadow: none;
+}
+
+.create-post-bar svg {
+    flex-shrink: 0;
+    opacity: 0.8;
+}
+
+.create-post-bar:hover svg {
+    opacity: 1;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    .create-post-bar {
+        padding: 14px 16px;
+        font-size: 0.88rem;
+    }
+}
