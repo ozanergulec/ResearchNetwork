@@ -370,6 +370,16 @@ const ProfilePage: React.FC = () => {
                                 onSharedDeleted={(shareId) => {
                                     setSharedPublications(prev => prev.filter(sp => sp.shareId !== shareId));
                                 }}
+                                isFollowingProfile={isFollowing}
+                                onFollowChange={(_authorId, following) => {
+                                    setIsFollowing(following);
+                                    setUser(prev => prev ? {
+                                        ...prev,
+                                        followerCount: following
+                                            ? prev.followerCount + 1
+                                            : Math.max(0, prev.followerCount - 1)
+                                    } : prev);
+                                }}
                             />
                         </div>
                     </div>

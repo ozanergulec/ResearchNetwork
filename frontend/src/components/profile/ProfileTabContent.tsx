@@ -18,6 +18,8 @@ interface ProfileTabContentProps {
     onAddPublication: () => void;
     onDeletePublication: (id: string) => void;
     onSharedDeleted: (shareId: string) => void;
+    isFollowingProfile?: boolean;
+    onFollowChange?: (authorId: string, following: boolean) => void;
 }
 
 const ProfileTabContent: React.FC<ProfileTabContentProps> = ({
@@ -33,6 +35,8 @@ const ProfileTabContent: React.FC<ProfileTabContentProps> = ({
     onAddPublication,
     onDeletePublication,
     onSharedDeleted,
+    isFollowingProfile,
+    onFollowChange,
 }) => {
     const renderPostsTab = () => {
         type TimelineItem =
@@ -72,6 +76,8 @@ const ProfileTabContent: React.FC<ProfileTabContentProps> = ({
                                 <FeedPublicationCard
                                     key={`pub-${item.publication.id}`}
                                     publication={item.publication}
+                                    isFollowing={isFollowingProfile}
+                                    onFollowChange={onFollowChange}
                                     onDeleted={onDeletePublication}
                                 />
                             );
@@ -106,6 +112,8 @@ const ProfileTabContent: React.FC<ProfileTabContentProps> = ({
                         <FeedPublicationCard
                             key={`${keyPrefix}-${pub.id}`}
                             publication={pub}
+                            isFollowing={isFollowingProfile}
+                            onFollowChange={onFollowChange}
                             onDeleted={onDeleted}
                         />
                     ))}
