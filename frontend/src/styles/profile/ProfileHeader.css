@@ -14,7 +14,8 @@
     transition: filter 0.3s ease;
 }
 
-.cover-editable {
+.cover-editable,
+.cover-viewable {
     cursor: pointer;
 }
 
@@ -57,7 +58,8 @@
     flex-shrink: 0;
 }
 
-.avatar-editable {
+.avatar-editable,
+.avatar-viewable {
     cursor: pointer;
 }
 

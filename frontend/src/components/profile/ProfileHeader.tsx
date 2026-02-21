@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { API_SERVER_URL } from '../../services/apiClient';
 import ImagePreviewModal from './ImagePreviewModal';
+import PhotoLightbox from '../common/PhotoLightbox';
 import '../../styles/profile/ProfileHeader.css';
 
 interface ProfileHeaderProps {
@@ -31,6 +32,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     onFollowToggle,
 }) => {
     const [previewModal, setPreviewModal] = useState<'profile' | 'cover' | null>(null);
+    const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
     const getInitials = (name: string) => {
         return name
@@ -44,12 +46,16 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     const handleProfileClick = () => {
         if (onImageUpload) {
             setPreviewModal('profile');
+        } else if (profileImgSrc) {
+            setLightboxImage(profileImgSrc);
         }
     };
 
     const handleCoverClick = () => {
         if (onImageUpload) {
             setPreviewModal('cover');
+        } else if (coverImgSrc) {
+            setLightboxImage(coverImgSrc);
         }
     };
 
@@ -76,7 +82,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         <div className="profile-header">
             {/* Cover Photo */}
             <div
-                className={`profile-cover ${onImageUpload ? 'cover-editable' : ''}`}
+                className={`profile-cover ${onImageUpload ? 'cover-editable' : ''} ${!onImageUpload && coverImgSrc ? 'cover-viewable' : ''}`}
                 onClick={handleCoverClick}
                 style={coverImgSrc ? { backgroundImage: `url(${coverImgSrc})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
             >
@@ -88,7 +94,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                     <div className="profile-header-left">
                         {/* Avatar */}
                         <div
-                            className={`profile-avatar ${onImageUpload ? 'avatar-editable' : ''}`}
+                            className={`profile-avatar ${onImageUpload ? 'avatar-editable' : ''} ${!onImageUpload && profileImgSrc ? 'avatar-viewable' : ''}`}
                             onClick={handleProfileClick}
                         >
                             {profileImgSrc ? (
@@ -130,7 +136,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                 </div>
             </div>
 
-            {/* Image Preview Modal */}
+            {/* Image Preview Modal (own profile - editable) */}
             {previewModal && (
                 <ImagePreviewModal
                     type={previewModal}
@@ -138,6 +144,15 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                     onClose={() => setPreviewModal(null)}
                     onUpdate={handleModalUpdate}
                     onRemove={handleModalRemove}
+                />
+            )}
+
+            {/* Photo Lightbox (other profiles - view only) */}
+            {lightboxImage && (
+                <PhotoLightbox
+                    imageUrl={lightboxImage}
+                    alt={fullName}
+                    onClose={() => setLightboxImage(null)}
                 />
             )}
         </div>
