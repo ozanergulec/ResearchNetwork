@@ -42,24 +42,43 @@ public class FeedController : ControllerBase
 
         var currentUserId = GetCurrentUserId();
 
+        var followingIds = new HashSet<Guid>();
+        var userTagNames = new HashSet<string>();
+
+        if (currentUserId.HasValue)
+        {
+            var ids = await _userRepository.GetFollowingIdsAsync(currentUserId.Value);
+            followingIds = ids.ToHashSet();
+
+            var userWithTags = await _userRepository.GetByIdWithTagsAsync(currentUserId.Value);
+            if (userWithTags != null)
+            {
+                userTagNames = userWithTags.Tags
+                    .Select(t => t.Tag.Name.ToLowerInvariant())
+                    .ToHashSet();
+            }
+        }
+
         var (publications, _) = await _publicationRepository.GetFeedAsync(1, int.MaxValue);
         var (shares, _) = await _publicationRepository.GetAllSharesForFeedAsync(1, int.MaxValue);
 
-        var feedItems = new List<(DateTime Date, FeedItemDto Item)>();
+        var scoredItems = new List<(double Score, FeedItemDto Item)>();
 
         foreach (var p in publications)
         {
+            double score = FeedScoringService.ScorePublication(p, followingIds, userTagNames);
             var dto = await PublicationMapper.ToDto(p, _publicationRepository, currentUserId);
-            feedItems.Add((p.CreatedAt, new FeedItemDto("publication", dto, null)));
+            scoredItems.Add((score, new FeedItemDto("publication", dto, null)));
         }
 
         foreach (var s in shares)
         {
+            double score = FeedScoringService.ScoreShare(s, followingIds, userTagNames);
             var sharedDto = await PublicationMapper.ToSharedDto(s, _publicationRepository, currentUserId);
-            feedItems.Add((s.SharedAt, new FeedItemDto("share", null, sharedDto)));
+            scoredItems.Add((score, new FeedItemDto("share", null, sharedDto)));
         }
 
-        var sorted = feedItems.OrderByDescending(f => f.Date).ToList();
+        var sorted = scoredItems.OrderByDescending(f => f.Score).ToList();
         var totalCount = sorted.Count;
         var paged = sorted.Skip((page - 1) * pageSize).Take(pageSize).Select(f => f.Item).ToList();
 
