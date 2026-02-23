@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import mammoth from 'mammoth';
 import type { Publication } from '../../services/publicationService';
 import { API_SERVER_URL } from '../../services/apiClient';
@@ -10,12 +11,16 @@ interface PublicationDetailModalProps {
 }
 
 const PublicationDetailModal: React.FC<PublicationDetailModalProps> = ({ publication, onClose }) => {
+    const navigate = useNavigate();
     const [downloading, setDownloading] = useState(false);
     const [wordHtml, setWordHtml] = useState<string | null>(null);
     const [wordLoading, setWordLoading] = useState(false);
     const [wordError, setWordError] = useState<string | null>(null);
 
     const fileUrl = publication.fileUrl ? `${API_SERVER_URL}${publication.fileUrl}` : null;
+    const downloadUrl = publication.fileUrl
+        ? `${API_SERVER_URL}/api/publications/download?fileUrl=${encodeURIComponent(publication.fileUrl)}`
+        : null;
     const fileExtension = publication.fileUrl?.split('.').pop()?.toLowerCase();
     const isPDF = fileExtension === 'pdf';
     const isDocx = fileExtension === 'docx';
@@ -33,9 +38,14 @@ const PublicationDetailModal: React.FC<PublicationDetailModalProps> = ({ publica
         });
     };
 
+    const handleAuthorClick = () => {
+        onClose();
+        navigate(`/profile/${publication.author.id}`);
+    };
+
     // Load .docx preview — abort on unmount
     useEffect(() => {
-        if (!isDocx || !fileUrl) return;
+        if (!isDocx || !downloadUrl) return;
 
         const controller = new AbortController();
         let cancelled = false;
@@ -44,7 +54,11 @@ const PublicationDetailModal: React.FC<PublicationDetailModalProps> = ({ publica
             setWordLoading(true);
             setWordError(null);
             try {
-                const response = await fetch(fileUrl, { signal: controller.signal });
+                const token = localStorage.getItem('token');
+                const response = await fetch(downloadUrl, {
+                    signal: controller.signal,
+                    headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+                });
                 if (!response.ok) throw new Error('Failed to load file');
                 const arrayBuffer = await response.arrayBuffer();
                 if (cancelled) return;
@@ -66,27 +80,31 @@ const PublicationDetailModal: React.FC<PublicationDetailModalProps> = ({ publica
             cancelled = true;
             controller.abort();
         };
-    }, [fileUrl, isDocx]);
+    }, [isDocx, downloadUrl]);
 
     const handleDownload = async (e: React.MouseEvent) => {
         e.stopPropagation();
-        if (!fileUrl) return;
+        const url = downloadUrl || fileUrl;
+        if (!url) return;
         setDownloading(true);
         try {
-            const response = await fetch(fileUrl);
+            const token = localStorage.getItem('token');
+            const response = await fetch(url, {
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+            });
             if (!response.ok) throw new Error('Download failed');
             const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
+            const blobUrl = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
-            link.href = url;
+            link.href = blobUrl;
             link.download = `${publication.title}.${fileExtension || 'pdf'}`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            window.URL.revokeObjectURL(url);
+            window.URL.revokeObjectURL(blobUrl);
         } catch (error) {
             console.error('Download error:', error);
-            window.open(fileUrl, '_blank');
+            if (fileUrl) window.open(fileUrl, '_blank');
         } finally {
             setDownloading(false);
         }
@@ -114,8 +132,12 @@ const PublicationDetailModal: React.FC<PublicationDetailModalProps> = ({ publica
                 <div className="pub-detail-body">
                     {/* Left side: Publication Info */}
                     <div className="pub-detail-info">
-                        {/* Author */}
-                        <div className="pub-detail-author">
+                        {/* Author - clickable */}
+                        <div
+                            className="pub-detail-author pub-detail-author-clickable"
+                            onClick={handleAuthorClick}
+                            title="View profile"
+                        >
                             <div className="pub-detail-avatar-wrapper">
                                 {authorImageUrl ? (
                                     <img
@@ -206,7 +228,7 @@ const PublicationDetailModal: React.FC<PublicationDetailModalProps> = ({ publica
                         </div>
 
                         {/* Download Button */}
-                        {fileUrl && (
+                        {(fileUrl || downloadUrl) && (
                             <button
                                 className="pub-detail-download-btn"
                                 onClick={handleDownload}

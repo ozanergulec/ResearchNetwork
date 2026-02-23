@@ -262,7 +262,8 @@ public class PublicationRepository : IPublicationRepository
         return await _context.Publications
             .Where(p => p.Title.ToLower().Contains(lowerQuery)
                      || (p.Abstract != null && p.Abstract.ToLower().Contains(lowerQuery))
-                     || p.Author.FullName.ToLower().Contains(lowerQuery))
+                     || p.Author.FullName.ToLower().Contains(lowerQuery)
+                     || p.Tags.Any(pt => pt.Tag.Name.ToLower().Contains(lowerQuery)))
             .Include(p => p.Author)
             .Include(p => p.Tags)
                 .ThenInclude(pt => pt.Tag)

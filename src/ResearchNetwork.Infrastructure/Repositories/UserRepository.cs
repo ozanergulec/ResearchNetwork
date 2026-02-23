@@ -182,7 +182,8 @@ public class UserRepository : IUserRepository
         return await _context.Users
             .Where(u => u.FullName.ToLower().Contains(lowerQuery)
                      || (u.Institution != null && u.Institution.ToLower().Contains(lowerQuery))
-                     || (u.Title != null && u.Title.ToLower().Contains(lowerQuery)))
+                     || (u.Title != null && u.Title.ToLower().Contains(lowerQuery))
+                     || u.Tags.Any(ut => ut.Tag.Name.ToLower().Contains(lowerQuery)))
             .Include(u => u.Tags)
                 .ThenInclude(ut => ut.Tag)
             .OrderBy(u => u.FullName)
