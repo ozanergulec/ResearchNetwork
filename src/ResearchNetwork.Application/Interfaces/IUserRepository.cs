@@ -22,4 +22,8 @@ public interface IUserRepository
     Task<IEnumerable<Guid>> GetFollowingIdsAsync(Guid userId);
     Task<IEnumerable<UserFollow>> GetFollowersAsync(Guid userId);
     Task<IEnumerable<UserFollow>> GetFollowingAsync(Guid userId);
+
+    // Search
+    Task<IEnumerable<User>> SearchAsync(string query);
+    Task<IEnumerable<User>> SearchByTagAsync(string tagName);
 }

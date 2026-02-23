@@ -34,4 +34,8 @@ public interface IPublicationRepository
     Task RemoveShareAsync(Guid publicationId, Guid userId);
     Task<IEnumerable<PublicationShare>> GetSharedByUserAsync(Guid userId);
     Task<(IEnumerable<PublicationShare> Items, int TotalCount)> GetAllSharesForFeedAsync(int page, int pageSize);
+
+    // Search
+    Task<IEnumerable<Publication>> SearchAsync(string query);
+    Task<IEnumerable<Publication>> SearchByTagAsync(string tagName);
 }

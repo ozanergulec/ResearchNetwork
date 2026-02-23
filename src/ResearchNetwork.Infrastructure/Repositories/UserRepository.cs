@@ -173,4 +173,32 @@ public class UserRepository : IUserRepository
             .Include(f => f.Followee)
             .ToListAsync();
     }
+
+    // --- Search ---
+
+    public async Task<IEnumerable<User>> SearchAsync(string query)
+    {
+        var lowerQuery = query.ToLower();
+        return await _context.Users
+            .Where(u => u.FullName.ToLower().Contains(lowerQuery)
+                     || (u.Institution != null && u.Institution.ToLower().Contains(lowerQuery))
+                     || (u.Title != null && u.Title.ToLower().Contains(lowerQuery)))
+            .Include(u => u.Tags)
+                .ThenInclude(ut => ut.Tag)
+            .OrderBy(u => u.FullName)
+            .Take(20)
+            .ToListAsync();
+    }
+
+    public async Task<IEnumerable<User>> SearchByTagAsync(string tagName)
+    {
+        var lowerTag = tagName.ToLower();
+        return await _context.Users
+            .Where(u => u.Tags.Any(ut => ut.Tag.Name.ToLower().Contains(lowerTag)))
+            .Include(u => u.Tags)
+                .ThenInclude(ut => ut.Tag)
+            .OrderBy(u => u.FullName)
+            .Take(20)
+            .ToListAsync();
+    }
 }

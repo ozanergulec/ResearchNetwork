@@ -253,4 +253,35 @@ public class PublicationRepository : IPublicationRepository
 
         return (items, totalCount);
     }
+
+    // --- Search ---
+
+    public async Task<IEnumerable<Publication>> SearchAsync(string query)
+    {
+        var lowerQuery = query.ToLower();
+        return await _context.Publications
+            .Where(p => p.Title.ToLower().Contains(lowerQuery)
+                     || (p.Abstract != null && p.Abstract.ToLower().Contains(lowerQuery))
+                     || p.Author.FullName.ToLower().Contains(lowerQuery))
+            .Include(p => p.Author)
+            .Include(p => p.Tags)
+                .ThenInclude(pt => pt.Tag)
+            .OrderByDescending(p => p.CreatedAt)
+            .Take(20)
+            .ToListAsync();
+    }
+
+    public async Task<IEnumerable<Publication>> SearchByTagAsync(string tagName)
+    {
+        var lowerTag = tagName.ToLower();
+        return await _context.Publications
+            .Where(p => p.Tags.Any(pt => pt.Tag.Name.ToLower().Contains(lowerTag)))
+            .Include(p => p.Author)
+            .Include(p => p.Tags)
+                .ThenInclude(pt => pt.Tag)
+            .OrderByDescending(p => p.CreatedAt)
+            .Take(20)
+            .ToListAsync();
+    }
 }
+

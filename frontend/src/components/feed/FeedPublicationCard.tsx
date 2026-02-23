@@ -331,10 +331,10 @@ const FeedPublicationCard: React.FC<FeedPublicationCardProps> = ({ publication: 
                             {showMenu && (
                                 <div className="feed-card-dropdown">
                                     <button className="feed-card-dropdown-item" onClick={handleEditOpen}>
-                                         Edit
+                                        Edit
                                     </button>
                                     <button className="feed-card-dropdown-item feed-card-dropdown-delete" onClick={handleDeleteClick}>
-                                         Delete
+                                        Delete
                                     </button>
                                 </div>
                             )}

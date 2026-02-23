@@ -7,6 +7,7 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ProfilePage from './pages/ProfilePage';
 import RecommendationsPage from './pages/RecommendationsPage';
 import HomePage from './pages/HomePage';
+import SearchPage from './pages/SearchPage';
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
         <Route path="/home" element={<HomePage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/profile/:userId" element={<ProfilePage />} />
+        <Route path="/search" element={<SearchPage />} />
         <Route path="/recommendations" element={<RecommendationsPage />} />
         <Route path="/" element={<Navigate to="/home" replace />} />
       </Routes>
@@ -27,4 +29,3 @@ function App() {
 }
 
 export default App;
-
