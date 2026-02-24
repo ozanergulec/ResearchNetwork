@@ -7,7 +7,7 @@ import PublicationDetailModal from '../feed/PublicationDetailModal';
 import '../../styles/common/Navbar.css';
 
 interface NavbarProps {
-    currentPage: 'home' | 'search' | 'profile' | 'recommendations' | 'none';
+    currentPage: 'home' | 'search' | 'profile' | 'recommendations' | 'settings' | 'none';
 }
 
 const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
@@ -214,6 +214,12 @@ const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
                         className={`navbar-button ${currentPage === 'recommendations' ? 'active' : ''}`}
                     >
                         Recommendations
+                    </button>
+                    <button
+                        onClick={() => navigate('/settings')}
+                        className={`navbar-button ${currentPage === 'settings' ? 'active' : ''}`}
+                    >
+                        Settings
                     </button>
                     <button onClick={handleLogout} className="navbar-logout-button">
                         Logout

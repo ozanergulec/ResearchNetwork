@@ -50,6 +50,13 @@ public class User
 
     // Profil gizlilik seviyesi (Herkese açık, Sadece Bağlantılar, Gizli)
     public PrivacyLevel PrivacyLevel { get; set; } = PrivacyLevel.Public;
+
+    // Dil tercihi
+    public string Language { get; set; } = "en";
+
+    // Bildirim tercihleri
+    public bool NotificationsEnabled { get; set; } = true;
+    public bool EmailNotificationsEnabled { get; set; } = true;
     
     // --- İstatistikler ---
 

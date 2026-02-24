@@ -8,6 +8,7 @@ import ProfilePage from './pages/ProfilePage';
 import RecommendationsPage from './pages/RecommendationsPage';
 import HomePage from './pages/HomePage';
 import SearchPage from './pages/SearchPage';
+import SettingsPage from './pages/SettingsPage';
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
         <Route path="/profile/:userId" element={<ProfilePage />} />
         <Route path="/search" element={<SearchPage />} />
         <Route path="/recommendations" element={<RecommendationsPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
         <Route path="/" element={<Navigate to="/home" replace />} />
       </Routes>
     </Router>
