@@ -112,7 +112,7 @@ const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
                         Research Network
                     </h2>
                     <div className="navbar-search-container">
-                        <span className="navbar-search-icon">🔍</span>
+                        <span className="navbar-search-icon">&#x2315;</span>
                         <input
                             ref={inputRef}
                             type="text"
@@ -175,7 +175,7 @@ const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
                                                         className="nsd-pub-item"
                                                         onClick={() => handlePublicationClick(pub)}
                                                     >
-                                                        <span className="nsd-pub-icon">📄</span>
+                                                        <span className="nsd-pub-icon"></span>
                                                         <div className="nsd-pub-info">
                                                             <span className="nsd-pub-title">{pub.title}</span>
                                                             <span className="nsd-pub-author">{pub.author.fullName}</span>

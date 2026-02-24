@@ -5,7 +5,7 @@ import { settingsApi } from '../services/settingsService';
 import type { UserSettings } from '../services/settingsService';
 import '../styles/pages/SettingsPage.css';
 
-type SettingsSection = 'profile' | 'account' | 'privacy' | 'notifications' | 'preferences';
+type SettingsSection = 'profile' | 'account' | 'privacy' | 'preferences';
 
 // ==================== TRANSLATIONS ====================
 const translations: Record<string, Record<string, string>> = {
@@ -15,7 +15,6 @@ const translations: Record<string, Record<string, string>> = {
         profileInfo: 'Profile Information',
         accountAccess: 'Account Access',
         visibility: 'Visibility',
-        notifications: 'Notifications',
         generalPreferences: 'General Preferences',
         // Profile
         profileDesc: 'Edit your name, title, and institution details.',
@@ -67,12 +66,6 @@ const translations: Record<string, Record<string, string>> = {
         connectionsOnlyDesc: 'Only your connections can see your profile.',
         private: 'Private',
         privateDesc: 'Your profile is completely hidden.',
-        // Notifications
-        notificationsDesc: 'Manage your notification preferences.',
-        pushNotifications: 'Push Notifications',
-        pushNotificationsDesc: 'New followers, comments, and interaction notifications',
-        emailNotifications: 'Email Notifications',
-        emailNotificationsDesc: 'Receive important updates via email',
         // Preferences
         preferencesDesc: 'Set your language and display preferences.',
         language: 'Language',
@@ -90,7 +83,6 @@ const translations: Record<string, Record<string, string>> = {
         emailChangeFailed: 'Failed to change email. Check your password.',
         privacyUpdated: 'Privacy settings updated.',
         privacyFailed: 'Failed to update privacy settings.',
-        notificationFailed: 'Failed to update notification settings.',
         languageUpdated: 'Language preference updated.',
         languageFailed: 'Failed to update language preference.',
         deleteFailed: 'Failed to delete account.',
@@ -102,7 +94,6 @@ const translations: Record<string, Record<string, string>> = {
         profileInfo: 'Profil Bilgileri',
         accountAccess: 'Hesap Erişimi',
         visibility: 'Görünürlük',
-        notifications: 'Bildirimler',
         generalPreferences: 'Genel Tercihler',
         // Profile
         profileDesc: 'Ad, unvan ve kurum bilgilerinizi düzenleyin.',
@@ -154,12 +145,6 @@ const translations: Record<string, Record<string, string>> = {
         connectionsOnlyDesc: 'Sadece bağlantılarınız görebilir.',
         private: 'Gizli',
         privateDesc: 'Profiliniz tamamen gizli.',
-        // Notifications
-        notificationsDesc: 'Bildirim tercihlerinizi yönetin.',
-        pushNotifications: 'Uygulama Bildirimleri',
-        pushNotificationsDesc: 'Yeni takipçi, yorum ve etkileşim bildirimleri',
-        emailNotifications: 'E-posta Bildirimleri',
-        emailNotificationsDesc: 'Önemli güncellemeleri e-posta ile alın',
         // Preferences
         preferencesDesc: 'Dil ve görünüm tercihlerinizi ayarlayın.',
         language: 'Dil',
@@ -177,7 +162,6 @@ const translations: Record<string, Record<string, string>> = {
         emailChangeFailed: 'E-posta değiştirilemedi. Şifrenizi kontrol edin.',
         privacyUpdated: 'Gizlilik ayarları güncellendi.',
         privacyFailed: 'Gizlilik ayarları güncellenemedi.',
-        notificationFailed: 'Bildirim ayarları güncellenemedi.',
         languageUpdated: 'Dil tercihi güncellendi.',
         languageFailed: 'Dil tercihi güncellenemedi.',
         deleteFailed: 'Hesap silinemedi.',
@@ -327,24 +311,7 @@ const SettingsPage: React.FC = () => {
         }
     };
 
-    // ==================== NOTIFICATIONS ====================
-    const handleNotificationToggle = async (field: 'notificationsEnabled' | 'emailNotificationsEnabled') => {
-        if (!settings) return;
-        setSaving(true);
-        const updated = {
-            notificationsEnabled: settings.notificationsEnabled,
-            emailNotificationsEnabled: settings.emailNotificationsEnabled,
-            [field]: !settings[field],
-        };
-        try {
-            const res = await settingsApi.updateNotifications(updated);
-            setSettings(res.data);
-        } catch {
-            showMessage('error', t.notificationFailed);
-        } finally {
-            setSaving(false);
-        }
-    };
+
 
     // ==================== LANGUAGE ====================
     const handleLanguageChange = async (newLang: string) => {
@@ -392,7 +359,6 @@ const SettingsPage: React.FC = () => {
         { key: 'profile', label: t.profileInfo },
         { key: 'account', label: t.accountAccess },
         { key: 'privacy', label: t.visibility },
-        { key: 'notifications', label: t.notifications },
         { key: 'preferences', label: t.generalPreferences },
     ];
 
@@ -655,46 +621,6 @@ const SettingsPage: React.FC = () => {
                             </section>
                         )}
 
-                        {/* ==================== NOTIFICATIONS ==================== */}
-                        {activeSection === 'notifications' && (
-                            <section className="settings-section">
-                                <h3 className="settings-section-title">{t.notifications}</h3>
-                                <p className="settings-section-desc">{t.notificationsDesc}</p>
-
-                                <div className="settings-toggle-list">
-                                    <div className="settings-toggle-item">
-                                        <div className="settings-toggle-info">
-                                            <span className="settings-toggle-label">{t.pushNotifications}</span>
-                                            <span className="settings-toggle-desc">{t.pushNotificationsDesc}</span>
-                                        </div>
-                                        <label className="settings-switch">
-                                            <input
-                                                type="checkbox"
-                                                checked={settings?.notificationsEnabled ?? true}
-                                                onChange={() => handleNotificationToggle('notificationsEnabled')}
-                                                disabled={saving}
-                                            />
-                                            <span className="settings-slider" />
-                                        </label>
-                                    </div>
-                                    <div className="settings-toggle-item">
-                                        <div className="settings-toggle-info">
-                                            <span className="settings-toggle-label">{t.emailNotifications}</span>
-                                            <span className="settings-toggle-desc">{t.emailNotificationsDesc}</span>
-                                        </div>
-                                        <label className="settings-switch">
-                                            <input
-                                                type="checkbox"
-                                                checked={settings?.emailNotificationsEnabled ?? true}
-                                                onChange={() => handleNotificationToggle('emailNotificationsEnabled')}
-                                                disabled={saving}
-                                            />
-                                            <span className="settings-slider" />
-                                        </label>
-                                    </div>
-                                </div>
-                            </section>
-                        )}
 
                         {/* ==================== PREFERENCES ==================== */}
                         {activeSection === 'preferences' && (

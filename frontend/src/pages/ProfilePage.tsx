@@ -72,6 +72,8 @@ const ProfilePage: React.FC = () => {
                     localStorage.removeItem('token');
                     localStorage.removeItem('user');
                     navigate('/login');
+                } else if (err.response?.status === 404 && err.response?.data?.Message) {
+                    setError(err.response.data.Message);
                 } else {
                     setError('Failed to load profile. Please try again.');
                 }
@@ -280,11 +282,13 @@ const ProfilePage: React.FC = () => {
     if (!user) {
         return (
             <div className="profile-container">
-                <Navbar currentPage={isOwnProfile ? "profile" : "none"} />
+                <Navbar currentPage="none" />
                 <div className="profile-content">
-                    <div className="profile-error">
-                        <p>{error || 'Failed to load profile'}</p>
-                        <button onClick={() => navigate('/login')}>Go to Login</button>
+                    <div className="profile-privacy-warning">
+                        <div className="privacy-warning-icon">🔒</div>
+                        <h2>Profile Not Available</h2>
+                        <p>{error || 'This profile could not be found.'}</p>
+                        <button className="privacy-warning-btn" onClick={() => navigate(-1)}>Go Back</button>
                     </div>
                 </div>
             </div>

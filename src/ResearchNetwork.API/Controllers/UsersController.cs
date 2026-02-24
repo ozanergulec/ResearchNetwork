@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using ResearchNetwork.Application.DTOs;
 using ResearchNetwork.Application.Interfaces;
 using ResearchNetwork.Domain.Entities;
+using ResearchNetwork.Domain.Enums;
 
 namespace ResearchNetwork.API.Controllers;
 
@@ -37,6 +38,28 @@ public class UsersController : ControllerBase
         if (user == null)
         {
             return NotFound();
+        }
+
+        // Privacy check: if not viewing own profile
+        var currentUserId = GetUserIdFromClaims();
+        if (currentUserId != id)
+        {
+            if (user.PrivacyLevel == PrivacyLevel.Private)
+            {
+                return NotFound(new { Message = "This profile is private." });
+            }
+            if (user.PrivacyLevel == PrivacyLevel.ConnectionsOnly)
+            {
+                if (currentUserId == null)
+                {
+                    return NotFound(new { Message = "This profile is private." });
+                }
+                var follow = await _userRepository.GetFollowAsync(currentUserId.Value, id);
+                if (follow == null)
+                {
+                    return NotFound(new { Message = "This profile is only visible to connections." });
+                }
+            }
         }
 
         var avgScore = await _publicationRepository.CalculateAuthorAverageRatingAsync(id);

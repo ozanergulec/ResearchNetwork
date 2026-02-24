@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ResearchNetwork.Application.DTOs;
 using ResearchNetwork.Application.Interfaces;
+using ResearchNetwork.Domain.Enums;
 
 namespace ResearchNetwork.API.Controllers;
 
@@ -28,18 +29,34 @@ public class SearchController : ControllerBase
             return Ok(Array.Empty<UserSummaryDto>());
         }
 
+        var currentUserId = GetUserIdFromClaims();
         var users = await _userRepository.SearchAsync(q);
-        var dtos = users.Select(u => new UserSummaryDto(
-            u.Id,
-            u.FullName,
-            u.Title,
-            u.Institution,
-            u.ProfileImageUrl,
-            u.CoverImageUrl,
-            u.IsVerified
-        ));
 
-        return Ok(dtos);
+        // Filter by privacy level
+        var filteredUsers = new List<UserSummaryDto>();
+        foreach (var u in users)
+        {
+            if (u.Id == currentUserId) { /* always show self */ }
+            else if (u.PrivacyLevel == PrivacyLevel.Private) continue;
+            else if (u.PrivacyLevel == PrivacyLevel.ConnectionsOnly && currentUserId != null)
+            {
+                var follow = await _userRepository.GetFollowAsync(currentUserId.Value, u.Id);
+                if (follow == null) continue;
+            }
+            else if (u.PrivacyLevel == PrivacyLevel.ConnectionsOnly) continue;
+
+            filteredUsers.Add(new UserSummaryDto(
+                u.Id,
+                u.FullName,
+                u.Title,
+                u.Institution,
+                u.ProfileImageUrl,
+                u.CoverImageUrl,
+                u.IsVerified
+            ));
+        }
+
+        return Ok(filteredUsers);
     }
 
     [HttpGet("publications")]
@@ -57,6 +74,18 @@ public class SearchController : ControllerBase
 
         foreach (var p in publications)
         {
+            // Skip publications from private authors
+            if (p.Author.Id != currentUserId)
+            {
+                if (p.Author.PrivacyLevel == PrivacyLevel.Private) continue;
+                if (p.Author.PrivacyLevel == PrivacyLevel.ConnectionsOnly)
+                {
+                    if (currentUserId == null) continue;
+                    var follow = await _userRepository.GetFollowAsync(currentUserId.Value, p.Author.Id);
+                    if (follow == null) continue;
+                }
+            }
+
             bool isSaved = false;
             bool isShared = false;
             int? userRating = null;
@@ -122,6 +151,18 @@ public class SearchController : ControllerBase
 
         foreach (var p in publications)
         {
+            // Skip publications from private authors
+            if (p.Author.Id != currentUserId)
+            {
+                if (p.Author.PrivacyLevel == PrivacyLevel.Private) continue;
+                if (p.Author.PrivacyLevel == PrivacyLevel.ConnectionsOnly)
+                {
+                    if (currentUserId == null) continue;
+                    var follow = await _userRepository.GetFollowAsync(currentUserId.Value, p.Author.Id);
+                    if (follow == null) continue;
+                }
+            }
+
             bool isSaved = false;
             bool isShared = false;
             int? userRating = null;
@@ -170,15 +211,28 @@ public class SearchController : ControllerBase
 
         // Search users by tag
         var users = await _userRepository.SearchByTagAsync(tag);
-        var userDtos = users.Select(u => new UserSummaryDto(
-            u.Id,
-            u.FullName,
-            u.Title,
-            u.Institution,
-            u.ProfileImageUrl,
-            u.CoverImageUrl,
-            u.IsVerified
-        ));
+        var userDtos = new List<UserSummaryDto>();
+        foreach (var u in users)
+        {
+            if (u.Id == currentUserId) { /* always show self */ }
+            else if (u.PrivacyLevel == PrivacyLevel.Private) continue;
+            else if (u.PrivacyLevel == PrivacyLevel.ConnectionsOnly && currentUserId != null)
+            {
+                var follow = await _userRepository.GetFollowAsync(currentUserId.Value, u.Id);
+                if (follow == null) continue;
+            }
+            else if (u.PrivacyLevel == PrivacyLevel.ConnectionsOnly) continue;
+
+            userDtos.Add(new UserSummaryDto(
+                u.Id,
+                u.FullName,
+                u.Title,
+                u.Institution,
+                u.ProfileImageUrl,
+                u.CoverImageUrl,
+                u.IsVerified
+            ));
+        }
 
         return Ok(new { publications = pubDtos, users = userDtos });
     }

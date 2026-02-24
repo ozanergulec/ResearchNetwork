@@ -103,7 +103,7 @@ const SearchPage: React.FC = () => {
 
                 {/* Search Bar */}
                 <div className="search-bar-wrapper">
-                    <span className="search-icon">🔍</span>
+                    <span className="search-icon">&#x2315;</span>
                     <input
                         type="text"
                         className="search-input"
@@ -153,7 +153,7 @@ const SearchPage: React.FC = () => {
                     </div>
                 ) : !searched ? (
                     <div className="search-prompt">
-                        <div className="search-prompt-icon">🔎</div>
+                        <div className="search-prompt-icon">&#x2315;</div>
                         <h3>Start Searching</h3>
                         <p>Enter at least 2 characters</p>
                     </div>
@@ -164,7 +164,7 @@ const SearchPage: React.FC = () => {
                             <>
                                 {users.length === 0 ? (
                                     <div className="search-empty">
-                                        <div className="search-empty-icon">👤</div>
+                                        <div className="search-empty-icon">No users found</div>
                                         <h3>No users found</h3>
                                         <p>Try different keywords</p>
                                     </div>
@@ -211,7 +211,7 @@ const SearchPage: React.FC = () => {
                             <>
                                 {publications.length === 0 ? (
                                     <div className="search-empty">
-                                        <div className="search-empty-icon">📄</div>
+                                        <div className="search-empty-icon">No publications found</div>
                                         <h3>No publications found</h3>
                                         <p>Try different keywords</p>
                                     </div>
@@ -257,12 +257,12 @@ const SearchPage: React.FC = () => {
                                                     )}
                                                     {pub.citationCount > 0 && (
                                                         <span className="search-pub-stat">
-                                                            📎 {pub.citationCount}
+                                                            Citations: {pub.citationCount}
                                                         </span>
                                                     )}
                                                     {pub.saveCount > 0 && (
                                                         <span className="search-pub-stat">
-                                                            🔖 {pub.saveCount}
+                                                            Saved: {pub.saveCount}
                                                         </span>
                                                     )}
                                                 </div>
@@ -287,7 +287,7 @@ const SearchPage: React.FC = () => {
                             <>
                                 {tagTotalCount === 0 ? (
                                     <div className="search-empty">
-                                        <div className="search-empty-icon">🏷️</div>
+                                        <div className="search-empty-icon">No tags found</div>
                                         <h3>No results found for this tag</h3>
                                         <p>Try a different tag name</p>
                                     </div>
@@ -297,7 +297,7 @@ const SearchPage: React.FC = () => {
                                         {tagPublications.length > 0 && (
                                             <div className="search-tag-section">
                                                 <div className="search-tag-section-header">
-                                                    <span className="search-tag-section-icon">📄</span>
+                                                    <span className="search-tag-section-icon">Publications</span>
                                                     <h3>Publications with this tag</h3>
                                                     <span className="search-tag-section-count">{tagPublications.length}</span>
                                                 </div>
@@ -342,7 +342,7 @@ const SearchPage: React.FC = () => {
                                                                 )}
                                                                 {pub.citationCount > 0 && (
                                                                     <span className="search-pub-stat">
-                                                                        📎 {pub.citationCount}
+                                                                        Citations: {pub.citationCount}
                                                                     </span>
                                                                 )}
                                                             </div>
@@ -365,7 +365,7 @@ const SearchPage: React.FC = () => {
                                         {tagUsers.length > 0 && (
                                             <div className="search-tag-section">
                                                 <div className="search-tag-section-header">
-                                                    <span className="search-tag-section-icon">👤</span>
+                                                    <span className="search-tag-section-icon">People</span>
                                                     <h3>People with this tag</h3>
                                                     <span className="search-tag-section-count">{tagUsers.length}</span>
                                                 </div>
