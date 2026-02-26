@@ -1,21 +1,23 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { publicationsApi, type FeedItem } from '../services/publicationService';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { publicationsApi, type FeedItem, type Publication } from '../services/publicationService';
 import { usersApi } from '../services/userService';
 import { Navbar, Loading } from '../components';
-import { CreatePostBar, FeedPublicationCard, SharedFeedCard, HomeProfileSidebar } from '../components/feed';
+import { CreatePostBar, FeedPublicationCard, SharedFeedCard, HomeProfileSidebar, PublicationDetailModal } from '../components/feed';
 import '../styles/pages/HomePage.css';
 
 const PAGE_SIZE = 10;
 
 const HomePage: React.FC = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
     const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
     const [hasMore, setHasMore] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [linkedPublication, setLinkedPublication] = useState<Publication | null>(null);
     const sentinelRef = useRef<HTMLDivElement | null>(null);
     const fetchedRef = useRef(false);
     const pageRef = useRef(1);
@@ -36,6 +38,30 @@ const HomePage: React.FC = () => {
         const fetchInitialFeed = async () => {
             try {
                 setLoading(true);
+
+                // Handle linked publication from URL params (e.g. notifications)
+                const searchParams = new URLSearchParams(location.search);
+                const pubId = searchParams.get('pubId');
+                const shareId = searchParams.get('shareId');
+
+                if (pubId) {
+                    try {
+                        const pubRes = await publicationsApi.getById(pubId);
+                        setLinkedPublication(pubRes.data);
+                    } catch (err) {
+                        console.error('Failed to load linked publication', err);
+                    }
+                } else if (shareId) {
+                    // For shareId, we ideally want to fetch the share, but for now we'll rely on the feed 
+                    // or just show the feed normally if there's no dedicated endpoint to fetch a single share.
+                    // If backend supports getting a publication by share ID, we'd do it here.
+                }
+
+                // Clear URL params without reloading to prevent re-opening on refresh
+                if (pubId || shareId) {
+                    navigate('/home', { replace: true });
+                }
+
                 const [feedResponse, followingResponse] = await Promise.all([
                     publicationsApi.getFeed(1, PAGE_SIZE),
                     usersApi.getFollowingIds(),
@@ -61,7 +87,7 @@ const HomePage: React.FC = () => {
         };
 
         fetchInitialFeed();
-    }, [navigate]);
+    }, [navigate, location.search]);
 
     // Stable loadMore — uses refs to avoid recreating on every render
     const loadMore = useCallback(async () => {
@@ -212,6 +238,14 @@ const HomePage: React.FC = () => {
                     )}
                 </div>
             </div>
+
+            {/* Modal for publications clicked from external links (like notifications) */}
+            {linkedPublication && (
+                <PublicationDetailModal
+                    publication={linkedPublication}
+                    onClose={() => setLinkedPublication(null)}
+                />
+            )}
         </div>
     );
 };

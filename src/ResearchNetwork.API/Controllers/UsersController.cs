@@ -353,8 +353,8 @@ public class UsersController : ControllerBase
             // Create notification for the followed user
             var notification = new Notification(
                 userId: id,
-                title: "Yeni Takipçi",
-                message: $"{currentUser.FullName} sizi takip etmeye başladı.",
+                title: "New Follower",
+                message: $"{currentUser.FullName} started following you.",
                 type: NotificationType.NewFollower,
                 targetUrl: $"/profile/{currentUserId.Value}",
                 actorId: currentUserId.Value,

@@ -152,10 +152,10 @@ public class FeedController : ControllerBase
             {
                 var notification = new Notification(
                     userId: publication.AuthorId,
-                    title: "Yayın Puanlandı",
-                    message: $"{rater.FullName} yayınınızı {dto.Score} puan ile değerlendirdi: \"{publication.Title}\"",
+                    title: "Publication Rated",
+                    message: $"{rater.FullName} rated your publication with {dto.Score} stars: \"{publication.Title}\"",
                     type: NotificationType.PublicationRated,
-                    targetUrl: $"/profile/{userId.Value}",
+                    targetUrl: $"/home?pubId={id}",
                     actorId: userId.Value,
                     actorName: rater.FullName,
                     actorProfileImageUrl: rater.ProfileImageUrl
@@ -252,10 +252,10 @@ public class FeedController : ControllerBase
             {
                 var notification = new Notification(
                     userId: publication.AuthorId,
-                    title: "Yayın Paylaşıldı",
-                    message: $"{sharer.FullName} yayınınızı paylaştı: \"{publication.Title}\"",
+                    title: "Publication Shared",
+                    message: $"{sharer.FullName} shared your publication: \"{publication.Title}\"",
                     type: NotificationType.PublicationAlert,
-                    targetUrl: $"/profile/{userId.Value}",
+                    targetUrl: $"/home?shareId={share.Id}",
                     actorId: userId.Value,
                     actorName: sharer.FullName,
                     actorProfileImageUrl: sharer.ProfileImageUrl

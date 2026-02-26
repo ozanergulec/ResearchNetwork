@@ -22,7 +22,7 @@ const NotificationsPage: React.FC = () => {
             setNotifications(res.data);
         } catch (err) {
             console.error('Failed to fetch notifications', err);
-            setError('Bildirimler yüklenirken hata oluştu.');
+            setError('Error loading notifications.');
         } finally {
             setLoading(false);
         }
@@ -71,20 +71,20 @@ const NotificationsPage: React.FC = () => {
         const diffHour = Math.floor(diffMs / 3600000);
         const diffDay = Math.floor(diffMs / 86400000);
 
-        if (diffMin < 1) return 'Az önce';
-        if (diffMin < 60) return `${diffMin} dk önce`;
-        if (diffHour < 24) return `${diffHour} saat önce`;
-        if (diffDay < 7) return `${diffDay} gün önce`;
-        return date.toLocaleDateString('tr-TR');
+        if (diffMin < 1) return 'Just now';
+        if (diffMin < 60) return `${diffMin}m ago`;
+        if (diffHour < 24) return `${diffHour}h ago`;
+        if (diffDay < 7) return `${diffDay}d ago`;
+        return date.toLocaleDateString('en-US');
     };
 
     const getNotificationIcon = (type: number): string => {
         switch (type) {
-            case 1: return '👤'; // NewFollower
-            case 3: return '📢'; // PublicationAlert (share)
-            case 5: return '⭐'; // PublicationRated
-            case 6: return '📎'; // PublicationCited
-            default: return '🔔'; // General
+            case 1: return ''; // NewFollower
+            case 3: return ''; // PublicationAlert (share)
+            case 5: return ''; // PublicationRated
+            case 6: return ''; // PublicationCited
+            default: return ''; // General
         }
     };
 
@@ -154,7 +154,7 @@ const NotificationsPage: React.FC = () => {
             <button
                 className="notif-delete-btn"
                 onClick={(e) => handleDelete(e, n.id)}
-                title="Sil"
+                title="Delete"
             >
                 ×
             </button>
@@ -177,9 +177,9 @@ const NotificationsPage: React.FC = () => {
             <div className="notif-container">
                 <div className="notif-header">
                     <div className="notif-header-left">
-                        <h1 className="notif-title">Bildirimler</h1>
+                        <h1 className="notif-title">Notifications</h1>
                         {unreadCount > 0 && (
-                            <span className="notif-unread-badge">{unreadCount} okunmamış</span>
+                            <span className="notif-unread-badge">{unreadCount} unread</span>
                         )}
                     </div>
                     {unreadCount > 0 && (
@@ -187,7 +187,7 @@ const NotificationsPage: React.FC = () => {
                             className="notif-mark-all-btn"
                             onClick={handleMarkAllAsRead}
                         >
-                            Tümünü okundu işaretle
+                            Mark all as read
                         </button>
                     )}
                 </div>
@@ -195,21 +195,20 @@ const NotificationsPage: React.FC = () => {
                 {loading ? (
                     <div className="notif-loading">
                         <div className="notif-spinner" />
-                        <span>Yükleniyor...</span>
+                        <span>Loading...</span>
                     </div>
                 ) : error ? (
                     <div className="notif-error">{error}</div>
                 ) : notifications.length === 0 ? (
                     <div className="notif-empty">
-                        <div className="notif-empty-icon">🔔</div>
-                        <h3>Henüz bildiriminiz yok</h3>
-                        <p>Takip, puanlama ve paylaşım bildirimleri burada görünecek.</p>
+                        <h3>No notifications yet</h3>
+                        <p>Follow, rating, and share notifications will appear here.</p>
                     </div>
                 ) : (
                     <div className="notif-list">
-                        {renderGroup('Bugün', today)}
-                        {renderGroup('Bu Hafta', thisWeek)}
-                        {renderGroup('Daha Önce', earlier)}
+                        {renderGroup('Today', today)}
+                        {renderGroup('This Week', thisWeek)}
+                        {renderGroup('Earlier', earlier)}
                     </div>
                 )}
             </div>
