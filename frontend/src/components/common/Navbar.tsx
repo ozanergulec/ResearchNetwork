@@ -1,13 +1,14 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { searchApi } from '../../services/searchService';
+import { notificationApi } from '../../services/notificationService';
 import { API_SERVER_URL } from '../../services/apiClient';
 import type { UserSummary, Publication } from '../../services/publicationService';
 import PublicationDetailModal from '../feed/PublicationDetailModal';
 import '../../styles/common/Navbar.css';
 
 interface NavbarProps {
-    currentPage: 'home' | 'search' | 'profile' | 'recommendations' | 'settings' | 'none';
+    currentPage: 'home' | 'search' | 'profile' | 'recommendations' | 'notifications' | 'settings' | 'none';
 }
 
 const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
@@ -19,6 +20,7 @@ const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
     const [loading, setLoading] = useState(false);
     const [searched, setSearched] = useState(false);
     const [selectedPublication, setSelectedPublication] = useState<Publication | null>(null);
+    const [unreadCount, setUnreadCount] = useState(0);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -80,6 +82,25 @@ const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    // Fetch unread notification count
+    useEffect(() => {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        const fetchUnreadCount = async () => {
+            try {
+                const res = await notificationApi.getUnreadCount();
+                setUnreadCount(res.data.count);
+            } catch (err) {
+                // Silently fail
+            }
+        };
+
+        fetchUnreadCount();
+        const interval = setInterval(fetchUnreadCount, 30000); // Poll every 30 seconds
+        return () => clearInterval(interval);
     }, []);
 
     const getInitials = (name: string) =>
@@ -214,6 +235,15 @@ const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
                         className={`navbar-button ${currentPage === 'recommendations' ? 'active' : ''}`}
                     >
                         Recommendations
+                    </button>
+                    <button
+                        onClick={() => navigate('/notifications')}
+                        className={`navbar-button navbar-notif-btn ${currentPage === 'notifications' ? 'active' : ''}`}
+                    >
+                        Notifications
+                        {unreadCount > 0 && (
+                            <span className="navbar-notif-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
+                        )}
                     </button>
                     <button
                         onClick={() => navigate('/settings')}

@@ -15,12 +15,14 @@ public class UsersController : ControllerBase
     private readonly IUserRepository _userRepository;
     private readonly ITagRepository _tagRepository;
     private readonly IPublicationRepository _publicationRepository;
+    private readonly INotificationRepository _notificationRepository;
 
-    public UsersController(IUserRepository userRepository, ITagRepository tagRepository, IPublicationRepository publicationRepository)
+    public UsersController(IUserRepository userRepository, ITagRepository tagRepository, IPublicationRepository publicationRepository, INotificationRepository notificationRepository)
     {
         _userRepository = userRepository;
         _tagRepository = tagRepository;
         _publicationRepository = publicationRepository;
+        _notificationRepository = notificationRepository;
     }
 
     [HttpGet]
@@ -347,6 +349,19 @@ public class UsersController : ControllerBase
         {
             currentUser.IncrementFollowingCount();
             await _userRepository.UpdateAsync(currentUser);
+
+            // Create notification for the followed user
+            var notification = new Notification(
+                userId: id,
+                title: "Yeni Takipçi",
+                message: $"{currentUser.FullName} sizi takip etmeye başladı.",
+                type: NotificationType.NewFollower,
+                targetUrl: $"/profile/{currentUserId.Value}",
+                actorId: currentUserId.Value,
+                actorName: currentUser.FullName,
+                actorProfileImageUrl: currentUser.ProfileImageUrl
+            );
+            await _notificationRepository.AddAsync(notification);
         }
 
         return Ok(new { following = true, followerCount = targetUser.FollowerCount });

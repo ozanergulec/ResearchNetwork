@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using ResearchNetwork.Application.DTOs;
 using ResearchNetwork.Application.Interfaces;
 using ResearchNetwork.Domain.Entities;
+using ResearchNetwork.Domain.Enums;
 using ResearchNetwork.API.Helpers;
 
 namespace ResearchNetwork.API.Controllers;
@@ -14,13 +15,16 @@ public class FeedController : ControllerBase
 {
     private readonly IPublicationRepository _publicationRepository;
     private readonly IUserRepository _userRepository;
+    private readonly INotificationRepository _notificationRepository;
 
     public FeedController(
         IPublicationRepository publicationRepository,
-        IUserRepository userRepository)
+        IUserRepository userRepository,
+        INotificationRepository notificationRepository)
     {
         _publicationRepository = publicationRepository;
         _userRepository = userRepository;
+        _notificationRepository = notificationRepository;
     }
 
     private Guid? GetCurrentUserId()
@@ -140,6 +144,26 @@ public class FeedController : ControllerBase
         await _publicationRepository.UpdateAsync(publication);
         await UpdateAuthorAvgScore(publication.AuthorId);
 
+        // Create notification for the publication author (skip if rating own publication)
+        if (publication.AuthorId != userId.Value)
+        {
+            var rater = await _userRepository.GetByIdAsync(userId.Value);
+            if (rater != null)
+            {
+                var notification = new Notification(
+                    userId: publication.AuthorId,
+                    title: "Yayın Puanlandı",
+                    message: $"{rater.FullName} yayınınızı {dto.Score} puan ile değerlendirdi: \"{publication.Title}\"",
+                    type: NotificationType.PublicationRated,
+                    targetUrl: $"/profile/{userId.Value}",
+                    actorId: userId.Value,
+                    actorName: rater.FullName,
+                    actorProfileImageUrl: rater.ProfileImageUrl
+                );
+                await _notificationRepository.AddAsync(notification);
+            }
+        }
+
         return Ok(new { averageRating = newAvg, userRating = dto.Score });
     }
 
@@ -219,6 +243,26 @@ public class FeedController : ControllerBase
         await _publicationRepository.AddShareAsync(share);
         publication.IncrementShareCount();
         await _publicationRepository.UpdateAsync(publication);
+
+        // Create notification for the publication author (skip if sharing own publication)
+        if (publication.AuthorId != userId.Value)
+        {
+            var sharer = await _userRepository.GetByIdAsync(userId.Value);
+            if (sharer != null)
+            {
+                var notification = new Notification(
+                    userId: publication.AuthorId,
+                    title: "Yayın Paylaşıldı",
+                    message: $"{sharer.FullName} yayınınızı paylaştı: \"{publication.Title}\"",
+                    type: NotificationType.PublicationAlert,
+                    targetUrl: $"/profile/{userId.Value}",
+                    actorId: userId.Value,
+                    actorName: sharer.FullName,
+                    actorProfileImageUrl: sharer.ProfileImageUrl
+                );
+                await _notificationRepository.AddAsync(notification);
+            }
+        }
 
         return Ok(new { shared = true, shareCount = publication.ShareCount });
     }

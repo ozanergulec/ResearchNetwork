@@ -6,5 +6,7 @@ public enum NotificationType
     NewFollower = 1,
     Recommendation = 2,
     PublicationAlert = 3,
-    ProfileView = 4
+    ProfileView = 4,
+    PublicationRated = 5,
+    PublicationCited = 6
 }

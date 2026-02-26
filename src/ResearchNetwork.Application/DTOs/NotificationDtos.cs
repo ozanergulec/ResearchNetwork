@@ -9,5 +9,8 @@ public record NotificationDto(
     string? TargetUrl,
     NotificationType Type,
     bool IsRead,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    Guid? ActorId,
+    string? ActorName,
+    string? ActorProfileImageUrl
 );

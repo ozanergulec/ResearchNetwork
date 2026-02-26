@@ -29,7 +29,12 @@ public class Notification
     public Guid UserId { get; private set; }
     public User User { get; set; } = null!;
 
-    public Notification(Guid userId, string title, string message, NotificationType type, string? targetUrl = null)
+    // Bildirimi tetikleyen kullanıcı (takip eden, puanlayan vb.)
+    public Guid? ActorId { get; private set; }
+    public string? ActorName { get; private set; }
+    public string? ActorProfileImageUrl { get; private set; }
+
+    public Notification(Guid userId, string title, string message, NotificationType type, string? targetUrl = null, Guid? actorId = null, string? actorName = null, string? actorProfileImageUrl = null)
     {
         Id = Guid.NewGuid();
         UserId = userId;
@@ -37,6 +42,9 @@ public class Notification
         Message = message;
         Type = type;
         TargetUrl = targetUrl;
+        ActorId = actorId;
+        ActorName = actorName;
+        ActorProfileImageUrl = actorProfileImageUrl;
         CreatedAt = DateTime.UtcNow;
         IsRead = false;
     }
