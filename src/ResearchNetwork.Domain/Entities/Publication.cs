@@ -50,6 +50,12 @@ public class Publication
     // Bu yayını paylaşanlar
     public ICollection<PublicationShare> Shares { get; set; } = new List<PublicationShare>();
 
+    // Peer review requests for this publication
+    public ICollection<ReviewRequest> ReviewRequests { get; set; } = new List<ReviewRequest>();
+
+    // Whether the author is looking for reviewers
+    public bool IsLookingForReviewers { get; set; }
+
     // Yayının Ortalama Puanı
     public double AverageRating { get; private set; }
 
@@ -74,6 +80,7 @@ public class Publication
         AverageRating = 0;
         CitationCount = 0;
         SaveCount = 0;
+        IsLookingForReviewers = false;
         ShareCount = 0;
     }
 

@@ -10,6 +10,7 @@ import HomePage from './pages/HomePage';
 import SearchPage from './pages/SearchPage';
 import SettingsPage from './pages/SettingsPage';
 import NotificationsPage from './pages/NotificationsPage';
+import PeerReviewPage from './pages/PeerReviewPage';
 
 function App() {
   return (
@@ -25,6 +26,7 @@ function App() {
         <Route path="/search" element={<SearchPage />} />
         <Route path="/recommendations" element={<RecommendationsPage />} />
         <Route path="/notifications" element={<NotificationsPage />} />
+        <Route path="/peer-review" element={<PeerReviewPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/" element={<Navigate to="/home" replace />} />
       </Routes>

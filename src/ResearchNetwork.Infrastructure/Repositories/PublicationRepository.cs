@@ -54,6 +54,7 @@ public class PublicationRepository : IPublicationRepository
             .Include(p => p.Author)
             .Include(p => p.Tags)
                 .ThenInclude(pt => pt.Tag)
+            .Include(p => p.ReviewRequests)
             .OrderByDescending(p => p.CreatedAt)
             .ToListAsync();
     }

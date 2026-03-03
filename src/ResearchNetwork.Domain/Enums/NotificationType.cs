@@ -8,5 +8,8 @@ public enum NotificationType
     PublicationAlert = 3,
     ProfileView = 4,
     PublicationRated = 5,
-    PublicationCited = 6
+    PublicationCited = 6,
+    ReviewRequested = 7,
+    ReviewAccepted = 8,
+    ReviewCompleted = 9
 }

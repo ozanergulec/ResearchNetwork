@@ -22,6 +22,7 @@ public class AppDbContext : DbContext
     public DbSet<UserTag> UserTags { get; set; } = null!;
     public DbSet<UserFollow> UserFollows { get; set; } = null!;
     public DbSet<VerificationCode> VerificationCodes { get; set; } = null!;
+    public DbSet<ReviewRequest> ReviewRequests { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -211,6 +212,22 @@ public class AppDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => e.Name).IsUnique();
             entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
+        });
+
+        // ReviewRequest
+        modelBuilder.Entity<ReviewRequest>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.HasOne(e => e.Publication)
+                  .WithMany(p => p.ReviewRequests)
+                  .HasForeignKey(e => e.PublicationId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Reviewer)
+                  .WithMany(u => u.ReviewRequests)
+                  .HasForeignKey(e => e.ReviewerId)
+                  .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

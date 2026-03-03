@@ -8,7 +8,7 @@ import PublicationDetailModal from '../feed/PublicationDetailModal';
 import '../../styles/common/Navbar.css';
 
 interface NavbarProps {
-    currentPage: 'home' | 'search' | 'profile' | 'recommendations' | 'notifications' | 'settings' | 'none';
+    currentPage: 'home' | 'search' | 'profile' | 'recommendations' | 'notifications' | 'settings' | 'peer-review' | 'none';
 }
 
 const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
@@ -235,6 +235,12 @@ const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
                         className={`navbar-button ${currentPage === 'recommendations' ? 'active' : ''}`}
                     >
                         Recommendations
+                    </button>
+                    <button
+                        onClick={() => navigate('/peer-review')}
+                        className={`navbar-button ${currentPage === 'peer-review' ? 'active' : ''}`}
+                    >
+                        Peer Review
                     </button>
                     <button
                         onClick={() => navigate('/notifications')}

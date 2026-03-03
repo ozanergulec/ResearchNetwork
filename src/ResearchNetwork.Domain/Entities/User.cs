@@ -95,6 +95,9 @@ public class User
     // Kullanıcının paylaştığı yayınlar
     public ICollection<PublicationShare> SharedPublications { get; set; } = new List<PublicationShare>();
 
+    // Kullanıcının hakemlik başvuruları
+    public ICollection<ReviewRequest> ReviewRequests { get; set; } = new List<ReviewRequest>();
+
     public User(string email, string fullName) 
     {
         Id = Guid.NewGuid();
