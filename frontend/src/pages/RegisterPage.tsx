@@ -9,6 +9,17 @@ import '../styles/pages/LoginPage.css';
 // Accepted academic email domains
 const ACADEMIC_DOMAINS = ['.edu.tr', '.ac.uk', '.edu'];
 
+// English academic titles for autocomplete
+const ACADEMIC_TITLES = [
+    'Professor',
+    'Associate Professor',
+    'Assistant Professor',
+    'Research Assistant',
+    'PhD Candidate',
+    'Master\'s Student',
+    'Undergraduate Student',
+];
+
 const isAcademicEmail = (email: string): boolean => {
     const lowerEmail = email.toLowerCase();
     return ACADEMIC_DOMAINS.some(domain => lowerEmail.endsWith(domain));
@@ -107,12 +118,11 @@ const RegisterPage: React.FC = () => {
                         required
                         minLength={6}
                     />
-                    <input
-                        type="text"
-                        placeholder="Academic Title"
+                    <Autocomplete
+                        suggestions={ACADEMIC_TITLES}
                         value={registerData.title}
-                        onChange={(e) => setRegisterData({ ...registerData, title: e.target.value })}
-                        className="login-input"
+                        onChange={(val) => setRegisterData({ ...registerData, title: val })}
+                        placeholder="Academic Title"
                         required
                     />
                     <Autocomplete
