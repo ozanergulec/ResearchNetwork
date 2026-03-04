@@ -288,7 +288,7 @@ const PeerReviewPage: React.FC = () => {
             <div key={req.id} className="pr-request-card">
                 <div className="pr-request-header">
                     <div>
-                        <div className="pr-request-pub-title">📄 {req.publicationTitle}</div>
+                        <div className="pr-request-pub-title">{req.publicationTitle}</div>
                         <div className="pr-pub-author" onClick={() => navigate(`/profile/${req.author.id}`)} style={{ cursor: 'pointer', marginTop: '0.25rem' }}>
                             {renderAvatar(req.author.fullName, req.author.profileImageUrl, 22)}
                             <span style={{ fontSize: '0.8rem' }}>by {req.author.fullName}</span>

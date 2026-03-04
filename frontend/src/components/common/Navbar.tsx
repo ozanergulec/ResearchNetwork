@@ -21,9 +21,12 @@ const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
     const [searched, setSearched] = useState(false);
     const [selectedPublication, setSelectedPublication] = useState<Publication | null>(null);
     const [unreadCount, setUnreadCount] = useState(0);
+    const [menuOpen, setMenuOpen] = useState(false);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+    const menuRef = useRef<HTMLDivElement>(null);
+    const menuBtnRef = useRef<HTMLButtonElement>(null);
 
     const handleLogout = () => {
         localStorage.removeItem('token');
@@ -72,12 +75,16 @@ const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
         }
     };
 
-    // Close dropdown on outside click
+    // Close search dropdown & hamburger menu on outside click
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
             if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node) &&
                 inputRef.current && !inputRef.current.contains(e.target as Node)) {
                 setShowDropdown(false);
+            }
+            if (menuRef.current && !menuRef.current.contains(e.target as Node) &&
+                menuBtnRef.current && !menuBtnRef.current.contains(e.target as Node)) {
+                setMenuOpen(false);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -230,36 +237,57 @@ const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
                     >
                         Profile
                     </button>
-                    <button
-                        onClick={() => navigate('/recommendations')}
-                        className={`navbar-button ${currentPage === 'recommendations' ? 'active' : ''}`}
-                    >
-                        Recommendations
-                    </button>
-                    <button
-                        onClick={() => navigate('/peer-review')}
-                        className={`navbar-button ${currentPage === 'peer-review' ? 'active' : ''}`}
-                    >
-                        Peer Review
-                    </button>
-                    <button
-                        onClick={() => navigate('/notifications')}
-                        className={`navbar-button navbar-notif-btn ${currentPage === 'notifications' ? 'active' : ''}`}
-                    >
-                        Notifications
-                        {unreadCount > 0 && (
-                            <span className="navbar-notif-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
-                        )}
-                    </button>
-                    <button
-                        onClick={() => navigate('/settings')}
-                        className={`navbar-button ${currentPage === 'settings' ? 'active' : ''}`}
-                    >
-                        Settings
-                    </button>
-                    <button onClick={handleLogout} className="navbar-logout-button">
-                        Logout
-                    </button>
+
+                    {/* Hamburger Menu */}
+                    <div className="navbar-menu-wrapper">
+                        <button
+                            ref={menuBtnRef}
+                            className={`navbar-hamburger ${menuOpen ? 'open' : ''}`}
+                            onClick={() => setMenuOpen(prev => !prev)}
+                            aria-label="More menu"
+                        >
+                            <span /><span /><span />
+                            {unreadCount > 0 && (
+                                <span className="navbar-hamburger-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
+                            )}
+                        </button>
+                        <div ref={menuRef} className={`navbar-dropdown-menu ${menuOpen ? 'open' : ''}`}>
+                            <button
+                                onClick={() => { setMenuOpen(false); navigate('/recommendations'); }}
+                                className={`navbar-dropdown-item ${currentPage === 'recommendations' ? 'active' : ''}`}
+                            >
+                                Recommendations
+                            </button>
+                            <button
+                                onClick={() => { setMenuOpen(false); navigate('/peer-review'); }}
+                                className={`navbar-dropdown-item ${currentPage === 'peer-review' ? 'active' : ''}`}
+                            >
+                                Peer Review
+                            </button>
+                            <button
+                                onClick={() => { setMenuOpen(false); navigate('/notifications'); }}
+                                className={`navbar-dropdown-item navbar-notif-btn ${currentPage === 'notifications' ? 'active' : ''}`}
+                            >
+                                Notifications
+                                {unreadCount > 0 && (
+                                    <span className="navbar-notif-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
+                                )}
+                            </button>
+                            <button
+                                onClick={() => { setMenuOpen(false); navigate('/settings'); }}
+                                className={`navbar-dropdown-item ${currentPage === 'settings' ? 'active' : ''}`}
+                            >
+                                Settings
+                            </button>
+                            <div className="navbar-dropdown-divider" />
+                            <button
+                                onClick={handleLogout}
+                                className="navbar-dropdown-item navbar-dropdown-logout"
+                            >
+                                Logout
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </nav>
 
