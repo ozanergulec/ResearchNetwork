@@ -218,7 +218,7 @@ public class ReviewController : ControllerBase
             "Review Application Accepted",
             $"Your review application for \"{request.Publication.Title}\" has been accepted.",
             NotificationType.ReviewAccepted,
-            $"/peer-review",
+                $"/peer-review?tab=my-applications",
             userId.Value,
             author?.FullName,
             author?.ProfileImageUrl
@@ -289,7 +289,7 @@ public class ReviewController : ControllerBase
             "Review Submitted",
             $"{reviewer?.FullName} has submitted a review for \"{request.Publication.Title}\"",
             NotificationType.ReviewCompleted,
-            $"/peer-review",
+                $"/peer-review?tab=my-publications",
             userId.Value,
             reviewer?.FullName,
             reviewer?.ProfileImageUrl
