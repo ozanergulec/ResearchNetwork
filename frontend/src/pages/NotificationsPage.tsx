@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/common/Navbar';
+import { HomeProfileSidebar } from '../components/feed';
 import { notificationApi, type NotificationData } from '../services/notificationService';
 import { API_SERVER_URL } from '../services/apiClient';
 import '../styles/pages/NotificationsPage.css';
@@ -174,43 +175,48 @@ const NotificationsPage: React.FC = () => {
     return (
         <div className="notifications-page">
             <Navbar currentPage="notifications" />
-            <div className="notif-container">
-                <div className="notif-header">
-                    <div className="notif-header-left">
-                        <h1 className="notif-title">Notifications</h1>
+            <div className="notif-layout">
+                <div className="notif-sidebar">
+                    <HomeProfileSidebar />
+                </div>
+                <div className="notif-container">
+                    <div className="notif-header">
+                        <div className="notif-header-left">
+                            <h1 className="notif-title">Notifications</h1>
+                            {unreadCount > 0 && (
+                                <span className="notif-unread-badge">{unreadCount} unread</span>
+                            )}
+                        </div>
                         {unreadCount > 0 && (
-                            <span className="notif-unread-badge">{unreadCount} unread</span>
+                            <button
+                                className="notif-mark-all-btn"
+                                onClick={handleMarkAllAsRead}
+                            >
+                                Mark all as read
+                            </button>
                         )}
                     </div>
-                    {unreadCount > 0 && (
-                        <button
-                            className="notif-mark-all-btn"
-                            onClick={handleMarkAllAsRead}
-                        >
-                            Mark all as read
-                        </button>
+
+                    {loading ? (
+                        <div className="notif-loading">
+                            <div className="notif-spinner" />
+                            <span>Loading...</span>
+                        </div>
+                    ) : error ? (
+                        <div className="notif-error">{error}</div>
+                    ) : notifications.length === 0 ? (
+                        <div className="notif-empty">
+                            <h3>No notifications yet</h3>
+                            <p>Follow, rating, and share notifications will appear here.</p>
+                        </div>
+                    ) : (
+                        <div className="notif-list">
+                            {renderGroup('Today', today)}
+                            {renderGroup('This Week', thisWeek)}
+                            {renderGroup('Earlier', earlier)}
+                        </div>
                     )}
                 </div>
-
-                {loading ? (
-                    <div className="notif-loading">
-                        <div className="notif-spinner" />
-                        <span>Loading...</span>
-                    </div>
-                ) : error ? (
-                    <div className="notif-error">{error}</div>
-                ) : notifications.length === 0 ? (
-                    <div className="notif-empty">
-                        <h3>No notifications yet</h3>
-                        <p>Follow, rating, and share notifications will appear here.</p>
-                    </div>
-                ) : (
-                    <div className="notif-list">
-                        {renderGroup('Today', today)}
-                        {renderGroup('This Week', thisWeek)}
-                        {renderGroup('Earlier', earlier)}
-                    </div>
-                )}
             </div>
         </div>
     );

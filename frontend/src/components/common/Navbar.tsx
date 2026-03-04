@@ -232,6 +232,15 @@ const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
                         Search
                     </button>
                     <button
+                        onClick={() => navigate('/notifications')}
+                        className={`navbar-button navbar-notif-btn ${currentPage === 'notifications' ? 'active' : ''}`}
+                    >
+                        Notifications
+                        {unreadCount > 0 && (
+                            <span className="navbar-notif-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
+                        )}
+                    </button>
+                    <button
                         onClick={() => navigate('/profile')}
                         className={`navbar-button ${currentPage === 'profile' ? 'active' : ''}`}
                     >
@@ -247,9 +256,6 @@ const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
                             aria-label="More menu"
                         >
                             <span /><span /><span />
-                            {unreadCount > 0 && (
-                                <span className="navbar-hamburger-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
-                            )}
                         </button>
                         <div ref={menuRef} className={`navbar-dropdown-menu ${menuOpen ? 'open' : ''}`}>
                             <button
@@ -264,15 +270,7 @@ const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
                             >
                                 Peer Review
                             </button>
-                            <button
-                                onClick={() => { setMenuOpen(false); navigate('/notifications'); }}
-                                className={`navbar-dropdown-item navbar-notif-btn ${currentPage === 'notifications' ? 'active' : ''}`}
-                            >
-                                Notifications
-                                {unreadCount > 0 && (
-                                    <span className="navbar-notif-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
-                                )}
-                            </button>
+
                             <button
                                 onClick={() => { setMenuOpen(false); navigate('/settings'); }}
                                 className={`navbar-dropdown-item ${currentPage === 'settings' ? 'active' : ''}`}

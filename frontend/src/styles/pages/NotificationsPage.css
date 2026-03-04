@@ -3,11 +3,26 @@
     background-color: var(--bg-primary);
 }
 
+/* Layout */
+.notif-layout {
+    max-width: 1200px;
+    padding: 40px 24px 64px;
+    margin: 0 auto 0 60px;
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 24px;
+    align-items: start;
+}
+
+.notif-sidebar {
+    position: sticky;
+    top: 24px;
+}
+
 /* Container */
 .notif-container {
-    max-width: 720px;
-    margin: 0 auto;
-    padding: 2rem 1.5rem;
+    max-width: 780px;
+    min-width: 0;
 }
 
 /* Header */
@@ -224,7 +239,9 @@
 }
 
 @keyframes notif-spin {
-    to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 /* Error */
@@ -261,11 +278,20 @@
 }
 
 /* Responsive */
-@media (max-width: 768px) {
-    .notif-container {
-        padding: 1.25rem 1rem;
+@media (max-width: 1080px) {
+    .notif-layout {
+        grid-template-columns: 1fr;
+        max-width: 780px;
+        margin: 0 auto;
+        padding: 24px 16px;
     }
 
+    .notif-sidebar {
+        display: none;
+    }
+}
+
+@media (max-width: 600px) {
     .notif-header {
         flex-direction: column;
         align-items: flex-start;
