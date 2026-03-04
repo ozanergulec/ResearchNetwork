@@ -132,6 +132,15 @@
     line-height: 1.4;
 }
 
+.pr-pub-card-clickable {
+    cursor: pointer;
+}
+
+.pr-pub-card-clickable:hover {
+    border-color: rgba(122, 31, 43, 0.25);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.07);
+}
+
 .pr-pub-abstract {
     font-size: 0.85rem;
     color: var(--text-primary);

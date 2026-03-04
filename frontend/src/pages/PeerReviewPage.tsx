@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/common/Navbar';
 import { reviewApi } from '../services/reviewService';
 import type { ReviewablePublication, ReviewRequest, MyPublicationForReview } from '../services/reviewService';
+import { publicationsApi } from '../services/publicationService';
+import type { Publication } from '../services/publicationService';
+import PublicationDetailModal from '../components/feed/PublicationDetailModal';
 import { API_SERVER_URL } from '../services/apiClient';
 import '../styles/pages/PeerReviewPage.css';
 
@@ -35,6 +38,9 @@ const PeerReviewPage: React.FC = () => {
 
     // Eligibility
     const [canReview, setCanReview] = useState(false);
+
+    // Publication detail modal
+    const [detailPub, setDetailPub] = useState<Publication | null>(null);
 
     const getImageUrl = (url?: string | null) => {
         if (!url) return null;
@@ -215,12 +221,23 @@ const PeerReviewPage: React.FC = () => {
                     </div>
                 ) : (
                     publications.map(pub => (
-                        <div key={pub.id} className="pr-pub-card">
+                        <div
+                            key={pub.id}
+                            className="pr-pub-card pr-pub-card-clickable"
+                            onClick={async () => {
+                                try {
+                                    const res = await publicationsApi.getById(pub.id);
+                                    setDetailPub(res.data);
+                                } catch (err) {
+                                    console.error('Failed to load publication details', err);
+                                }
+                            }}
+                        >
                             <div className="pr-pub-header">
                                 <div>
                                     <h3 className="pr-pub-title">{pub.title}</h3>
                                 </div>
-                                <div className="pr-pub-actions">
+                                <div className="pr-pub-actions" onClick={e => e.stopPropagation()}>
                                     {pub.isOwner ? (
                                         <span className="pr-btn pr-btn-sm" style={{ opacity: 0.5, cursor: 'default' }}>Your publication</span>
                                     ) : pub.hasApplied ? (
@@ -237,7 +254,7 @@ const PeerReviewPage: React.FC = () => {
                             </div>
                             {pub.abstract && <p className="pr-pub-abstract">{pub.abstract}</p>}
                             <div className="pr-pub-meta">
-                                <div className="pr-pub-author" onClick={() => navigate(`/profile/${pub.author.id}`)} style={{ cursor: 'pointer' }}>
+                                <div className="pr-pub-author" onClick={(e) => { e.stopPropagation(); navigate(`/profile/${pub.author.id}`); }} style={{ cursor: 'pointer' }}>
                                     {renderAvatar(pub.author.fullName, pub.author.profileImageUrl)}
                                     <span>{pub.author.fullName}</span>
                                 </div>
@@ -512,6 +529,14 @@ const PeerReviewPage: React.FC = () => {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Publication Detail Modal */}
+            {detailPub && (
+                <PublicationDetailModal
+                    publication={detailPub}
+                    onClose={() => setDetailPub(null)}
+                />
             )}
         </div>
     );
