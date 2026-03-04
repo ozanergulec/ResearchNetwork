@@ -10,9 +10,10 @@ interface BrowseTabProps {
     canReview: boolean;
     onApply: (pubId: string, pubTitle: string) => void;
     onShowDetail: (pub: Publication) => void;
+    onCloseReview: (pubId: string) => void;
 }
 
-const BrowseTab: React.FC<BrowseTabProps> = ({ publications, canReview, onApply, onShowDetail }) => {
+const BrowseTab: React.FC<BrowseTabProps> = ({ publications, canReview, onApply, onShowDetail, onCloseReview }) => {
     const navigate = useNavigate();
 
     const handleCardClick = async (pubId: string) => {
@@ -51,7 +52,12 @@ const BrowseTab: React.FC<BrowseTabProps> = ({ publications, canReview, onApply,
                             </div>
                             <div className="pr-pub-actions" onClick={e => e.stopPropagation()}>
                                 {pub.isOwner ? (
-                                    <span className="pr-btn pr-btn-sm" style={{ opacity: 0.5, cursor: 'default' }}>Your publication</span>
+                                    <button
+                                        className="pr-btn pr-btn-danger pr-btn-sm"
+                                        onClick={() => onCloseReview(pub.id)}
+                                    >
+                                        Close Review
+                                    </button>
                                 ) : pub.hasApplied ? (
                                     <span className="pr-btn pr-btn-sm" style={{ background: '#d1fae5', color: '#065f46' }}>Applied ✓</span>
                                 ) : canReview ? (

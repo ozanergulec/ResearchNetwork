@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { reviewApi } from '../../services/reviewService';
 import type { MyPublicationForReview, ReviewRequest } from '../../services/reviewService';
 import { renderAvatar, renderStatus, renderVerdict, formatDate } from './prHelpers';
+import ReviewDetailModal from './ReviewDetailModal';
 
 interface MyPublicationsTabProps {
     myPublications: MyPublicationForReview[];
@@ -14,6 +15,7 @@ const MyPublicationsTab: React.FC<MyPublicationsTabProps> = ({ myPublications, o
     const [selectedPubId, setSelectedPubId] = useState<string | null>(null);
     const [pubReviewRequests, setPubReviewRequests] = useState<ReviewRequest[]>([]);
     const [loadingPubRequests, setLoadingPubRequests] = useState(false);
+    const [selectedRequest, setSelectedRequest] = useState<ReviewRequest | null>(null);
 
     const loadPubRequests = async (pubId: string) => {
         if (selectedPubId === pubId) {
@@ -36,7 +38,10 @@ const MyPublicationsTab: React.FC<MyPublicationsTabProps> = ({ myPublications, o
     const handleAccept = async (requestId: string) => {
         try {
             await reviewApi.acceptReviewer(requestId);
-            if (selectedPubId) loadPubRequests(selectedPubId);
+            if (selectedPubId) {
+                const res = await reviewApi.getPublicationReviewRequests(selectedPubId);
+                setPubReviewRequests(res.data);
+            }
         } catch (err: any) {
             alert(err.response?.data?.message || 'Failed to accept');
         }
@@ -45,7 +50,10 @@ const MyPublicationsTab: React.FC<MyPublicationsTabProps> = ({ myPublications, o
     const handleReject = async (requestId: string) => {
         try {
             await reviewApi.rejectReviewer(requestId);
-            if (selectedPubId) loadPubRequests(selectedPubId);
+            if (selectedPubId) {
+                const res = await reviewApi.getPublicationReviewRequests(selectedPubId);
+                setPubReviewRequests(res.data);
+            }
         } catch (err: any) {
             alert(err.response?.data?.message || 'Failed to reject');
         }
@@ -104,9 +112,13 @@ const MyPublicationsTab: React.FC<MyPublicationsTabProps> = ({ myPublications, o
                                 <div style={{ padding: '1rem', fontSize: '0.85rem', opacity: 0.5 }}>No applications yet.</div>
                             ) : (
                                 pubReviewRequests.map(req => (
-                                    <div key={req.id} className="pr-request-card">
+                                    <div
+                                        key={req.id}
+                                        className="pr-request-card pr-request-card-clickable"
+                                        onClick={() => setSelectedRequest(req)}
+                                    >
                                         <div className="pr-request-header">
-                                            <div className="pr-request-user" onClick={() => navigate(`/profile/${req.reviewer.id}`)} style={{ cursor: 'pointer' }}>
+                                            <div className="pr-request-user" onClick={(e) => { e.stopPropagation(); navigate(`/profile/${req.reviewer.id}`); }} style={{ cursor: 'pointer' }}>
                                                 {renderAvatar(req.reviewer.fullName, req.reviewer.profileImageUrl, 36)}
                                                 <div className="pr-request-user-info">
                                                     <span className="pr-request-user-name">{req.reviewer.fullName}</span>
@@ -115,7 +127,7 @@ const MyPublicationsTab: React.FC<MyPublicationsTabProps> = ({ myPublications, o
                                                     </span>
                                                 </div>
                                             </div>
-                                            <div className="pr-request-actions">
+                                            <div className="pr-request-actions" onClick={e => e.stopPropagation()}>
                                                 {renderStatus(req.status)}
                                                 {req.status === 'Pending' && (
                                                     <>
@@ -144,6 +156,18 @@ const MyPublicationsTab: React.FC<MyPublicationsTabProps> = ({ myPublications, o
                     )}
                 </div>
             ))}
+
+            {selectedRequest && (
+                <ReviewDetailModal
+                    request={selectedRequest}
+                    canReview={false}
+                    viewAs="author"
+                    onClose={() => setSelectedRequest(null)}
+                    onSubmitReview={() => { }}
+                    onAccept={handleAccept}
+                    onReject={handleReject}
+                />
+            )}
         </>
     );
 };

@@ -91,9 +91,6 @@ const PeerReviewPage: React.FC = () => {
                         onClick={() => setActiveTab('my-applications')}
                     >
                         My Applications
-                        {myRequests.length > 0 && activeTab !== 'my-applications' && (
-                            <span className="pr-tab-badge">{myRequests.length}</span>
-                        )}
                     </button>
                     <button
                         className={`pr-tab ${activeTab === 'my-publications' ? 'active' : ''}`}
@@ -117,6 +114,7 @@ const PeerReviewPage: React.FC = () => {
                                 canReview={canReview}
                                 onApply={(pubId, pubTitle) => setApplyModal({ pubId, pubTitle })}
                                 onShowDetail={setDetailPub}
+                                onCloseReview={handleToggleSearch}
                             />
                         )}
                         {activeTab === 'my-applications' && (
