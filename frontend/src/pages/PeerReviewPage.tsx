@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import Navbar from '../components/common/Navbar';
 import { reviewApi } from '../services/reviewService';
 import type { ReviewablePublication, ReviewRequest, MyPublicationForReview } from '../services/reviewService';
@@ -14,7 +15,9 @@ import '../styles/pages/PeerReviewPage.css';
 type Tab = 'browse' | 'my-applications' | 'my-publications';
 
 const PeerReviewPage: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<Tab>('browse');
+    const [searchParams] = useSearchParams();
+    const initialTab = (searchParams.get('tab') as Tab) || 'browse';
+    const [activeTab, setActiveTab] = useState<Tab>(initialTab);
     const [loading, setLoading] = useState(true);
 
     // Data

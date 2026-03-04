@@ -178,7 +178,7 @@ public class ReviewController : ControllerBase
                 "New Review Application",
                 $"{reviewer.FullName} wants to review your publication \"{publication.Title}\"",
                 NotificationType.ReviewRequested,
-                $"/peer-review",
+                $"/peer-review?tab=my-publications",
                 userId.Value,
                 reviewer.FullName,
                 reviewer.ProfileImageUrl
