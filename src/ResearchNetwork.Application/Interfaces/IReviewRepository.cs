@@ -8,7 +8,7 @@ public interface IReviewRepository
     Task<ReviewRequest?> GetByPublicationAndReviewerAsync(Guid publicationId, Guid reviewerId);
     Task<IEnumerable<ReviewRequest>> GetByPublicationIdAsync(Guid publicationId);
     Task<IEnumerable<ReviewRequest>> GetByReviewerIdAsync(Guid reviewerId);
-    Task<IEnumerable<Publication>> GetPublicationsLookingForReviewersAsync();
+    Task<(IEnumerable<Publication> Items, int TotalCount)> GetPublicationsLookingForReviewersAsync(int page = 1, int pageSize = 10);
     Task<ReviewRequest> CreateAsync(ReviewRequest reviewRequest);
     Task UpdateAsync(ReviewRequest reviewRequest);
 }

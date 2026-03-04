@@ -54,16 +54,23 @@ public class ReviewRepository : IReviewRepository
             .ToListAsync();
     }
 
-    public async Task<IEnumerable<Publication>> GetPublicationsLookingForReviewersAsync()
+    public async Task<(IEnumerable<Publication> Items, int TotalCount)> GetPublicationsLookingForReviewersAsync(int page = 1, int pageSize = 10)
     {
-        return await _context.Publications
+        var query = _context.Publications
             .Include(p => p.Author)
             .Include(p => p.Tags)
                 .ThenInclude(pt => pt.Tag)
             .Include(p => p.ReviewRequests)
             .Where(p => p.IsLookingForReviewers)
-            .OrderByDescending(p => p.CreatedAt)
+            .OrderByDescending(p => p.CreatedAt);
+
+        var totalCount = await query.CountAsync();
+        var items = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync();
+
+        return (items, totalCount);
     }
 
     public async Task<ReviewRequest> CreateAsync(ReviewRequest reviewRequest)

@@ -106,12 +106,12 @@ public class ReviewController : ControllerBase
     /// </summary>
     [Authorize]
     [HttpGet("looking-for-reviewers")]
-    public async Task<ActionResult> GetPublicationsLookingForReviewers()
+    public async Task<ActionResult> GetPublicationsLookingForReviewers([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
         var userId = GetCurrentUserId();
-        var publications = await _reviewRepository.GetPublicationsLookingForReviewersAsync();
+        var (publications, totalCount) = await _reviewRepository.GetPublicationsLookingForReviewersAsync(page, pageSize);
 
-        var result = publications.Select(p => new
+        var items = publications.Select(p => new
         {
             p.Id,
             p.Title,
@@ -132,7 +132,14 @@ public class ReviewController : ControllerBase
             IsOwner = userId.HasValue && p.AuthorId == userId.Value
         });
 
-        return Ok(result);
+        return Ok(new
+        {
+            items,
+            totalCount,
+            page,
+            pageSize,
+            hasMore = page * pageSize < totalCount
+        });
     }
 
     // ==================== APPLY TO REVIEW ====================

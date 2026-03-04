@@ -45,9 +45,9 @@ export const reviewApi = {
     toggleReviewSearch: (publicationId: string) =>
         api.put<{ isLookingForReviewers: boolean }>(`/review/publication/${publicationId}/toggle-search`),
 
-    // Get publications looking for reviewers
-    getLookingForReviewers: () =>
-        api.get<ReviewablePublication[]>('/review/looking-for-reviewers'),
+    // Get publications looking for reviewers (paginated)
+    getLookingForReviewers: (page: number = 1, pageSize: number = 10) =>
+        api.get<{ items: ReviewablePublication[]; totalCount: number; page: number; pageSize: number; hasMore: boolean }>(`/review/looking-for-reviewers?page=${page}&pageSize=${pageSize}`),
 
     // Apply to review a publication
     applyToReview: (publicationId: string, message?: string) =>

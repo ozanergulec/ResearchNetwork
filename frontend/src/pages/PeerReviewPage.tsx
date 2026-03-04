@@ -25,6 +25,11 @@ const PeerReviewPage: React.FC = () => {
     const [myRequests, setMyRequests] = useState<ReviewRequest[]>([]);
     const [myPublications, setMyPublications] = useState<MyPublicationForReview[]>([]);
 
+    // Pagination for browse tab
+    const [browsePage, setBrowsePage] = useState(1);
+    const [browseTotalCount, setBrowseTotalCount] = useState(0);
+    const [browseTotalPages, setBrowseTotalPages] = useState(1);
+
     // Modals
     const [applyModal, setApplyModal] = useState<{ pubId: string; pubTitle: string } | null>(null);
     const [submitModal, setSubmitModal] = useState<{ requestId: string; pubTitle: string } | null>(null);
@@ -34,12 +39,16 @@ const PeerReviewPage: React.FC = () => {
     const [canReview, setCanReview] = useState(false);
 
     // Fetch data based on active tab
-    const fetchData = useCallback(async () => {
+    const fetchData = useCallback(async (page?: number) => {
         setLoading(true);
         try {
             if (activeTab === 'browse') {
-                const res = await reviewApi.getLookingForReviewers();
-                setPublications(res.data);
+                const p = page || browsePage;
+                const res = await reviewApi.getLookingForReviewers(p, 10);
+                setPublications(res.data.items);
+                setBrowseTotalCount(res.data.totalCount);
+                setBrowseTotalPages(Math.ceil(res.data.totalCount / 10));
+                setBrowsePage(p);
             } else if (activeTab === 'my-applications') {
                 const res = await reviewApi.getMyRequests();
                 setMyRequests(res.data);
@@ -52,7 +61,7 @@ const PeerReviewPage: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, [activeTab]);
+    }, [activeTab, browsePage]);
 
     useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -118,6 +127,10 @@ const PeerReviewPage: React.FC = () => {
                                 onApply={(pubId, pubTitle) => setApplyModal({ pubId, pubTitle })}
                                 onShowDetail={setDetailPub}
                                 onCloseReview={handleToggleSearch}
+                                currentPage={browsePage}
+                                totalPages={browseTotalPages}
+                                totalCount={browseTotalCount}
+                                onPageChange={(p: number) => fetchData(p)}
                             />
                         )}
                         {activeTab === 'my-applications' && (
