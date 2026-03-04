@@ -76,4 +76,8 @@ export const reviewApi = {
     // Get my publications for review management
     getMyPublications: () =>
         api.get<MyPublicationForReview[]>('/review/my-publications'),
+
+    // Check if current user is eligible to review
+    canReview: () =>
+        api.get<{ canReview: boolean }>('/review/can-review'),
 };

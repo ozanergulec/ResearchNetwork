@@ -12,6 +12,10 @@ namespace ResearchNetwork.API.Controllers;
 [Route("api/[controller]")]
 public class ReviewController : ControllerBase
 {
+    // Only these titles are allowed to apply as reviewers and submit reviews
+    private static readonly string[] ReviewerTitles =
+        { "Professor", "Associate Professor", "Assistant Professor" };
+
     private readonly IReviewRepository _reviewRepository;
     private readonly IPublicationRepository _publicationRepository;
     private readonly INotificationRepository _notificationRepository;
@@ -36,6 +40,9 @@ public class ReviewController : ControllerBase
             return userId;
         return null;
     }
+
+    private static bool IsEligibleReviewer(string? title) =>
+        title != null && ReviewerTitles.Contains(title, StringComparer.OrdinalIgnoreCase);
 
     private static ReviewRequestDto ToDto(ReviewRequest r)
     {
@@ -139,6 +146,12 @@ public class ReviewController : ControllerBase
     {
         var userId = GetCurrentUserId();
         if (userId == null) return Unauthorized();
+
+        // Only professors can apply to review
+        var currentUser = await _userRepository.GetByIdAsync(userId.Value);
+        if (currentUser == null) return Unauthorized();
+        if (!IsEligibleReviewer(currentUser.Title))
+            return StatusCode(403, "Only Professor, Associate Professor, and Assistant Professor can apply as reviewers.");
 
         var publication = await _publicationRepository.GetByIdAsync(publicationId);
         if (publication == null) return NotFound("Publication not found.");
@@ -250,6 +263,12 @@ public class ReviewController : ControllerBase
         var userId = GetCurrentUserId();
         if (userId == null) return Unauthorized();
 
+        // Only professors can submit reviews
+        var currentUser = await _userRepository.GetByIdAsync(userId.Value);
+        if (currentUser == null) return Unauthorized();
+        if (!IsEligibleReviewer(currentUser.Title))
+            return StatusCode(403, "Only Professor, Associate Professor, and Assistant Professor can submit reviews.");
+
         var request = await _reviewRepository.GetByIdAsync(requestId);
         if (request == null) return NotFound("Review request not found.");
 
@@ -278,6 +297,24 @@ public class ReviewController : ControllerBase
         await _notificationRepository.AddAsync(notification);
 
         return Ok(new { message = "Review submitted successfully." });
+    }
+
+    // ==================== CAN REVIEW CHECK ====================
+
+    /// <summary>
+    /// Check if the current user is eligible to review (has a professor title)
+    /// </summary>
+    [Authorize]
+    [HttpGet("can-review")]
+    public async Task<ActionResult> CanReview()
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+
+        var user = await _userRepository.GetByIdAsync(userId.Value);
+        if (user == null) return Unauthorized();
+
+        return Ok(new { canReview = IsEligibleReviewer(user.Title) });
     }
 
     // ==================== QUERIES ====================

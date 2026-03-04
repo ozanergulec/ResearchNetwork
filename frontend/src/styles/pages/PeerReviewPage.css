@@ -80,6 +80,27 @@
     vertical-align: middle;
 }
 
+/* Info Banner */
+.pr-info-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    background: #fef3c7;
+    border: 1px solid #fcd34d;
+    border-radius: 12px;
+    padding: 0.85rem 1.1rem;
+    margin-bottom: 1rem;
+    font-size: 0.84rem;
+    line-height: 1.5;
+    color: #92400e;
+}
+
+.pr-info-banner-icon {
+    flex-shrink: 0;
+    font-size: 1.1rem;
+    margin-top: 0.05rem;
+}
+
 /* Publication Card (for browsing) */
 .pr-pub-card {
     background: #fff;

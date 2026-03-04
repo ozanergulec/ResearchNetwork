@@ -33,6 +33,9 @@ const PeerReviewPage: React.FC = () => {
     const [reviewVerdict, setReviewVerdict] = useState('Approve');
     const [submitting, setSubmitting] = useState(false);
 
+    // Eligibility
+    const [canReview, setCanReview] = useState(false);
+
     const getImageUrl = (url?: string | null) => {
         if (!url) return null;
         return url.startsWith('http') ? url : `${API_SERVER_URL}${url}`;
@@ -80,6 +83,13 @@ const PeerReviewPage: React.FC = () => {
     useEffect(() => {
         fetchData();
     }, [fetchData]);
+
+    // Fetch reviewer eligibility on mount
+    useEffect(() => {
+        reviewApi.canReview()
+            .then(res => setCanReview(res.data.canReview))
+            .catch(() => setCanReview(false));
+    }, []);
 
     // Load review requests for a selected publication
     const loadPubRequests = async (pubId: string) => {
@@ -189,52 +199,60 @@ const PeerReviewPage: React.FC = () => {
 
     // ==================== BROWSE TAB ====================
     const renderBrowseTab = () => {
-        if (publications.length === 0) {
-            return (
-                <div className="pr-empty">
-                    <div className="pr-empty-icon">🔍</div>
-                    <h3>No publications looking for reviewers</h3>
-                    <p>Check back later or enable reviewer search on your own publications.</p>
-                </div>
-            );
-        }
-
-        return publications.map(pub => (
-            <div key={pub.id} className="pr-pub-card">
-                <div className="pr-pub-header">
-                    <div>
-                        <h3 className="pr-pub-title">{pub.title}</h3>
+        return (
+            <>
+                {!canReview && (
+                    <div className="pr-info-banner">
+                        <span className="pr-info-banner-icon">ℹ️</span>
+                        <span>Only Professor, Associate Professor and Assistant Professor can apply as reviewers. You can request reviewers for your own publications from the "My Publications" tab.</span>
                     </div>
-                    <div className="pr-pub-actions">
-                        {pub.isOwner ? (
-                            <span className="pr-btn pr-btn-sm" style={{ opacity: 0.5, cursor: 'default' }}>Your publication</span>
-                        ) : pub.hasApplied ? (
-                            <span className="pr-btn pr-btn-sm" style={{ background: '#d1fae5', color: '#065f46' }}>Applied ✓</span>
-                        ) : (
-                            <button
-                                className="pr-btn pr-btn-primary pr-btn-sm"
-                                onClick={() => setApplyModal({ pubId: pub.id, pubTitle: pub.title })}
-                            >
-                                Apply to Review
-                            </button>
-                        )}
+                )}
+                {publications.length === 0 ? (
+                    <div className="pr-empty">
+                        <div className="pr-empty-icon">🔍</div>
+                        <h3>No publications looking for reviewers</h3>
+                        <p>Check back later or enable reviewer search on your own publications.</p>
                     </div>
-                </div>
-                {pub.abstract && <p className="pr-pub-abstract">{pub.abstract}</p>}
-                <div className="pr-pub-meta">
-                    <div className="pr-pub-author" onClick={() => navigate(`/profile/${pub.author.id}`)} style={{ cursor: 'pointer' }}>
-                        {renderAvatar(pub.author.fullName, pub.author.profileImageUrl)}
-                        <span>{pub.author.fullName}</span>
-                    </div>
-                    {pub.tags.slice(0, 3).map(tag => (
-                        <span key={tag} className="pr-pub-tag">{tag}</span>
-                    ))}
-                    <span className="pr-pub-reviewers">
-                        {pub.reviewRequestCount} application{pub.reviewRequestCount !== 1 ? 's' : ''}
-                    </span>
-                </div>
-            </div>
-        ));
+                ) : (
+                    publications.map(pub => (
+                        <div key={pub.id} className="pr-pub-card">
+                            <div className="pr-pub-header">
+                                <div>
+                                    <h3 className="pr-pub-title">{pub.title}</h3>
+                                </div>
+                                <div className="pr-pub-actions">
+                                    {pub.isOwner ? (
+                                        <span className="pr-btn pr-btn-sm" style={{ opacity: 0.5, cursor: 'default' }}>Your publication</span>
+                                    ) : pub.hasApplied ? (
+                                        <span className="pr-btn pr-btn-sm" style={{ background: '#d1fae5', color: '#065f46' }}>Applied ✓</span>
+                                    ) : canReview ? (
+                                        <button
+                                            className="pr-btn pr-btn-primary pr-btn-sm"
+                                            onClick={() => setApplyModal({ pubId: pub.id, pubTitle: pub.title })}
+                                        >
+                                            Apply to Review
+                                        </button>
+                                    ) : null}
+                                </div>
+                            </div>
+                            {pub.abstract && <p className="pr-pub-abstract">{pub.abstract}</p>}
+                            <div className="pr-pub-meta">
+                                <div className="pr-pub-author" onClick={() => navigate(`/profile/${pub.author.id}`)} style={{ cursor: 'pointer' }}>
+                                    {renderAvatar(pub.author.fullName, pub.author.profileImageUrl)}
+                                    <span>{pub.author.fullName}</span>
+                                </div>
+                                {pub.tags.slice(0, 3).map(tag => (
+                                    <span key={tag} className="pr-pub-tag">{tag}</span>
+                                ))}
+                                <span className="pr-pub-reviewers">
+                                    {pub.reviewRequestCount} application{pub.reviewRequestCount !== 1 ? 's' : ''}
+                                </span>
+                            </div>
+                        </div>
+                    ))
+                )}
+            </>
+        );
     };
 
     // ==================== MY APPLICATIONS TAB ====================
@@ -261,7 +279,7 @@ const PeerReviewPage: React.FC = () => {
                     </div>
                     <div className="pr-request-actions">
                         {renderStatus(req.status)}
-                        {req.status === 'Accepted' && (
+                        {req.status === 'Accepted' && canReview && (
                             <button
                                 className="pr-btn pr-btn-primary pr-btn-sm"
                                 onClick={() => setSubmitModal({ requestId: req.id, pubTitle: req.publicationTitle })}
