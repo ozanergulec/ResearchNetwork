@@ -16,7 +16,8 @@ public record PublicationDto(
     DateTime CreatedAt,
     bool IsSaved = false,
     bool IsShared = false,
-    int? UserRating = null
+    int? UserRating = null,
+    bool IsLookingForReviewers = false
 );
 
 public record CreatePublicationDto(

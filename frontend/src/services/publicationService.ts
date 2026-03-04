@@ -28,6 +28,7 @@ export interface Publication {
     isSaved: boolean;
     isShared: boolean;
     userRating: number | null;
+    isLookingForReviewers: boolean;
 }
 
 // Create Publication DTO

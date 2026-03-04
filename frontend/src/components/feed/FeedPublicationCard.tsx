@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import type { Publication } from '../../services/publicationService';
 import { publicationsApi } from '../../services/publicationService';
 import { usersApi } from '../../services/userService';
+import { reviewApi } from '../../services/reviewService';
 import { API_SERVER_URL } from '../../services/apiClient';
 import PublicationDetailModal from './PublicationDetailModal';
 import ShareModal from './ShareModal';
@@ -41,6 +42,7 @@ const FeedPublicationCard: React.FC<FeedPublicationCardProps> = ({ publication: 
     const [deleting, setDeleting] = useState(false);
     const [following, setFollowing] = useState(initialIsFollowing);
     const [followLoading, setFollowLoading] = useState(false);
+    const [isLookingForReviewers, setIsLookingForReviewers] = useState(initialPublication.isLookingForReviewers ?? false);
     const ratingRef = useRef<HTMLDivElement>(null);
     const menuRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
@@ -274,6 +276,17 @@ const FeedPublicationCard: React.FC<FeedPublicationCardProps> = ({ publication: 
         }
     };
 
+    const handleToggleReview = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setShowMenu(false);
+        try {
+            const res = await reviewApi.toggleReviewSearch(publication.id);
+            setIsLookingForReviewers(res.data.isLookingForReviewers);
+        } catch (err) {
+            console.error('Failed to toggle review search', err);
+        }
+    };
+
     return (
         <>
             <article className="feed-card" onClick={handleCardClick}>
@@ -332,6 +345,9 @@ const FeedPublicationCard: React.FC<FeedPublicationCardProps> = ({ publication: 
                                 <div className="feed-card-dropdown">
                                     <button className="feed-card-dropdown-item" onClick={handleEditOpen}>
                                         Edit
+                                    </button>
+                                    <button className="feed-card-dropdown-item" onClick={handleToggleReview}>
+                                        {isLookingForReviewers ? 'Close Review' : 'Open for Review'}
                                     </button>
                                     <button className="feed-card-dropdown-item feed-card-dropdown-delete" onClick={handleDeleteClick}>
                                         Delete

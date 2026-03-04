@@ -51,7 +51,8 @@ public static class PublicationMapper
             p.CreatedAt,
             isSaved,
             isShared,
-            userRating
+            userRating,
+            p.IsLookingForReviewers
         );
     }
 
