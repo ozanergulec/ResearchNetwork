@@ -124,7 +124,13 @@ const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
         setShowDropdown(false);
         setQuery('');
         setSearched(false);
+        setMenuOpen(false);
         navigate(path);
+    };
+
+    const handleViewAll = () => {
+        setShowDropdown(false);
+        navigate(`/search?q=${encodeURIComponent(query.trim())}`);
     };
 
     const handlePublicationClick = (pub: Publication) => {
@@ -212,6 +218,11 @@ const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
                                                         </div>
                                                     </div>
                                                 ))}
+                                            </div>
+                                        )}
+                                        {(users.length > 5 || publications.length > 5) && (
+                                            <div className="nsd-view-all" onClick={handleViewAll}>
+                                                {t.navbar.viewAll}
                                             </div>
                                         )}
                                     </>

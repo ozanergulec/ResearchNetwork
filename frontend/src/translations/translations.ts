@@ -17,6 +17,7 @@ export interface Translations {
         noResults: string;
         people: string;
         publications: string;
+        viewAll: string;
     };
     // HomePage
     home: {
@@ -184,6 +185,7 @@ const en: Translations = {
         noResults: 'No results found',
         people: 'People',
         publications: 'Publications',
+        viewAll: 'View All Results',
     },
     home: {
         noPublicationsTitle: 'No Publications Yet',
@@ -344,6 +346,7 @@ const tr: Translations = {
         noResults: 'Sonuç bulunamadı',
         people: 'Kişiler',
         publications: 'Yayınlar',
+        viewAll: 'Tüm Sonuçları Gör',
     },
     home: {
         noPublicationsTitle: 'Henüz Yayın Yok',

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { searchApi } from '../services/searchService';
 import { Navbar } from '../components';
 import { API_SERVER_URL } from '../services/apiClient';
@@ -63,6 +63,16 @@ const SearchPage: React.FC = () => {
             setLoading(false);
         }
     }, []);
+
+    // Handle q param from navbar "View All" navigation
+    const [searchParams] = useSearchParams();
+    useEffect(() => {
+        const q = searchParams.get('q');
+        if (q && q.trim().length >= 2) {
+            setQuery(q);
+            performSearch(q);
+        }
+    }, [searchParams, performSearch]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
@@ -390,7 +400,7 @@ const SearchPage: React.FC = () => {
                                                     <h3>{t.search.pubsWithTag}</h3>
                                                     <span className="search-tag-section-count">{tagPublications.length}</span>
                                                 </div>
-                                                {tagPublications.map((pub) => (
+                                                {paginate(tagPublications).map((pub) => (
                                                     <div
                                                         key={pub.id}
                                                         className="search-pub-card"
@@ -447,6 +457,7 @@ const SearchPage: React.FC = () => {
                                                         )}
                                                     </div>
                                                 ))}
+                                                {renderPagination(tagPublications.length)}
                                             </div>
                                         )}
 
@@ -458,7 +469,7 @@ const SearchPage: React.FC = () => {
                                                     <h3>{t.search.peopleWithTag}</h3>
                                                     <span className="search-tag-section-count">{tagUsers.length}</span>
                                                 </div>
-                                                {tagUsers.map((user) => (
+                                                {paginate(tagUsers).map((user) => (
                                                     <div
                                                         key={user.id}
                                                         className="search-user-card"
@@ -491,6 +502,7 @@ const SearchPage: React.FC = () => {
                                                         <span className="search-user-arrow">›</span>
                                                     </div>
                                                 ))}
+                                                {renderPagination(tagUsers.length)}
                                             </div>
                                         )}
                                     </>

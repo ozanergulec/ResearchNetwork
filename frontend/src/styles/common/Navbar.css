@@ -454,6 +454,23 @@
     opacity: 0.5;
 }
 
+
+/* View All Button */
+.nsd-view-all {
+    padding: 0.65rem 1rem;
+    text-align: center;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--heading-color);
+    cursor: pointer;
+    border-top: 1px solid var(--ui-detail);
+    transition: background 0.2s ease;
+}
+
+.nsd-view-all:hover {
+    background: rgba(122, 31, 43, 0.06);
+}
+
 /* ===== Responsive ===== */
 @media (max-width: 768px) {
     .navbar {
