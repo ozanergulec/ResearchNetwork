@@ -5,6 +5,7 @@ import { notificationApi } from '../../services/notificationService';
 import { API_SERVER_URL } from '../../services/apiClient';
 import type { UserSummary, Publication } from '../../services/publicationService';
 import PublicationDetailModal from '../feed/PublicationDetailModal';
+import { useTranslation } from '../../translations/translations';
 import '../../styles/common/Navbar.css';
 
 interface NavbarProps {
@@ -13,6 +14,7 @@ interface NavbarProps {
 
 const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
     const navigate = useNavigate();
+    const t = useTranslation();
     const [query, setQuery] = useState('');
     const [users, setUsers] = useState<UserSummary[]>([]);
     const [publications, setPublications] = useState<Publication[]>([]);
@@ -106,7 +108,7 @@ const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
         };
 
         fetchUnreadCount();
-        const interval = setInterval(fetchUnreadCount, 30000); // Poll every 30 seconds
+        const interval = setInterval(fetchUnreadCount, 30000);
         return () => clearInterval(interval);
     }, []);
 
@@ -145,7 +147,7 @@ const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
                             ref={inputRef}
                             type="text"
                             className="navbar-search-input"
-                            placeholder="Search people or publications..."
+                            placeholder={t.navbar.searchPlaceholder}
                             value={query}
                             onChange={handleInputChange}
                             onFocus={handleFocus}
@@ -155,15 +157,15 @@ const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
                                 {loading ? (
                                     <div className="nsd-loading">
                                         <div className="nsd-spinner" />
-                                        <span>Searching...</span>
+                                        <span>{t.navbar.searching}</span>
                                     </div>
                                 ) : !searched ? null : !hasResults ? (
-                                    <div className="nsd-empty">No results found</div>
+                                    <div className="nsd-empty">{t.navbar.noResults}</div>
                                 ) : (
                                     <>
                                         {users.length > 0 && (
                                             <div className="nsd-section">
-                                                <div className="nsd-section-title">People</div>
+                                                <div className="nsd-section-title">{t.navbar.people}</div>
                                                 {users.slice(0, 5).map((user) => (
                                                     <div
                                                         key={user.id}
@@ -196,7 +198,7 @@ const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
                                         )}
                                         {publications.length > 0 && (
                                             <div className="nsd-section">
-                                                <div className="nsd-section-title">Publications</div>
+                                                <div className="nsd-section-title">{t.navbar.publications}</div>
                                                 {publications.slice(0, 5).map((pub) => (
                                                     <div
                                                         key={pub.id}
@@ -223,19 +225,19 @@ const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
                         onClick={() => navigate('/home')}
                         className={`navbar-button ${currentPage === 'home' ? 'active' : ''}`}
                     >
-                        Home
+                        {t.navbar.home}
                     </button>
                     <button
                         onClick={() => navigate('/search')}
                         className={`navbar-button ${currentPage === 'search' ? 'active' : ''}`}
                     >
-                        Search
+                        {t.navbar.search}
                     </button>
                     <button
                         onClick={() => navigate('/notifications')}
                         className={`navbar-button navbar-notif-btn ${currentPage === 'notifications' ? 'active' : ''}`}
                     >
-                        Notifications
+                        {t.navbar.notifications}
                         {unreadCount > 0 && (
                             <span className="navbar-notif-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
                         )}
@@ -244,7 +246,7 @@ const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
                         onClick={() => navigate('/profile')}
                         className={`navbar-button ${currentPage === 'profile' ? 'active' : ''}`}
                     >
-                        Profile
+                        {t.navbar.profile}
                     </button>
 
                     {/* Hamburger Menu */}
@@ -262,27 +264,26 @@ const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
                                 onClick={() => { setMenuOpen(false); navigate('/recommendations'); }}
                                 className={`navbar-dropdown-item ${currentPage === 'recommendations' ? 'active' : ''}`}
                             >
-                                Recommendations
+                                {t.navbar.recommendations}
                             </button>
                             <button
                                 onClick={() => { setMenuOpen(false); navigate('/peer-review'); }}
                                 className={`navbar-dropdown-item ${currentPage === 'peer-review' ? 'active' : ''}`}
                             >
-                                Peer Review
+                                {t.navbar.peerReview}
                             </button>
-
                             <button
                                 onClick={() => { setMenuOpen(false); navigate('/settings'); }}
                                 className={`navbar-dropdown-item ${currentPage === 'settings' ? 'active' : ''}`}
                             >
-                                Settings
+                                {t.navbar.settings}
                             </button>
                             <div className="navbar-dropdown-divider" />
                             <button
                                 onClick={handleLogout}
                                 className="navbar-dropdown-item navbar-dropdown-logout"
                             >
-                                Logout
+                                {t.navbar.logout}
                             </button>
                         </div>
                     </div>

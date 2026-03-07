@@ -10,11 +10,13 @@ import MyApplicationsTab from '../components/peer-review/MyApplicationsTab';
 import MyPublicationsTab from '../components/peer-review/MyPublicationsTab';
 import ApplyModal from '../components/peer-review/ApplyModal';
 import SubmitReviewModal from '../components/peer-review/SubmitReviewModal';
+import { useTranslation } from '../translations/translations';
 import '../styles/pages/PeerReviewPage.css';
 
 type Tab = 'browse' | 'my-applications' | 'my-publications';
 
 const PeerReviewPage: React.FC = () => {
+    const t = useTranslation();
     const [searchParams] = useSearchParams();
     const initialTab = (searchParams.get('tab') as Tab) || 'browse';
     const [activeTab, setActiveTab] = useState<Tab>(initialTab);
@@ -86,8 +88,8 @@ const PeerReviewPage: React.FC = () => {
 
             <div className="pr-container">
                 <div className="pr-header">
-                    <h1 className="pr-title">Peer Review</h1>
-                    <p className="pr-subtitle">Review publications or find reviewers for your work</p>
+                    <h1 className="pr-title">{t.peerReview.title}</h1>
+                    <p className="pr-subtitle">{t.peerReview.subtitle}</p>
                 </div>
 
                 {/* Tabs */}
@@ -96,19 +98,19 @@ const PeerReviewPage: React.FC = () => {
                         className={`pr-tab ${activeTab === 'browse' ? 'active' : ''}`}
                         onClick={() => setActiveTab('browse')}
                     >
-                        Looking for Reviewers
+                        {t.peerReview.lookingForReviewers}
                     </button>
                     <button
                         className={`pr-tab ${activeTab === 'my-applications' ? 'active' : ''}`}
                         onClick={() => setActiveTab('my-applications')}
                     >
-                        My Applications
+                        {t.peerReview.myApplications}
                     </button>
                     <button
                         className={`pr-tab ${activeTab === 'my-publications' ? 'active' : ''}`}
                         onClick={() => setActiveTab('my-publications')}
                     >
-                        My Publications
+                        {t.peerReview.myPublications}
                     </button>
                 </div>
 
@@ -116,7 +118,7 @@ const PeerReviewPage: React.FC = () => {
                 {loading ? (
                     <div className="pr-loading">
                         <div className="pr-spinner" />
-                        <span>Loading...</span>
+                        <span>{t.peerReview.loading}</span>
                     </div>
                 ) : (
                     <>

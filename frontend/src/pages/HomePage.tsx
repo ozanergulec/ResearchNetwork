@@ -4,6 +4,7 @@ import { publicationsApi, type FeedItem, type Publication } from '../services/pu
 import { usersApi } from '../services/userService';
 import { Navbar, Loading } from '../components';
 import { CreatePostBar, FeedPublicationCard, SharedFeedCard, HomeProfileSidebar, PublicationDetailModal } from '../components/feed';
+import { useTranslation } from '../translations/translations';
 import '../styles/pages/HomePage.css';
 
 const PAGE_SIZE = 10;
@@ -11,6 +12,7 @@ const PAGE_SIZE = 10;
 const HomePage: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
+    const t = useTranslation();
     const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
     const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(true);
@@ -79,7 +81,7 @@ const HomePage: React.FC = () => {
                     localStorage.removeItem('user');
                     navigate('/login');
                 } else {
-                    setError('Failed to load feed. Please try again.');
+                    setError(t.home.failedToLoad);
                 }
             } finally {
                 setLoading(false);
@@ -150,7 +152,7 @@ const HomePage: React.FC = () => {
     }, [loading, loadMore]);
 
     if (loading) {
-        return <Loading message="Loading feed..." />;
+        return <Loading message={t.home.loadingFeed} />;
     }
 
     return (
@@ -174,8 +176,8 @@ const HomePage: React.FC = () => {
                     {!error && feedItems.length === 0 ? (
                         <div className="home-empty">
                             <div className="home-empty-icon">📚</div>
-                            <h3>No Publications Yet</h3>
-                            <p>Be the first to share your research with the community!</p>
+                            <h3>{t.home.noPublicationsTitle}</h3>
+                            <p>{t.home.noPublicationsDesc}</p>
                         </div>
                     ) : (
                         <div className="home-feed">
@@ -223,7 +225,7 @@ const HomePage: React.FC = () => {
                                     {loadingMore && (
                                         <div className="home-loading-more">
                                             <div className="home-loading-spinner" />
-                                            <span>Loading more...</span>
+                                            <span>{t.home.loadingMore}</span>
                                         </div>
                                     )}
                                 </>
@@ -231,7 +233,7 @@ const HomePage: React.FC = () => {
 
                             {!hasMore && feedItems.length > 0 && (
                                 <div className="home-end">
-                                    You've reached the end of the feed
+                                    {t.home.endOfFeed}
                                 </div>
                             )}
                         </div>

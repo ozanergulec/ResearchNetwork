@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { usersApi } from '../services/userService';
 import type { User } from '../services/userService';
 import { Navbar, Loading, UserCard } from '../components';
+import { useTranslation } from '../translations/translations';
 import '../styles/pages/RecommendationsPage.css';
 
 const RecommendationsPage: React.FC = () => {
     const navigate = useNavigate();
+    const t = useTranslation();
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -39,18 +41,18 @@ const RecommendationsPage: React.FC = () => {
             <Navbar currentPage="recommendations" />
 
             <div className="rec-content">
-                <h1 className="rec-title">Recommended Researchers</h1>
+                <h1 className="rec-title">{t.recommendations.title}</h1>
                 <p className="rec-subtitle">
-                    Connect with researchers in similar fields. AI-powered recommendations coming soon!
+                    {t.recommendations.subtitle}
                 </p>
 
                 {loading ? (
-                    <Loading message="Loading recommendations..." />
+                    <Loading message={t.recommendations.loadingRec} />
                 ) : users.length === 0 ? (
                     <div className="rec-empty-state">
                         <div className="rec-empty-icon">👥</div>
-                        <h3>No Researchers Found</h3>
-                        <p>Be the first to invite your colleagues to join!</p>
+                        <h3>{t.recommendations.noResearchers}</h3>
+                        <p>{t.recommendations.noResearchersDesc}</p>
                     </div>
                 ) : (
                     <div className="rec-grid">
@@ -67,11 +69,9 @@ const RecommendationsPage: React.FC = () => {
                 <div className="rec-ai-note">
                     <div className="rec-ai-icon">🤖</div>
                     <div>
-                        <h4 className="rec-ai-title">AI Matching Engine</h4>
+                        <h4 className="rec-ai-title">{t.recommendations.aiTitle}</h4>
                         <p className="rec-ai-text">
-                            Our AI-powered recommendation system will analyze your research interests,
-                            publications, and academic profile to suggest the most relevant collaborators.
-                            This feature is currently under development.
+                            {t.recommendations.aiText}
                         </p>
                     </div>
                 </div>

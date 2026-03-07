@@ -5,12 +5,14 @@ import { Navbar } from '../components';
 import { API_SERVER_URL } from '../services/apiClient';
 import type { UserSummary, Publication } from '../services/publicationService';
 import PublicationDetailModal from '../components/feed/PublicationDetailModal';
+import { useTranslation } from '../translations/translations';
 import '../styles/pages/SearchPage.css';
 
 type TabType = 'users' | 'publications' | 'tags';
 
 const SearchPage: React.FC = () => {
     const navigate = useNavigate();
+    const t = useTranslation();
     const [query, setQuery] = useState('');
     const [activeTab, setActiveTab] = useState<TabType>('users');
     const [users, setUsers] = useState<UserSummary[]>([]);
@@ -97,8 +99,8 @@ const SearchPage: React.FC = () => {
 
             <div className="search-layout">
                 <div className="search-header">
-                    <h1>Search</h1>
-                    <p>Search for people, publications, or tags</p>
+                    <h1>{t.search.title}</h1>
+                    <p>{t.search.subtitle}</p>
                 </div>
 
                 {/* Search Bar */}
@@ -107,7 +109,7 @@ const SearchPage: React.FC = () => {
                     <input
                         type="text"
                         className="search-input"
-                        placeholder="Search by name, publication title, or tag..."
+                        placeholder={t.search.placeholder}
                         value={query}
                         onChange={handleInputChange}
                         autoFocus
@@ -120,7 +122,7 @@ const SearchPage: React.FC = () => {
                         className={`search-tab ${activeTab === 'users' ? 'active' : ''}`}
                         onClick={() => setActiveTab('users')}
                     >
-                        People
+                        {t.search.people}
                         {searched && (
                             <span className="search-tab-count">{users.length}</span>
                         )}
@@ -129,7 +131,7 @@ const SearchPage: React.FC = () => {
                         className={`search-tab ${activeTab === 'publications' ? 'active' : ''}`}
                         onClick={() => setActiveTab('publications')}
                     >
-                        Publications
+                        {t.search.publications}
                         {searched && (
                             <span className="search-tab-count">{publications.length}</span>
                         )}
@@ -138,7 +140,7 @@ const SearchPage: React.FC = () => {
                         className={`search-tab ${activeTab === 'tags' ? 'active' : ''}`}
                         onClick={() => setActiveTab('tags')}
                     >
-                        Tags
+                        {t.search.tags}
                         {searched && (
                             <span className="search-tab-count">{tagTotalCount}</span>
                         )}
@@ -149,13 +151,13 @@ const SearchPage: React.FC = () => {
                 {loading ? (
                     <div className="search-loading">
                         <div className="search-spinner" />
-                        <span>Searching...</span>
+                        <span>{t.search.searching}</span>
                     </div>
                 ) : !searched ? (
                     <div className="search-prompt">
                         <div className="search-prompt-icon">&#x2315;</div>
-                        <h3>Start Searching</h3>
-                        <p>Enter at least 2 characters</p>
+                        <h3>{t.search.startSearching}</h3>
+                        <p>{t.search.minChars}</p>
                     </div>
                 ) : (
                     <div className="search-results">
@@ -164,9 +166,9 @@ const SearchPage: React.FC = () => {
                             <>
                                 {users.length === 0 ? (
                                     <div className="search-empty">
-                                        <div className="search-empty-icon">No users found</div>
-                                        <h3>No users found</h3>
-                                        <p>Try different keywords</p>
+                                        <div className="search-empty-icon">{t.search.noUsersFound}</div>
+                                        <h3>{t.search.noUsersFound}</h3>
+                                        <p>{t.search.tryDifferent}</p>
                                     </div>
                                 ) : (
                                     users.map((user) => (
@@ -211,9 +213,9 @@ const SearchPage: React.FC = () => {
                             <>
                                 {publications.length === 0 ? (
                                     <div className="search-empty">
-                                        <div className="search-empty-icon">No publications found</div>
-                                        <h3>No publications found</h3>
-                                        <p>Try different keywords</p>
+                                        <div className="search-empty-icon">{t.search.noPubsFound}</div>
+                                        <h3>{t.search.noPubsFound}</h3>
+                                        <p>{t.search.tryDifferent}</p>
                                     </div>
                                 ) : (
                                     publications.map((pub) => (
@@ -262,7 +264,7 @@ const SearchPage: React.FC = () => {
                                                     )}
                                                     {pub.saveCount > 0 && (
                                                         <span className="search-pub-stat">
-                                                            Saved: {pub.saveCount}
+                                                            {t.search.saved}: {pub.saveCount}
                                                         </span>
                                                     )}
                                                 </div>
@@ -287,9 +289,9 @@ const SearchPage: React.FC = () => {
                             <>
                                 {tagTotalCount === 0 ? (
                                     <div className="search-empty">
-                                        <div className="search-empty-icon">No tags found</div>
-                                        <h3>No results found for this tag</h3>
-                                        <p>Try a different tag name</p>
+                                        <div className="search-empty-icon">{t.search.noTagsFound}</div>
+                                        <h3>{t.search.noTagsFound}</h3>
+                                        <p>{t.search.tryDifferentTag}</p>
                                     </div>
                                 ) : (
                                     <>
@@ -297,8 +299,8 @@ const SearchPage: React.FC = () => {
                                         {tagPublications.length > 0 && (
                                             <div className="search-tag-section">
                                                 <div className="search-tag-section-header">
-                                                    <span className="search-tag-section-icon">Publications</span>
-                                                    <h3>Publications with this tag</h3>
+                                                    <span className="search-tag-section-icon">{t.search.publications}</span>
+                                                    <h3>{t.search.pubsWithTag}</h3>
                                                     <span className="search-tag-section-count">{tagPublications.length}</span>
                                                 </div>
                                                 {tagPublications.map((pub) => (
@@ -342,7 +344,7 @@ const SearchPage: React.FC = () => {
                                                                 )}
                                                                 {pub.citationCount > 0 && (
                                                                     <span className="search-pub-stat">
-                                                                        Citations: {pub.citationCount}
+                                                                        {t.search.citations}: {pub.citationCount}
                                                                     </span>
                                                                 )}
                                                             </div>
@@ -365,8 +367,8 @@ const SearchPage: React.FC = () => {
                                         {tagUsers.length > 0 && (
                                             <div className="search-tag-section">
                                                 <div className="search-tag-section-header">
-                                                    <span className="search-tag-section-icon">People</span>
-                                                    <h3>People with this tag</h3>
+                                                    <span className="search-tag-section-icon">{t.search.people}</span>
+                                                    <h3>{t.search.peopleWithTag}</h3>
                                                     <span className="search-tag-section-count">{tagUsers.length}</span>
                                                 </div>
                                                 {tagUsers.map((user) => (

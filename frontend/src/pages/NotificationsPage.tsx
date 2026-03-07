@@ -4,10 +4,12 @@ import Navbar from '../components/common/Navbar';
 import { HomeProfileSidebar } from '../components/feed';
 import { notificationApi, type NotificationData } from '../services/notificationService';
 import { API_SERVER_URL } from '../services/apiClient';
+import { useTranslation } from '../translations/translations';
 import '../styles/pages/NotificationsPage.css';
 
 const NotificationsPage: React.FC = () => {
     const navigate = useNavigate();
+    const t = useTranslation();
     const [notifications, setNotifications] = useState<NotificationData[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -23,7 +25,7 @@ const NotificationsPage: React.FC = () => {
             setNotifications(res.data);
         } catch (err) {
             console.error('Failed to fetch notifications', err);
-            setError('Error loading notifications.');
+            setError(t.notifications.errorLoading);
         } finally {
             setLoading(false);
         }
@@ -72,10 +74,10 @@ const NotificationsPage: React.FC = () => {
         const diffHour = Math.floor(diffMs / 3600000);
         const diffDay = Math.floor(diffMs / 86400000);
 
-        if (diffMin < 1) return 'Just now';
-        if (diffMin < 60) return `${diffMin}m ago`;
-        if (diffHour < 24) return `${diffHour}h ago`;
-        if (diffDay < 7) return `${diffDay}d ago`;
+        if (diffMin < 1) return t.notifications.justNow;
+        if (diffMin < 60) return `${diffMin}${t.notifications.minutesAgo}`;
+        if (diffHour < 24) return `${diffHour}${t.notifications.hoursAgo}`;
+        if (diffDay < 7) return `${diffDay}${t.notifications.daysAgo}`;
         return date.toLocaleDateString('en-US');
     };
 
@@ -182,9 +184,9 @@ const NotificationsPage: React.FC = () => {
                 <div className="notif-container">
                     <div className="notif-header">
                         <div className="notif-header-left">
-                            <h1 className="notif-title">Notifications</h1>
+                            <h1 className="notif-title">{t.notifications.title}</h1>
                             {unreadCount > 0 && (
-                                <span className="notif-unread-badge">{unreadCount} unread</span>
+                                <span className="notif-unread-badge">{unreadCount} {t.notifications.unread}</span>
                             )}
                         </div>
                         {unreadCount > 0 && (
@@ -192,7 +194,7 @@ const NotificationsPage: React.FC = () => {
                                 className="notif-mark-all-btn"
                                 onClick={handleMarkAllAsRead}
                             >
-                                Mark all as read
+                                {t.notifications.markAllAsRead}
                             </button>
                         )}
                     </div>
@@ -200,20 +202,20 @@ const NotificationsPage: React.FC = () => {
                     {loading ? (
                         <div className="notif-loading">
                             <div className="notif-spinner" />
-                            <span>Loading...</span>
+                            <span>{t.notifications.loading}</span>
                         </div>
                     ) : error ? (
                         <div className="notif-error">{error}</div>
                     ) : notifications.length === 0 ? (
                         <div className="notif-empty">
-                            <h3>No notifications yet</h3>
-                            <p>Follow, rating, and share notifications will appear here.</p>
+                            <h3>{t.notifications.noNotifications}</h3>
+                            <p>{t.notifications.noNotificationsDesc}</p>
                         </div>
                     ) : (
                         <div className="notif-list">
-                            {renderGroup('Today', today)}
-                            {renderGroup('This Week', thisWeek)}
-                            {renderGroup('Earlier', earlier)}
+                            {renderGroup(t.notifications.today, today)}
+                            {renderGroup(t.notifications.thisWeek, thisWeek)}
+                            {renderGroup(t.notifications.earlier, earlier)}
                         </div>
                     )}
                 </div>

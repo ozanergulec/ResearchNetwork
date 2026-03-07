@@ -2,11 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usersApi, type User } from '../../services/userService';
 import { API_SERVER_URL } from '../../services/apiClient';
+import { useTranslation } from '../../translations/translations';
 import '../../styles/feed/HomeProfileSidebar.css';
 
 const HomeProfileSidebar: React.FC = () => {
     const [user, setUser] = useState<User | null>(null);
     const navigate = useNavigate();
+    const t = useTranslation();
 
     useEffect(() => {
         const fetchUser = async () => {
@@ -80,11 +82,11 @@ const HomeProfileSidebar: React.FC = () => {
             <div className="hps-stats">
                 <div className="hps-stat">
                     <span className="hps-stat-value">{user.followerCount}</span>
-                    <span className="hps-stat-label">Followers</span>
+                    <span className="hps-stat-label">{t.profile.followers}</span>
                 </div>
                 <div className="hps-stat">
                     <span className="hps-stat-value">{user.followingCount}</span>
-                    <span className="hps-stat-label">Following</span>
+                    <span className="hps-stat-label">{t.profile.following}</span>
                 </div>
             </div>
         </aside>
