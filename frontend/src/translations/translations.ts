@@ -50,6 +50,23 @@ export interface Translations {
         saved: string;
         previous: string;
         next: string;
+        // Filters
+        filterInstitution: string;
+        filterTitle: string;
+        filterVerified: string;
+        filterTags: string;
+        filterMinRating: string;
+        filterSortBy: string;
+        clearFilters: string;
+        allInstitutions: string;
+        allTitles: string;
+        allTags: string;
+        sortNewest: string;
+        sortOldest: string;
+        sortHighestRating: string;
+        sortMostCited: string;
+        activeFilters: string;
+        noFilterResults: string;
     };
     // NotificationsPage
     notifications: {
@@ -216,6 +233,22 @@ const en: Translations = {
         saved: 'Saved',
         previous: 'Previous',
         next: 'Next',
+        filterInstitution: 'Institution',
+        filterTitle: 'Title',
+        filterVerified: 'Verified Only',
+        filterTags: 'Tags',
+        filterMinRating: 'Min. Rating',
+        filterSortBy: 'Sort By',
+        clearFilters: 'Clear Filters',
+        allInstitutions: 'All Institutions',
+        allTitles: 'All Titles',
+        allTags: 'All Tags',
+        sortNewest: 'Newest First',
+        sortOldest: 'Oldest First',
+        sortHighestRating: 'Highest Rating',
+        sortMostCited: 'Most Cited',
+        activeFilters: 'Active Filters',
+        noFilterResults: 'No results match the selected filters',
     },
     notifications: {
         title: 'Notifications',
@@ -377,6 +410,22 @@ const tr: Translations = {
         saved: 'Kaydedilenler',
         previous: 'Önceki',
         next: 'Sonraki',
+        filterInstitution: 'Kurum',
+        filterTitle: 'Unvan',
+        filterVerified: 'Sadece Doğrulanmış',
+        filterTags: 'Etiketler',
+        filterMinRating: 'Min. Puan',
+        filterSortBy: 'Sıralama',
+        clearFilters: 'Filtreleri Temizle',
+        allInstitutions: 'Tüm Kurumlar',
+        allTitles: 'Tüm Unvanlar',
+        allTags: 'Tüm Etiketler',
+        sortNewest: 'En Yeni',
+        sortOldest: 'En Eski',
+        sortHighestRating: 'En Yüksek Puan',
+        sortMostCited: 'En Çok Atıf',
+        activeFilters: 'Aktif Filtreler',
+        noFilterResults: 'Seçilen filtrelere uygun sonuç bulunamadı',
     },
     notifications: {
         title: 'Bildirimler',

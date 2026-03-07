@@ -26,6 +26,15 @@ const SearchPage: React.FC = () => {
     const [selectedPublication, setSelectedPublication] = useState<Publication | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    // Filter state
+    const [selectedInstitutions, setSelectedInstitutions] = useState<string[]>([]);
+    const [selectedTitles, setSelectedTitles] = useState<string[]>([]);
+
+    const [selectedTags, setSelectedTags] = useState<string[]>([]);
+    const [minRating, setMinRating] = useState(0);
+    const [sortBy, setSortBy] = useState<'default' | 'newest' | 'oldest' | 'rating' | 'cited'>('default');
+    const [openFilter, setOpenFilter] = useState<string | null>(null);
+    const filterRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const token = localStorage.getItem('token');
@@ -57,6 +66,7 @@ const SearchPage: React.FC = () => {
             setTagUsers(tagRes.data.users);
             setSearched(true);
             setCurrentPage(1);
+            resetFilters();
         } catch (err) {
             console.error('Search failed', err);
         } finally {
@@ -123,6 +133,202 @@ const SearchPage: React.FC = () => {
     const handleTabChange = (tab: TabType) => {
         setActiveTab(tab);
         setCurrentPage(1);
+        resetFilters();
+    };
+
+    // ===== Filter Logic =====
+    const resetFilters = () => {
+        setSelectedInstitutions([]);
+        setSelectedTitles([]);
+        setSelectedTags([]);
+        setMinRating(0);
+        setSortBy('default');
+        setOpenFilter(null);
+    };
+
+    const hasActiveFilters = selectedInstitutions.length > 0 || selectedTitles.length > 0 || selectedTags.length > 0 || minRating > 0 || sortBy !== 'default';
+
+    // Close filter dropdown on outside click  
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
+                setOpenFilter(null);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    // Get unique filter options from search results
+    const getUniqueInstitutions = (userList: UserSummary[]) => {
+        return [...new Set(userList.map(u => u.institution).filter(Boolean))] as string[];
+    };
+    const getUniqueTitles = (userList: UserSummary[]) => {
+        return [...new Set(userList.map(u => u.title).filter(Boolean))] as string[];
+    };
+    const getUniqueTags = (pubList: Publication[]) => {
+        return [...new Set(pubList.flatMap(p => p.tags || []))];
+    };
+
+    // Apply filters to users
+    const filterUsers = (userList: UserSummary[]) => {
+        let filtered = [...userList];
+        if (selectedInstitutions.length > 0) {
+            filtered = filtered.filter(u => u.institution && selectedInstitutions.includes(u.institution));
+        }
+        if (selectedTitles.length > 0) {
+            filtered = filtered.filter(u => u.title && selectedTitles.includes(u.title));
+        }
+        return filtered;
+    };
+
+    // Apply filters to publications
+    const filterPublications = (pubList: Publication[]) => {
+        let filtered = [...pubList];
+        if (selectedTags.length > 0) {
+            filtered = filtered.filter(p => p.tags && p.tags.some(tag => selectedTags.includes(tag)));
+        }
+        if (minRating > 0) {
+            filtered = filtered.filter(p => p.averageRating >= minRating);
+        }
+        // Sort
+        if (sortBy === 'newest') {
+            filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        } else if (sortBy === 'oldest') {
+            filtered.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        } else if (sortBy === 'rating') {
+            filtered.sort((a, b) => b.averageRating - a.averageRating);
+        } else if (sortBy === 'cited') {
+            filtered.sort((a, b) => b.citationCount - a.citationCount);
+        }
+        return filtered;
+    };
+
+    const toggleFilterItem = (_list: string[], setList: React.Dispatch<React.SetStateAction<string[]>>, item: string) => {
+        setList(prev => prev.includes(item) ? prev.filter(i => i !== item) : [...prev, item]);
+        setCurrentPage(1);
+    };
+
+    // Get filtered data
+    const filteredUsers = filterUsers(users);
+    const filteredPublications = filterPublications(publications);
+    const filteredTagUsers = filterUsers(tagUsers);
+    const filteredTagPublications = filterPublications(tagPublications);
+    const filteredTagTotalCount = filteredTagPublications.length + filteredTagUsers.length;
+
+    // Filter chip dropdown component
+    const renderMultiSelect = (id: string, label: string, options: string[], selected: string[], setSelected: React.Dispatch<React.SetStateAction<string[]>>) => {
+        if (options.length === 0) return null;
+        const isOpen = openFilter === id;
+        return (
+            <div className={`search-filter-chip ${selected.length > 0 ? 'active' : ''} ${isOpen ? 'open' : ''}`}
+                onClick={() => setOpenFilter(isOpen ? null : id)}>
+                {label}{selected.length > 0 && ` (${selected.length})`}
+                <span className="filter-arrow">▼</span>
+                {isOpen && (
+                    <div className="search-filter-dropdown" onClick={e => e.stopPropagation()}>
+                        {options.map(opt => (
+                            <div key={opt} className="search-filter-option"
+                                onClick={() => toggleFilterItem(selected, setSelected, opt)}>
+                                <span className={`search-filter-checkbox ${selected.includes(opt) ? 'checked' : ''}`}>
+                                    {selected.includes(opt) && '✓'}
+                                </span>
+                                {opt}
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+    // Render filters bar based on active tab
+    const renderFilters = () => {
+        if (!searched) return null;
+
+        return (
+            <div className="search-filters" ref={filterRef}>
+                {(activeTab === 'users' || activeTab === 'tags') && (
+                    <>
+                        {renderMultiSelect('institution', t.search.filterInstitution,
+                            getUniqueInstitutions(activeTab === 'users' ? users : tagUsers),
+                            selectedInstitutions, setSelectedInstitutions)}
+                        {renderMultiSelect('title', t.search.filterTitle,
+                            getUniqueTitles(activeTab === 'users' ? users : tagUsers),
+                            selectedTitles, setSelectedTitles)}
+                    </>
+                )}
+                {(activeTab === 'publications' || activeTab === 'tags') && (
+                    <>
+                        {renderMultiSelect('tags', t.search.filterTags,
+                            getUniqueTags(activeTab === 'publications' ? publications : tagPublications),
+                            selectedTags, setSelectedTags)}
+                        <select className="search-filter-select"
+                            value={minRating}
+                            onChange={e => { setMinRating(Number(e.target.value)); setCurrentPage(1); }}>
+                            <option value={0}>{t.search.filterMinRating}: -</option>
+                            {[1, 2, 3, 4, 5].map(n => (
+                                <option key={n} value={n}>≥ {n}.0</option>
+                            ))}
+                        </select>
+                        <select className="search-filter-select"
+                            value={sortBy}
+                            onChange={e => { setSortBy(e.target.value as any); setCurrentPage(1); }}>
+                            <option value="default">{t.search.filterSortBy}</option>
+                            <option value="newest">{t.search.sortNewest}</option>
+                            <option value="oldest">{t.search.sortOldest}</option>
+                            <option value="rating">{t.search.sortHighestRating}</option>
+                            <option value="cited">{t.search.sortMostCited}</option>
+                        </select>
+                    </>
+                )}
+                {hasActiveFilters && (
+                    <button className="search-clear-filters" onClick={resetFilters}>
+                        ✕ {t.search.clearFilters}
+                    </button>
+                )}
+            </div>
+        );
+    };
+
+    // Render active filter chips
+    const renderActiveFilters = () => {
+        if (!hasActiveFilters) return null;
+        return (
+            <div className="search-active-filters">
+                <span className="search-active-filter-label">{t.search.activeFilters}:</span>
+                {selectedInstitutions.map(inst => (
+                    <span key={inst} className="search-active-filter-chip">
+                        {inst}
+                        <span className="remove-filter" onClick={() => setSelectedInstitutions(prev => prev.filter(i => i !== inst))}>✕</span>
+                    </span>
+                ))}
+                {selectedTitles.map(title => (
+                    <span key={title} className="search-active-filter-chip">
+                        {title}
+                        <span className="remove-filter" onClick={() => setSelectedTitles(prev => prev.filter(i => i !== title))}>✕</span>
+                    </span>
+                ))}
+                {selectedTags.map(tag => (
+                    <span key={tag} className="search-active-filter-chip">
+                        {tag}
+                        <span className="remove-filter" onClick={() => setSelectedTags(prev => prev.filter(i => i !== tag))}>✕</span>
+                    </span>
+                ))}
+                {minRating > 0 && (
+                    <span className="search-active-filter-chip">
+                        ≥ {minRating}.0
+                        <span className="remove-filter" onClick={() => setMinRating(0)}>✕</span>
+                    </span>
+                )}
+                {sortBy !== 'default' && (
+                    <span className="search-active-filter-chip">
+                        {sortBy === 'newest' ? t.search.sortNewest : sortBy === 'oldest' ? t.search.sortOldest : sortBy === 'rating' ? t.search.sortHighestRating : t.search.sortMostCited}
+                        <span className="remove-filter" onClick={() => setSortBy('default')}>✕</span>
+                    </span>
+                )}
+            </div>
+        );
     };
 
     const renderPagination = (totalItems: number) => {
@@ -215,7 +421,7 @@ const SearchPage: React.FC = () => {
                     >
                         {t.search.people}
                         {searched && (
-                            <span className="search-tab-count">{users.length}</span>
+                            <span className="search-tab-count">{filteredUsers.length}</span>
                         )}
                     </button>
                     <button
@@ -224,7 +430,7 @@ const SearchPage: React.FC = () => {
                     >
                         {t.search.publications}
                         {searched && (
-                            <span className="search-tab-count">{publications.length}</span>
+                            <span className="search-tab-count">{filteredPublications.length}</span>
                         )}
                     </button>
                     <button
@@ -233,10 +439,14 @@ const SearchPage: React.FC = () => {
                     >
                         {t.search.tags}
                         {searched && (
-                            <span className="search-tab-count">{tagTotalCount}</span>
+                            <span className="search-tab-count">{filteredTagTotalCount}</span>
                         )}
                     </button>
                 </div>
+
+                {/* Filters */}
+                {renderFilters()}
+                {renderActiveFilters()}
 
                 {/* Content */}
                 {loading ? (
@@ -255,15 +465,14 @@ const SearchPage: React.FC = () => {
                         {/* Users Tab */}
                         {activeTab === 'users' && (
                             <>
-                                {users.length === 0 ? (
+                                {filteredUsers.length === 0 ? (
                                     <div className="search-empty">
-                                        <div className="search-empty-icon">{t.search.noUsersFound}</div>
-                                        <h3>{t.search.noUsersFound}</h3>
-                                        <p>{t.search.tryDifferent}</p>
+                                        <h3>{hasActiveFilters ? t.search.noFilterResults : t.search.noUsersFound}</h3>
+                                        <p>{hasActiveFilters ? t.search.clearFilters : t.search.tryDifferent}</p>
                                     </div>
                                 ) : (
                                     <>
-                                        {paginate(users).map((user) => (
+                                        {paginate(filteredUsers).map((user) => (
                                             <div
                                                 key={user.id}
                                                 className="search-user-card"
@@ -296,7 +505,7 @@ const SearchPage: React.FC = () => {
                                                 <span className="search-user-arrow">›</span>
                                             </div>
                                         ))}
-                                        {renderPagination(users.length)}
+                                        {renderPagination(filteredUsers.length)}
                                     </>
                                 )}
                             </>
@@ -305,15 +514,14 @@ const SearchPage: React.FC = () => {
                         {/* Publications Tab */}
                         {activeTab === 'publications' && (
                             <>
-                                {publications.length === 0 ? (
+                                {filteredPublications.length === 0 ? (
                                     <div className="search-empty">
-                                        <div className="search-empty-icon">{t.search.noPubsFound}</div>
-                                        <h3>{t.search.noPubsFound}</h3>
-                                        <p>{t.search.tryDifferent}</p>
+                                        <h3>{hasActiveFilters ? t.search.noFilterResults : t.search.noPubsFound}</h3>
+                                        <p>{hasActiveFilters ? t.search.clearFilters : t.search.tryDifferent}</p>
                                     </div>
                                 ) : (
                                     <>
-                                        {paginate(publications).map((pub) => (
+                                        {paginate(filteredPublications).map((pub) => (
                                             <div
                                                 key={pub.id}
                                                 className="search-pub-card"
@@ -375,7 +583,7 @@ const SearchPage: React.FC = () => {
                                                 )}
                                             </div>
                                         ))}
-                                        {renderPagination(publications.length)}
+                                        {renderPagination(filteredPublications.length)}
                                     </>
                                 )}
                             </>
@@ -393,14 +601,9 @@ const SearchPage: React.FC = () => {
                                 ) : (
                                     <>
                                         {/* Tag Publications */}
-                                        {tagPublications.length > 0 && (
+                                        {filteredTagPublications.length > 0 && (
                                             <div className="search-tag-section">
-                                                <div className="search-tag-section-header">
-                                                    <span className="search-tag-section-icon">{t.search.publications}</span>
-                                                    <h3>{t.search.pubsWithTag}</h3>
-                                                    <span className="search-tag-section-count">{tagPublications.length}</span>
-                                                </div>
-                                                {paginate(tagPublications).map((pub) => (
+                                                {paginate(filteredTagPublications).map((pub) => (
                                                     <div
                                                         key={pub.id}
                                                         className="search-pub-card"
@@ -457,52 +660,7 @@ const SearchPage: React.FC = () => {
                                                         )}
                                                     </div>
                                                 ))}
-                                                {renderPagination(tagPublications.length)}
-                                            </div>
-                                        )}
-
-                                        {/* Tag Users */}
-                                        {tagUsers.length > 0 && (
-                                            <div className="search-tag-section">
-                                                <div className="search-tag-section-header">
-                                                    <span className="search-tag-section-icon">{t.search.people}</span>
-                                                    <h3>{t.search.peopleWithTag}</h3>
-                                                    <span className="search-tag-section-count">{tagUsers.length}</span>
-                                                </div>
-                                                {paginate(tagUsers).map((user) => (
-                                                    <div
-                                                        key={user.id}
-                                                        className="search-user-card"
-                                                        onClick={() => navigate(`/profile/${user.id}`)}
-                                                    >
-                                                        {user.profileImageUrl ? (
-                                                            <img
-                                                                src={getImageUrl(user.profileImageUrl)!}
-                                                                alt={user.fullName}
-                                                                className="search-user-avatar"
-                                                            />
-                                                        ) : (
-                                                            <div className="search-user-avatar-placeholder">
-                                                                {getInitials(user.fullName)}
-                                                            </div>
-                                                        )}
-                                                        <div className="search-user-info">
-                                                            <p className="search-user-name">
-                                                                {user.fullName}
-                                                                {user.isVerified && (
-                                                                    <span className="search-user-verified">✓</span>
-                                                                )}
-                                                            </p>
-                                                            <p className="search-user-meta">
-                                                                {[user.title, user.institution]
-                                                                    .filter(Boolean)
-                                                                    .join(' • ') || 'User'}
-                                                            </p>
-                                                        </div>
-                                                        <span className="search-user-arrow">›</span>
-                                                    </div>
-                                                ))}
-                                                {renderPagination(tagUsers.length)}
+                                                {renderPagination(filteredTagPublications.length)}
                                             </div>
                                         )}
                                     </>
