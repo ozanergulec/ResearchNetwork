@@ -47,6 +47,8 @@ export interface Translations {
         peopleWithTag: string;
         citations: string;
         saved: string;
+        previous: string;
+        next: string;
     };
     // NotificationsPage
     notifications: {
@@ -210,6 +212,8 @@ const en: Translations = {
         peopleWithTag: 'People with this tag',
         citations: 'Citations',
         saved: 'Saved',
+        previous: 'Previous',
+        next: 'Next',
     },
     notifications: {
         title: 'Notifications',
@@ -368,6 +372,8 @@ const tr: Translations = {
         peopleWithTag: 'Bu etikete sahip kişiler',
         citations: 'Atıflar',
         saved: 'Kaydedilenler',
+        previous: 'Önceki',
+        next: 'Sonraki',
     },
     notifications: {
         title: 'Bildirimler',

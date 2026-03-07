@@ -10,6 +10,8 @@ import '../styles/pages/SearchPage.css';
 
 type TabType = 'users' | 'publications' | 'tags';
 
+const ITEMS_PER_PAGE = 10;
+
 const SearchPage: React.FC = () => {
     const navigate = useNavigate();
     const t = useTranslation();
@@ -22,6 +24,7 @@ const SearchPage: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [searched, setSearched] = useState(false);
     const [selectedPublication, setSelectedPublication] = useState<Publication | null>(null);
+    const [currentPage, setCurrentPage] = useState(1);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
@@ -53,6 +56,7 @@ const SearchPage: React.FC = () => {
             setTagPublications(tagRes.data.publications);
             setTagUsers(tagRes.data.users);
             setSearched(true);
+            setCurrentPage(1);
         } catch (err) {
             console.error('Search failed', err);
         } finally {
@@ -93,6 +97,83 @@ const SearchPage: React.FC = () => {
 
     const tagTotalCount = tagPublications.length + tagUsers.length;
 
+    // Pagination helpers
+    const paginate = <T,>(items: T[]) => {
+        const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+        return items.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+    };
+
+    const getTotalPages = (totalItems: number) => Math.ceil(totalItems / ITEMS_PER_PAGE);
+
+    const handlePageChange = (page: number) => {
+        setCurrentPage(page);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const handleTabChange = (tab: TabType) => {
+        setActiveTab(tab);
+        setCurrentPage(1);
+    };
+
+    const renderPagination = (totalItems: number) => {
+        const totalPages = getTotalPages(totalItems);
+        if (totalPages <= 1) return null;
+
+        const startItem = (currentPage - 1) * ITEMS_PER_PAGE + 1;
+        const endItem = Math.min(currentPage * ITEMS_PER_PAGE, totalItems);
+
+        // Build page numbers with ellipsis
+        const pages: (number | string)[] = [];
+        if (totalPages <= 7) {
+            for (let i = 1; i <= totalPages; i++) pages.push(i);
+        } else {
+            pages.push(1);
+            if (currentPage > 3) pages.push('...');
+            for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
+                pages.push(i);
+            }
+            if (currentPage < totalPages - 2) pages.push('...');
+            pages.push(totalPages);
+        }
+
+        return (
+            <div className="search-pagination">
+                <span className="search-pagination-info">
+                    {startItem}-{endItem} / {totalItems}
+                </span>
+                <div className="search-pagination-controls">
+                    <button
+                        className="search-pagination-btn"
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        disabled={currentPage === 1}
+                    >
+                        ‹ {t.search.previous}
+                    </button>
+                    {pages.map((page, idx) =>
+                        typeof page === 'string' ? (
+                            <span key={`ellipsis-${idx}`} className="search-pagination-ellipsis">...</span>
+                        ) : (
+                            <button
+                                key={page}
+                                className={`search-pagination-page ${currentPage === page ? 'active' : ''}`}
+                                onClick={() => handlePageChange(page)}
+                            >
+                                {page}
+                            </button>
+                        )
+                    )}
+                    <button
+                        className="search-pagination-btn"
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                    >
+                        {t.search.next} ›
+                    </button>
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div className="search-container">
             <Navbar currentPage="search" />
@@ -120,7 +201,7 @@ const SearchPage: React.FC = () => {
                 <div className="search-tabs">
                     <button
                         className={`search-tab ${activeTab === 'users' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('users')}
+                        onClick={() => handleTabChange('users')}
                     >
                         {t.search.people}
                         {searched && (
@@ -129,7 +210,7 @@ const SearchPage: React.FC = () => {
                     </button>
                     <button
                         className={`search-tab ${activeTab === 'publications' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('publications')}
+                        onClick={() => handleTabChange('publications')}
                     >
                         {t.search.publications}
                         {searched && (
@@ -138,7 +219,7 @@ const SearchPage: React.FC = () => {
                     </button>
                     <button
                         className={`search-tab ${activeTab === 'tags' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('tags')}
+                        onClick={() => handleTabChange('tags')}
                     >
                         {t.search.tags}
                         {searched && (
@@ -171,39 +252,42 @@ const SearchPage: React.FC = () => {
                                         <p>{t.search.tryDifferent}</p>
                                     </div>
                                 ) : (
-                                    users.map((user) => (
-                                        <div
-                                            key={user.id}
-                                            className="search-user-card"
-                                            onClick={() => navigate(`/profile/${user.id}`)}
-                                        >
-                                            {user.profileImageUrl ? (
-                                                <img
-                                                    src={getImageUrl(user.profileImageUrl)!}
-                                                    alt={user.fullName}
-                                                    className="search-user-avatar"
-                                                />
-                                            ) : (
-                                                <div className="search-user-avatar-placeholder">
-                                                    {getInitials(user.fullName)}
+                                    <>
+                                        {paginate(users).map((user) => (
+                                            <div
+                                                key={user.id}
+                                                className="search-user-card"
+                                                onClick={() => navigate(`/profile/${user.id}`)}
+                                            >
+                                                {user.profileImageUrl ? (
+                                                    <img
+                                                        src={getImageUrl(user.profileImageUrl)!}
+                                                        alt={user.fullName}
+                                                        className="search-user-avatar"
+                                                    />
+                                                ) : (
+                                                    <div className="search-user-avatar-placeholder">
+                                                        {getInitials(user.fullName)}
+                                                    </div>
+                                                )}
+                                                <div className="search-user-info">
+                                                    <p className="search-user-name">
+                                                        {user.fullName}
+                                                        {user.isVerified && (
+                                                            <span className="search-user-verified">✓</span>
+                                                        )}
+                                                    </p>
+                                                    <p className="search-user-meta">
+                                                        {[user.title, user.institution]
+                                                            .filter(Boolean)
+                                                            .join(' • ') || 'User'}
+                                                    </p>
                                                 </div>
-                                            )}
-                                            <div className="search-user-info">
-                                                <p className="search-user-name">
-                                                    {user.fullName}
-                                                    {user.isVerified && (
-                                                        <span className="search-user-verified">✓</span>
-                                                    )}
-                                                </p>
-                                                <p className="search-user-meta">
-                                                    {[user.title, user.institution]
-                                                        .filter(Boolean)
-                                                        .join(' • ') || 'User'}
-                                                </p>
+                                                <span className="search-user-arrow">›</span>
                                             </div>
-                                            <span className="search-user-arrow">›</span>
-                                        </div>
-                                    ))
+                                        ))}
+                                        {renderPagination(users.length)}
+                                    </>
                                 )}
                             </>
                         )}
@@ -218,68 +302,71 @@ const SearchPage: React.FC = () => {
                                         <p>{t.search.tryDifferent}</p>
                                     </div>
                                 ) : (
-                                    publications.map((pub) => (
-                                        <div
-                                            key={pub.id}
-                                            className="search-pub-card"
-                                            onClick={() => setSelectedPublication(pub)}
-                                        >
-                                            <h3 className="search-pub-title">{pub.title}</h3>
-                                            {pub.abstract && (
-                                                <p className="search-pub-abstract">
-                                                    {truncateAbstract(pub.abstract)}
-                                                </p>
-                                            )}
-                                            <div className="search-pub-footer">
-                                                <div
-                                                    className="search-pub-author"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        navigate(`/profile/${pub.author.id}`);
-                                                    }}
-                                                >
-                                                    {pub.author.profileImageUrl ? (
-                                                        <img
-                                                            src={getImageUrl(pub.author.profileImageUrl)!}
-                                                            alt={pub.author.fullName}
-                                                            className="search-pub-author-avatar"
-                                                        />
-                                                    ) : (
-                                                        <div className="search-pub-author-placeholder">
-                                                            {getInitials(pub.author.fullName)}
-                                                        </div>
-                                                    )}
-                                                    <span>{pub.author.fullName}</span>
+                                    <>
+                                        {paginate(publications).map((pub) => (
+                                            <div
+                                                key={pub.id}
+                                                className="search-pub-card"
+                                                onClick={() => setSelectedPublication(pub)}
+                                            >
+                                                <h3 className="search-pub-title">{pub.title}</h3>
+                                                {pub.abstract && (
+                                                    <p className="search-pub-abstract">
+                                                        {truncateAbstract(pub.abstract)}
+                                                    </p>
+                                                )}
+                                                <div className="search-pub-footer">
+                                                    <div
+                                                        className="search-pub-author"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            navigate(`/profile/${pub.author.id}`);
+                                                        }}
+                                                    >
+                                                        {pub.author.profileImageUrl ? (
+                                                            <img
+                                                                src={getImageUrl(pub.author.profileImageUrl)!}
+                                                                alt={pub.author.fullName}
+                                                                className="search-pub-author-avatar"
+                                                            />
+                                                        ) : (
+                                                            <div className="search-pub-author-placeholder">
+                                                                {getInitials(pub.author.fullName)}
+                                                            </div>
+                                                        )}
+                                                        <span>{pub.author.fullName}</span>
+                                                    </div>
+                                                    <div className="search-pub-stats">
+                                                        {pub.averageRating > 0 && (
+                                                            <span className="search-pub-stat">
+                                                                ⭐ {pub.averageRating.toFixed(1)}
+                                                            </span>
+                                                        )}
+                                                        {pub.citationCount > 0 && (
+                                                            <span className="search-pub-stat">
+                                                                Citations: {pub.citationCount}
+                                                            </span>
+                                                        )}
+                                                        {pub.saveCount > 0 && (
+                                                            <span className="search-pub-stat">
+                                                                {t.search.saved}: {pub.saveCount}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                                <div className="search-pub-stats">
-                                                    {pub.averageRating > 0 && (
-                                                        <span className="search-pub-stat">
-                                                            ⭐ {pub.averageRating.toFixed(1)}
-                                                        </span>
-                                                    )}
-                                                    {pub.citationCount > 0 && (
-                                                        <span className="search-pub-stat">
-                                                            Citations: {pub.citationCount}
-                                                        </span>
-                                                    )}
-                                                    {pub.saveCount > 0 && (
-                                                        <span className="search-pub-stat">
-                                                            {t.search.saved}: {pub.saveCount}
-                                                        </span>
-                                                    )}
-                                                </div>
+                                                {pub.tags && pub.tags.length > 0 && (
+                                                    <div className="search-pub-tags">
+                                                        {pub.tags.map((tag, i) => (
+                                                            <span key={i} className="search-pub-tag">
+                                                                {tag}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                )}
                                             </div>
-                                            {pub.tags && pub.tags.length > 0 && (
-                                                <div className="search-pub-tags">
-                                                    {pub.tags.map((tag, i) => (
-                                                        <span key={i} className="search-pub-tag">
-                                                            {tag}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))
+                                        ))}
+                                        {renderPagination(publications.length)}
+                                    </>
                                 )}
                             </>
                         )}
