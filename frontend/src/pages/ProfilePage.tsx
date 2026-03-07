@@ -31,7 +31,6 @@ const ProfilePage: React.FC = () => {
     const [sharedPublications, setSharedPublications] = useState<SharedPublication[]>([]);
     const [savedPublications, setSavedPublications] = useState<Publication[]>([]);
     const [loadingPublications, setLoadingPublications] = useState(false);
-    const [showAllPublications, setShowAllPublications] = useState(false);
     const [showAddPublicationModal, setShowAddPublicationModal] = useState(false);
     const [toastMessage, setToastMessage] = useState<string | null>(null);
     const [isOwnProfile, setIsOwnProfile] = useState(true);
@@ -91,7 +90,7 @@ const ProfilePage: React.FC = () => {
             try {
                 setLoadingPublications(true);
                 const [authoredRes, sharedRes] = await Promise.all([
-                    publicationsApi.getLatestByAuthor(user.id, 4),
+                    publicationsApi.getByAuthor(user.id),
                     publicationsApi.getShared(user.id),
                 ]);
                 setPublications(authoredRes.data);
@@ -188,33 +187,10 @@ const ProfilePage: React.FC = () => {
         }
     };
 
-    const handleTogglePublications = async () => {
-        if (!user) return;
-        const newShowAll = !showAllPublications;
-        setShowAllPublications(newShowAll);
-        try {
-            setLoadingPublications(true);
-            const [authoredRes, sharedRes] = await Promise.all([
-                newShowAll
-                    ? publicationsApi.getByAuthor(user.id)
-                    : publicationsApi.getLatestByAuthor(user.id, 4),
-                publicationsApi.getShared(user.id),
-            ]);
-            setPublications(authoredRes.data);
-            setSharedPublications(sharedRes.data);
-        } catch (err) {
-            console.error('Failed to fetch publications', err);
-        } finally {
-            setLoadingPublications(false);
-        }
-    };
-
     const handleOpenAddPublication = async () => {
         if (user) {
             try {
-                const response = showAllPublications
-                    ? await publicationsApi.getByAuthor(user.id)
-                    : await publicationsApi.getLatestByAuthor(user.id, 4);
+                const response = await publicationsApi.getByAuthor(user.id);
                 setPublications(response.data);
             } catch (err) {
                 console.error('Failed to refresh publications', err);
@@ -226,9 +202,7 @@ const ProfilePage: React.FC = () => {
     const handlePublicationAdded = async () => {
         if (!user) return;
         try {
-            const response = showAllPublications
-                ? await publicationsApi.getByAuthor(user.id)
-                : await publicationsApi.getLatestByAuthor(user.id, 4);
+            const response = await publicationsApi.getByAuthor(user.id);
             setPublications(response.data);
         } catch (err) {
             console.error('Failed to refresh publications', err);
@@ -238,9 +212,7 @@ const ProfilePage: React.FC = () => {
     const handleDeletePublication = async () => {
         if (!user) return;
         try {
-            const response = showAllPublications
-                ? await publicationsApi.getByAuthor(user.id)
-                : await publicationsApi.getLatestByAuthor(user.id, 4);
+            const response = await publicationsApi.getByAuthor(user.id);
             setPublications(response.data);
         } catch (err) {
             console.error('Failed to refresh publications', err);
@@ -260,9 +232,7 @@ const ProfilePage: React.FC = () => {
                 setPublications(response.data);
             } else {
                 const [authoredRes, sharedRes] = await Promise.all([
-                    showAllPublications
-                        ? publicationsApi.getByAuthor(user.id)
-                        : publicationsApi.getLatestByAuthor(user.id, 4),
+                    publicationsApi.getByAuthor(user.id),
                     publicationsApi.getShared(user.id),
                 ]);
                 setPublications(authoredRes.data);
@@ -367,8 +337,6 @@ const ProfilePage: React.FC = () => {
                                 publications={publications}
                                 sharedPublications={sharedPublications}
                                 savedPublications={savedPublications}
-                                showAllPublications={showAllPublications}
-                                onToggleShowAll={handleTogglePublications}
                                 onAddPublication={handleOpenAddPublication}
                                 onDeletePublication={handleDeletePublication}
                                 onSharedDeleted={(shareId) => {
