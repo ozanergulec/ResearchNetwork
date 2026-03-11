@@ -7,8 +7,8 @@ public interface IPublicationRepository
     Task<Publication?> GetByIdAsync(Guid id);
     Task<IEnumerable<Publication>> GetAllAsync();
     Task<(IEnumerable<Publication> Items, int TotalCount)> GetFeedAsync(int page, int pageSize);
-    Task<IEnumerable<Publication>> GetByAuthorIdAsync(Guid authorId);
-    Task<IEnumerable<Publication>> GetLatestPublicationsByAuthorAsync(Guid authorId, int count);
+    Task<(IEnumerable<Publication> Items, int TotalCount)> GetByAuthorIdAsync(Guid authorId, int page, int pageSize);
+    Task<(IEnumerable<Publication> Items, int TotalCount)> GetLatestPublicationsByAuthorAsync(Guid authorId, int count);
     Task<Publication> CreateAsync(Publication publication);
     Task<Publication> UpdateAsync(Publication publication);
     Task DeleteAsync(Guid id);
@@ -25,17 +25,17 @@ public interface IPublicationRepository
     Task<SavedPublication?> GetSavedAsync(Guid publicationId, Guid userId);
     Task AddSavedAsync(SavedPublication saved);
     Task RemoveSavedAsync(Guid publicationId, Guid userId);
-    Task<IEnumerable<Publication>> GetSavedByUserAsync(Guid userId);
+    Task<(IEnumerable<Publication> Items, int TotalCount)> GetSavedByUserAsync(Guid userId, int page, int pageSize);
 
     // Share
     Task<PublicationShare?> GetShareAsync(Guid publicationId, Guid userId);
     Task AddShareAsync(PublicationShare share);
     Task UpdateShareAsync(PublicationShare share);
     Task RemoveShareAsync(Guid publicationId, Guid userId);
-    Task<IEnumerable<PublicationShare>> GetSharedByUserAsync(Guid userId);
+    Task<(IEnumerable<PublicationShare> Items, int TotalCount)> GetSharedByUserAsync(Guid userId, int page, int pageSize);
     Task<(IEnumerable<PublicationShare> Items, int TotalCount)> GetAllSharesForFeedAsync(int page, int pageSize);
 
     // Search
-    Task<IEnumerable<Publication>> SearchAsync(string query);
-    Task<IEnumerable<Publication>> SearchByTagAsync(string tagName);
+    Task<(IEnumerable<Publication> Items, int TotalCount)> SearchAsync(string query, int page, int pageSize);
+    Task<(IEnumerable<Publication> Items, int TotalCount)> SearchByTagAsync(string tagName, int page, int pageSize);
 }

@@ -369,7 +369,7 @@ public class ReviewController : ControllerBase
         var userId = GetCurrentUserId();
         if (userId == null) return Unauthorized();
 
-        var publications = await _publicationRepository.GetByAuthorIdAsync(userId.Value);
+        var (publications, _) = await _publicationRepository.GetByAuthorIdAsync(userId.Value, 1, int.MaxValue);
         var result = publications.Select(p => new
         {
             p.Id,

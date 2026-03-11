@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { usersApi } from '../services/userService';
 import type { User, UpdateUserData } from '../services/userService';
-import { publicationsApi, type Publication, type SharedPublication } from '../services/publicationService';
+import { publicationsApi, type Publication, type FeedItem } from '../services/publicationService';
 import {
     Navbar,
     Loading,
@@ -28,13 +28,15 @@ const ProfilePage: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [showTagManagement, setShowTagManagement] = useState(false);
     const [publications, setPublications] = useState<Publication[]>([]);
-    const [sharedPublications, setSharedPublications] = useState<SharedPublication[]>([]);
     const [savedPublications, setSavedPublications] = useState<Publication[]>([]);
+    const [posts, setPosts] = useState<FeedItem[]>([]);
     const [loadingPublications, setLoadingPublications] = useState(false);
     const [showAddPublicationModal, setShowAddPublicationModal] = useState(false);
     const [toastMessage, setToastMessage] = useState<string | null>(null);
     const [isOwnProfile, setIsOwnProfile] = useState(true);
     const [activeTab, setActiveTab] = useState<ProfileTab>('publications');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalItems, setTotalItems] = useState(0);
     const [isFollowing, setIsFollowing] = useState(false);
     const [followLoading, setFollowLoading] = useState(false);
 
@@ -84,25 +86,35 @@ const ProfilePage: React.FC = () => {
         fetchProfile();
     }, [navigate, userId]);
 
-    useEffect(() => {
-        const fetchPublications = async () => {
-            if (!user) return;
-            try {
-                setLoadingPublications(true);
-                const [authoredRes, sharedRes] = await Promise.all([
-                    publicationsApi.getByAuthor(user.id),
-                    publicationsApi.getShared(user.id),
-                ]);
-                setPublications(authoredRes.data);
-                setSharedPublications(sharedRes.data);
-            } catch (err) {
-                console.error('Failed to fetch publications', err);
-            } finally {
-                setLoadingPublications(false);
+    const fetchTabData = async (tab: ProfileTab, page: number) => {
+        if (!user) return;
+        setLoadingPublications(true);
+        try {
+            if (tab === 'saved') {
+                const response = await publicationsApi.getSaved(page, 5);
+                setSavedPublications(response.data.items || []);
+                setTotalItems(response.data.totalCount || 0);
+            } else if (tab === 'my-publications') {
+                const response = await publicationsApi.getByAuthor(user.id, page, 5);
+                setPublications(response.data.items || []);
+                setTotalItems(response.data.totalCount || 0);
+            } else {
+                const response = await publicationsApi.getUserPosts(user.id, page, 5);
+                setPosts(response.data.items || []);
+                setTotalItems(response.data.totalCount || 0);
             }
-        };
+        } catch (err) {
+            console.error('Failed to fetch tab data', err);
+        } finally {
+            setLoadingPublications(false);
+        }
+    };
 
-        fetchPublications();
+    useEffect(() => {
+        if (user) {
+            fetchTabData(activeTab, 1);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user]);
 
     const handleSave = async (data: UpdateUserData) => {
@@ -189,60 +201,33 @@ const ProfilePage: React.FC = () => {
 
     const handleOpenAddPublication = async () => {
         if (user) {
-            try {
-                const response = await publicationsApi.getByAuthor(user.id);
-                setPublications(response.data);
-            } catch (err) {
-                console.error('Failed to refresh publications', err);
-            }
+            fetchTabData(activeTab, currentPage);
         }
         setShowAddPublicationModal(true);
     };
 
     const handlePublicationAdded = async () => {
         if (!user) return;
-        try {
-            const response = await publicationsApi.getByAuthor(user.id);
-            setPublications(response.data);
-        } catch (err) {
-            console.error('Failed to refresh publications', err);
-        }
+        setCurrentPage(1);
+        fetchTabData(activeTab, 1);
     };
 
     const handleDeletePublication = async () => {
         if (!user) return;
-        try {
-            const response = await publicationsApi.getByAuthor(user.id);
-            setPublications(response.data);
-        } catch (err) {
-            console.error('Failed to refresh publications', err);
-        }
+        fetchTabData(activeTab, currentPage);
     };
 
-    const handleTabChange = async (tab: ProfileTab) => {
+    const handleTabChange = (tab: ProfileTab) => {
         if (!user) return;
         setActiveTab(tab);
-        try {
-            setLoadingPublications(true);
-            if (tab === 'saved') {
-                const response = await publicationsApi.getSaved();
-                setSavedPublications(response.data);
-            } else if (tab === 'my-publications') {
-                const response = await publicationsApi.getByAuthor(user.id);
-                setPublications(response.data);
-            } else {
-                const [authoredRes, sharedRes] = await Promise.all([
-                    publicationsApi.getByAuthor(user.id),
-                    publicationsApi.getShared(user.id),
-                ]);
-                setPublications(authoredRes.data);
-                setSharedPublications(sharedRes.data);
-            }
-        } catch (err) {
-            console.error('Failed to fetch tab data', err);
-        } finally {
-            setLoadingPublications(false);
-        }
+        setCurrentPage(1);
+        fetchTabData(tab, 1);
+    };
+
+    const handlePageChange = (page: number) => {
+        setCurrentPage(page);
+        fetchTabData(activeTab, page);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     if (loading) {
@@ -335,12 +320,16 @@ const ProfilePage: React.FC = () => {
                                 isOwnProfile={isOwnProfile}
                                 loading={loadingPublications}
                                 publications={publications}
-                                sharedPublications={sharedPublications}
+                                posts={posts}
                                 savedPublications={savedPublications}
+                                totalItems={totalItems}
+                                currentPage={currentPage}
+                                onPageChange={handlePageChange}
                                 onAddPublication={handleOpenAddPublication}
                                 onDeletePublication={handleDeletePublication}
                                 onSharedDeleted={(shareId) => {
-                                    setSharedPublications(prev => prev.filter(sp => sp.shareId !== shareId));
+                                    setPosts(prev => prev.filter(p => p.type !== 'share' || p.sharedPublication?.shareId !== shareId));
+                                    setTotalItems(prev => Math.max(0, prev - 1));
                                 }}
                                 isFollowingProfile={isFollowing}
                                 onFollowChange={(_authorId, following) => {

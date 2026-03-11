@@ -47,28 +47,40 @@ public class PublicationRepository : IPublicationRepository
         return (items, totalCount);
     }
 
-    public async Task<IEnumerable<Publication>> GetByAuthorIdAsync(Guid authorId)
+    public async Task<(IEnumerable<Publication> Items, int TotalCount)> GetByAuthorIdAsync(Guid authorId, int page, int pageSize)
     {
-        return await _context.Publications
+        var query = _context.Publications
             .Where(p => p.AuthorId == authorId)
             .Include(p => p.Author)
             .Include(p => p.Tags)
                 .ThenInclude(pt => pt.Tag)
             .Include(p => p.ReviewRequests)
-            .OrderByDescending(p => p.CreatedAt)
+            .OrderByDescending(p => p.CreatedAt);
+
+        var totalCount = await query.CountAsync();
+        var items = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync();
+
+        return (items, totalCount);
     }
 
-    public async Task<IEnumerable<Publication>> GetLatestPublicationsByAuthorAsync(Guid authorId, int count)
+    public async Task<(IEnumerable<Publication> Items, int TotalCount)> GetLatestPublicationsByAuthorAsync(Guid authorId, int count)
     {
-        return await _context.Publications
+        var query = _context.Publications
             .Where(p => p.AuthorId == authorId)
             .Include(p => p.Author)
             .Include(p => p.Tags)
                 .ThenInclude(pt => pt.Tag)
-            .OrderByDescending(p => p.CreatedAt)
+            .OrderByDescending(p => p.CreatedAt);
+
+        var totalCount = await query.CountAsync();
+        var items = await query
             .Take(count)
             .ToListAsync();
+            
+        return (items, totalCount);
     }
 
     public async Task<Publication> CreateAsync(Publication publication)
@@ -176,9 +188,9 @@ public class PublicationRepository : IPublicationRepository
         }
     }
 
-    public async Task<IEnumerable<Publication>> GetSavedByUserAsync(Guid userId)
+    public async Task<(IEnumerable<Publication> Items, int TotalCount)> GetSavedByUserAsync(Guid userId, int page, int pageSize)
     {
-        return await _context.SavedPublications
+        var query = _context.SavedPublications
             .Where(s => s.UserId == userId)
             .Include(s => s.Publication)
                 .ThenInclude(p => p.Author)
@@ -186,8 +198,15 @@ public class PublicationRepository : IPublicationRepository
                 .ThenInclude(p => p.Tags)
                     .ThenInclude(pt => pt.Tag)
             .OrderByDescending(s => s.SavedAt)
-            .Select(s => s.Publication)
+            .Select(s => s.Publication);
+
+        var totalCount = await query.CountAsync();
+        var items = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync();
+
+        return (items, totalCount);
     }
 
     // --- Share ---
@@ -221,9 +240,9 @@ public class PublicationRepository : IPublicationRepository
         }
     }
 
-    public async Task<IEnumerable<PublicationShare>> GetSharedByUserAsync(Guid userId)
+    public async Task<(IEnumerable<PublicationShare> Items, int TotalCount)> GetSharedByUserAsync(Guid userId, int page, int pageSize)
     {
-        return await _context.PublicationShares
+        var query = _context.PublicationShares
             .Where(s => s.UserId == userId)
             .Include(s => s.User)
             .Include(s => s.Publication)
@@ -231,8 +250,15 @@ public class PublicationRepository : IPublicationRepository
             .Include(s => s.Publication)
                 .ThenInclude(p => p.Tags)
                     .ThenInclude(pt => pt.Tag)
-            .OrderByDescending(s => s.SharedAt)
+            .OrderByDescending(s => s.SharedAt);
+
+        var totalCount = await query.CountAsync();
+        var items = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync();
+
+        return (items, totalCount);
     }
 
     public async Task<(IEnumerable<PublicationShare> Items, int TotalCount)> GetAllSharesForFeedAsync(int page, int pageSize)
@@ -257,33 +283,47 @@ public class PublicationRepository : IPublicationRepository
 
     // --- Search ---
 
-    public async Task<IEnumerable<Publication>> SearchAsync(string query)
+    public async Task<(IEnumerable<Publication> Items, int TotalCount)> SearchAsync(string query, int page, int pageSize)
     {
         var lowerQuery = query.ToLower();
-        return await _context.Publications
+        var baseQuery = _context.Publications
             .Where(p => p.Title.ToLower().Contains(lowerQuery)
                      || (p.Abstract != null && p.Abstract.ToLower().Contains(lowerQuery))
                      || p.Author.FullName.ToLower().Contains(lowerQuery)
-                     || p.Tags.Any(pt => pt.Tag.Name.ToLower().Contains(lowerQuery)))
+                     || p.Tags.Any(pt => pt.Tag.Name.ToLower().Contains(lowerQuery)));
+
+        var totalCount = await baseQuery.CountAsync();
+
+        var items = await baseQuery
             .Include(p => p.Author)
             .Include(p => p.Tags)
                 .ThenInclude(pt => pt.Tag)
             .OrderByDescending(p => p.CreatedAt)
-            .Take(20)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync();
+
+        return (items, totalCount);
     }
 
-    public async Task<IEnumerable<Publication>> SearchByTagAsync(string tagName)
+    public async Task<(IEnumerable<Publication> Items, int TotalCount)> SearchByTagAsync(string tagName, int page, int pageSize)
     {
         var lowerTag = tagName.ToLower();
-        return await _context.Publications
-            .Where(p => p.Tags.Any(pt => pt.Tag.Name.ToLower().Contains(lowerTag)))
+        var baseQuery = _context.Publications
+            .Where(p => p.Tags.Any(pt => pt.Tag.Name.ToLower().Contains(lowerTag)));
+
+        var totalCount = await baseQuery.CountAsync();
+
+        var items = await baseQuery
             .Include(p => p.Author)
             .Include(p => p.Tags)
                 .ThenInclude(pt => pt.Tag)
             .OrderByDescending(p => p.CreatedAt)
-            .Take(20)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync();
+
+        return (items, totalCount);
     }
 }
 

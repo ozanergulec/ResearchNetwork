@@ -50,8 +50,8 @@ const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
                 searchApi.searchUsers(searchQuery),
                 searchApi.searchPublications(searchQuery),
             ]);
-            setUsers(usersRes.data);
-            setPublications(pubsRes.data);
+            setUsers(usersRes.data.items || []);
+            setPublications(pubsRes.data.items || []);
             setSearched(true);
         } catch (err) {
             console.error('Search failed', err);

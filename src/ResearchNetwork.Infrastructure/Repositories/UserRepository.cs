@@ -176,30 +176,44 @@ public class UserRepository : IUserRepository
 
     // --- Search ---
 
-    public async Task<IEnumerable<User>> SearchAsync(string query)
+    public async Task<(IEnumerable<User> Items, int TotalCount)> SearchAsync(string query, int page, int pageSize)
     {
         var lowerQuery = query.ToLower();
-        return await _context.Users
+        var baseQuery = _context.Users
             .Where(u => u.FullName.ToLower().Contains(lowerQuery)
                      || (u.Institution != null && u.Institution.ToLower().Contains(lowerQuery))
                      || (u.Title != null && u.Title.ToLower().Contains(lowerQuery))
-                     || u.Tags.Any(ut => ut.Tag.Name.ToLower().Contains(lowerQuery)))
+                     || u.Tags.Any(ut => ut.Tag.Name.ToLower().Contains(lowerQuery)));
+
+        var totalCount = await baseQuery.CountAsync();
+
+        var items = await baseQuery
             .Include(u => u.Tags)
                 .ThenInclude(ut => ut.Tag)
             .OrderBy(u => u.FullName)
-            .Take(20)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync();
+
+        return (items, totalCount);
     }
 
-    public async Task<IEnumerable<User>> SearchByTagAsync(string tagName)
+    public async Task<(IEnumerable<User> Items, int TotalCount)> SearchByTagAsync(string tagName, int page, int pageSize)
     {
         var lowerTag = tagName.ToLower();
-        return await _context.Users
-            .Where(u => u.Tags.Any(ut => ut.Tag.Name.ToLower().Contains(lowerTag)))
+        var baseQuery = _context.Users
+            .Where(u => u.Tags.Any(ut => ut.Tag.Name.ToLower().Contains(lowerTag)));
+
+        var totalCount = await baseQuery.CountAsync();
+
+        var items = await baseQuery
             .Include(u => u.Tags)
                 .ThenInclude(ut => ut.Tag)
             .OrderBy(u => u.FullName)
-            .Take(20)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync();
+
+        return (items, totalCount);
     }
 }

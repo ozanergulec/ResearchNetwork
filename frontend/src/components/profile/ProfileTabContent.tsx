@@ -1,11 +1,9 @@
-import React, { useState } from 'react';
-import type { Publication, SharedPublication } from '../../services/publicationService';
+import React from 'react';
+import type { Publication, FeedItem } from '../../services/publicationService';
 import { Loading } from '../common';
 import { FeedPublicationCard, SharedFeedCard } from '../feed';
 
 export type ProfileTab = 'publications' | 'my-publications' | 'saved';
-
-const ITEMS_PER_PAGE = 5;
 
 interface ProfileTabContentProps {
     activeTab: ProfileTab;
@@ -13,8 +11,11 @@ interface ProfileTabContentProps {
     isOwnProfile: boolean;
     loading: boolean;
     publications: Publication[];
-    sharedPublications: SharedPublication[];
+    posts: FeedItem[];
     savedPublications: Publication[];
+    totalItems: number;
+    currentPage: number;
+    onPageChange: (page: number) => void;
     onAddPublication: () => void;
     onDeletePublication: (id: string) => void;
     onSharedDeleted: (shareId: string) => void;
@@ -22,35 +23,31 @@ interface ProfileTabContentProps {
     onFollowChange?: (authorId: string, following: boolean) => void;
 }
 
+const ITEMS_PER_PAGE = 5;
+
 const ProfileTabContent: React.FC<ProfileTabContentProps> = ({
     activeTab,
     onTabChange,
     isOwnProfile,
     loading,
     publications,
-    sharedPublications,
+    posts,
     savedPublications,
+    totalItems,
+    currentPage,
+    onPageChange,
     onAddPublication,
     onDeletePublication,
     onSharedDeleted,
     isFollowingProfile,
     onFollowChange,
 }) => {
-    const [currentPage, setCurrentPage] = useState(1);
-
     const handleTabChange = (tab: ProfileTab) => {
-        setCurrentPage(1);
         onTabChange(tab);
     };
 
     const handlePageChange = (page: number) => {
-        setCurrentPage(page);
-    };
-
-    // Pagination helpers
-    const paginate = <T,>(items: T[]) => {
-        const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-        return items.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+        onPageChange(page);
     };
 
     const getTotalPages = (totalItems: number) => Math.ceil(totalItems / ITEMS_PER_PAGE);
@@ -114,16 +111,7 @@ const ProfileTabContent: React.FC<ProfileTabContentProps> = ({
     };
 
     const renderPostsTab = () => {
-        type TimelineItem =
-            | { type: 'authored'; date: string; publication: Publication }
-            | { type: 'shared'; date: string; sharedPublication: SharedPublication };
-
-        const timeline: TimelineItem[] = [
-            ...publications.map(p => ({ type: 'authored' as const, date: p.createdAt, publication: p })),
-            ...sharedPublications.map(s => ({ type: 'shared' as const, date: s.sharedAt, sharedPublication: s })),
-        ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-        if (timeline.length === 0) {
+        if (posts.length === 0) {
             return (
                 <div className="publications-empty">
                     <p>No posts yet.</p>
@@ -131,24 +119,22 @@ const ProfileTabContent: React.FC<ProfileTabContentProps> = ({
             );
         }
 
-        const displayedItems = paginate(timeline);
-
         return (
             <div className="publications-list">
                 <div className="publications-grid">
-                    {displayedItems.map((item) => {
-                        if (item.type === 'shared') {
+                    {posts.map((item, idx) => {
+                        if (item.type === 'share' && item.sharedPublication) {
                             return (
                                 <SharedFeedCard
-                                    key={`share-${item.sharedPublication.shareId}`}
+                                    key={`share-${item.sharedPublication.shareId}-${idx}`}
                                     sharedPublication={item.sharedPublication}
                                     onDeleted={onSharedDeleted}
                                 />
                             );
-                        } else {
+                        } else if (item.publication) {
                             return (
                                 <FeedPublicationCard
-                                    key={`pub-${item.publication.id}`}
+                                    key={`pub-${item.publication.id}-${idx}`}
                                     publication={item.publication}
                                     isFollowing={isFollowingProfile}
                                     onFollowChange={onFollowChange}
@@ -156,9 +142,10 @@ const ProfileTabContent: React.FC<ProfileTabContentProps> = ({
                                 />
                             );
                         }
+                        return null;
                     })}
                 </div>
-                {renderPagination(timeline.length)}
+                {renderPagination(totalItems)}
             </div>
         );
     };
@@ -172,12 +159,10 @@ const ProfileTabContent: React.FC<ProfileTabContentProps> = ({
             );
         }
 
-        const displayedItems = paginate(items);
-
         return (
             <div className="publications-list">
                 <div className="publications-grid">
-                    {displayedItems.map((pub) => (
+                    {items.map((pub) => (
                         <FeedPublicationCard
                             key={`${keyPrefix}-${pub.id}`}
                             publication={pub}
@@ -187,7 +172,7 @@ const ProfileTabContent: React.FC<ProfileTabContentProps> = ({
                         />
                     ))}
                 </div>
-                {renderPagination(items.length)}
+                {renderPagination(totalItems)}
             </div>
         );
     };

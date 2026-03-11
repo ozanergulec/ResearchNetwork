@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { API_SERVER_URL } from '../../services/apiClient';
 
 export const getImageUrl = (url?: string | null) => {

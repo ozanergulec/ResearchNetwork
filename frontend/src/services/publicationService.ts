@@ -86,8 +86,8 @@ export const publicationsApi = {
     getById: (id: string) =>
         api.get<Publication>(`/publications/${id}`),
 
-    getByAuthor: (authorId: string) =>
-        api.get<Publication[]>(`/publications/author/${authorId}`),
+    getByAuthor: (authorId: string, page: number = 1, pageSize: number = 10) =>
+        api.get<PagedResult<Publication>>(`/publications/author/${authorId}?page=${page}&pageSize=${pageSize}`),
 
     getLatestByAuthor: (authorId: string, count: number = 3) =>
         api.get<Publication[]>(`/publications/author/${authorId}/latest?count=${count}`),
@@ -124,8 +124,8 @@ export const publicationsApi = {
             `/feed/${publicationId}/save`
         ),
 
-    getSaved: () =>
-        api.get<Publication[]>('/feed/saved'),
+    getSaved: (page: number = 1, pageSize: number = 10) =>
+        api.get<PagedResult<Publication>>(`/feed/saved?page=${page}&pageSize=${pageSize}`),
 
     // --- Share ---
     share: (publicationId: string, note?: string) =>
@@ -134,8 +134,11 @@ export const publicationsApi = {
             { note: note || null }
         ),
 
-    getShared: (userId: string) =>
-        api.get<SharedPublication[]>(`/feed/shared/${userId}`),
+    getShared: (userId: string, page: number = 1, pageSize: number = 10) =>
+        api.get<PagedResult<SharedPublication>>(`/feed/shared/${userId}?page=${page}&pageSize=${pageSize}`),
+
+    getUserPosts: (userId: string, page: number = 1, pageSize: number = 10) =>
+        api.get<PagedResult<FeedItem>>(`/feed/user/${userId}/posts?page=${page}&pageSize=${pageSize}`),
 
     updateShareNote: (publicationId: string, note?: string) =>
         api.put<{ updated: boolean }>(

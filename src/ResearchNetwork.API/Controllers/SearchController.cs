@@ -22,15 +22,19 @@ public class SearchController : ControllerBase
     }
 
     [HttpGet("users")]
-    public async Task<ActionResult<IEnumerable<UserSummaryDto>>> SearchUsers([FromQuery] string q)
+    public async Task<ActionResult<PagedResult<UserSummaryDto>>> SearchUsers(
+        [FromQuery] string q,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10)
     {
         if (string.IsNullOrWhiteSpace(q) || q.Length < 2)
         {
-            return Ok(Array.Empty<UserSummaryDto>());
+            return Ok(new PagedResult<UserSummaryDto>(
+                Array.Empty<UserSummaryDto>(), 0, page, pageSize, false));
         }
 
         var currentUserId = GetUserIdFromClaims();
-        var users = await _userRepository.SearchAsync(q);
+        var (users, totalCount) = await _userRepository.SearchAsync(q, page, pageSize);
 
         // Filter by privacy level
         var filteredUsers = new List<UserSummaryDto>();
@@ -56,20 +60,31 @@ public class SearchController : ControllerBase
             ));
         }
 
-        return Ok(filteredUsers);
+        var result = new PagedResult<UserSummaryDto>(
+            filteredUsers,
+            totalCount,
+            page,
+            pageSize,
+            page * pageSize < totalCount
+        );
+
+        return Ok(result);
     }
 
     [HttpGet("publications")]
-    public async Task<ActionResult<IEnumerable<PublicationDto>>> SearchPublications([FromQuery] string q)
+    public async Task<ActionResult<PagedResult<PublicationDto>>> SearchPublications(
+        [FromQuery] string q,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10)
     {
         if (string.IsNullOrWhiteSpace(q) || q.Length < 2)
         {
-            return Ok(Array.Empty<PublicationDto>());
+            return Ok(new PagedResult<PublicationDto>(
+                Array.Empty<PublicationDto>(), 0, page, pageSize, false));
         }
 
         var currentUserId = GetUserIdFromClaims();
-
-        var publications = await _publicationRepository.SearchAsync(q);
+        var (publications, totalCount) = await _publicationRepository.SearchAsync(q, page, pageSize);
         var dtos = new List<PublicationDto>();
 
         foreach (var p in publications)
@@ -132,21 +147,38 @@ public class SearchController : ControllerBase
             ));
         }
 
-        return Ok(dtos);
+        var result = new PagedResult<PublicationDto>(
+            dtos,
+            totalCount,
+            page,
+            pageSize,
+            page * pageSize < totalCount
+        );
+
+        return Ok(result);
     }
 
     [HttpGet("by-tag")]
-    public async Task<ActionResult> SearchByTag([FromQuery] string tag)
+    public async Task<ActionResult> SearchByTag(
+        [FromQuery] string tag,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10)
     {
         if (string.IsNullOrWhiteSpace(tag) || tag.Length < 2)
         {
-            return Ok(new { publications = Array.Empty<PublicationDto>(), users = Array.Empty<UserSummaryDto>() });
+            return Ok(new
+            {
+                publications = new PagedResult<PublicationDto>(
+                    Array.Empty<PublicationDto>(), 0, page, pageSize, false),
+                users = new PagedResult<UserSummaryDto>(
+                    Array.Empty<UserSummaryDto>(), 0, page, pageSize, false)
+            });
         }
 
         var currentUserId = GetUserIdFromClaims();
 
         // Search publications by tag
-        var publications = await _publicationRepository.SearchByTagAsync(tag);
+        var (publications, pubTotalCount) = await _publicationRepository.SearchByTagAsync(tag, page, pageSize);
         var pubDtos = new List<PublicationDto>();
 
         foreach (var p in publications)
@@ -210,7 +242,7 @@ public class SearchController : ControllerBase
         }
 
         // Search users by tag
-        var users = await _userRepository.SearchByTagAsync(tag);
+        var (users, userTotalCount) = await _userRepository.SearchByTagAsync(tag, page, pageSize);
         var userDtos = new List<UserSummaryDto>();
         foreach (var u in users)
         {
@@ -234,7 +266,13 @@ public class SearchController : ControllerBase
             ));
         }
 
-        return Ok(new { publications = pubDtos, users = userDtos });
+        return Ok(new
+        {
+            publications = new PagedResult<PublicationDto>(
+                pubDtos, pubTotalCount, page, pageSize, page * pageSize < pubTotalCount),
+            users = new PagedResult<UserSummaryDto>(
+                userDtos, userTotalCount, page, pageSize, page * pageSize < userTotalCount)
+        });
     }
 
     private Guid? GetUserIdFromClaims()
@@ -250,4 +288,3 @@ public class SearchController : ControllerBase
         return null;
     }
 }
-

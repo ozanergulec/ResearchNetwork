@@ -25,6 +25,10 @@ const SearchPage: React.FC = () => {
     const [searched, setSearched] = useState(false);
     const [selectedPublication, setSelectedPublication] = useState<Publication | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
+    const [totalUsers, setTotalUsers] = useState(0);
+    const [totalPublications, setTotalPublications] = useState(0);
+    const [totalTagUsers, setTotalTagUsers] = useState(0);
+    const [totalTagPublications, setTotalTagPublications] = useState(0);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     // Filter state
     const [selectedInstitutions, setSelectedInstitutions] = useState<string[]>([]);
@@ -43,36 +47,69 @@ const SearchPage: React.FC = () => {
         }
     }, [navigate]);
 
-    const performSearch = useCallback(async (searchQuery: string) => {
+    const performSearch = useCallback(async (searchQuery: string, page: number = 1, fetchAll: boolean = true, targetTab?: TabType) => {
         if (searchQuery.trim().length < 2) {
             setUsers([]);
             setPublications([]);
             setTagUsers([]);
             setTagPublications([]);
+            setTotalUsers(0);
+            setTotalPublications(0);
+            setTotalTagUsers(0);
+            setTotalTagPublications(0);
             setSearched(false);
             return;
         }
 
         setLoading(true);
         try {
-            const [usersRes, pubsRes, tagRes] = await Promise.all([
-                searchApi.searchUsers(searchQuery),
-                searchApi.searchPublications(searchQuery),
-                searchApi.searchByTag(searchQuery),
-            ]);
-            setUsers(usersRes.data);
-            setPublications(pubsRes.data);
-            setTagPublications(tagRes.data.publications);
-            setTagUsers(tagRes.data.users);
+            const currentTab = targetTab || activeTab;
+
+            if (fetchAll) {
+                const [usersRes, pubsRes, tagRes] = await Promise.all([
+                    searchApi.searchUsers(searchQuery, 1, ITEMS_PER_PAGE),
+                    searchApi.searchPublications(searchQuery, 1, ITEMS_PER_PAGE),
+                    searchApi.searchByTag(searchQuery, 1, ITEMS_PER_PAGE),
+                ]);
+
+                setUsers(usersRes.data.items || []);
+                setTotalUsers(usersRes.data.totalCount || 0);
+
+                setPublications(pubsRes.data.items || []);
+                setTotalPublications(pubsRes.data.totalCount || 0);
+
+                setTagPublications(tagRes.data.publications?.items || []);
+                setTotalTagPublications(tagRes.data.publications?.totalCount || 0);
+
+                setTagUsers(tagRes.data.users?.items || []);
+                setTotalTagUsers(tagRes.data.users?.totalCount || 0);
+            } else {
+                if (currentTab === 'users') {
+                    const res = await searchApi.searchUsers(searchQuery, page, ITEMS_PER_PAGE);
+                    setUsers(res.data.items || []);
+                    setTotalUsers(res.data.totalCount || 0);
+                } else if (currentTab === 'publications') {
+                    const res = await searchApi.searchPublications(searchQuery, page, ITEMS_PER_PAGE);
+                    setPublications(res.data.items || []);
+                    setTotalPublications(res.data.totalCount || 0);
+                } else if (currentTab === 'tags') {
+                    const res = await searchApi.searchByTag(searchQuery, page, ITEMS_PER_PAGE);
+                    setTagPublications(res.data.publications?.items || []);
+                    setTotalTagPublications(res.data.publications?.totalCount || 0);
+                    setTagUsers(res.data.users?.items || []);
+                    setTotalTagUsers(res.data.users?.totalCount || 0);
+                }
+            }
+
             setSearched(true);
-            setCurrentPage(1);
-            resetFilters();
+            setCurrentPage(page);
+            if (page === 1 && fetchAll) resetFilters();
         } catch (err) {
             console.error('Search failed', err);
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [activeTab]);
 
     // Handle q param from navbar "View All" navigation
     const [searchParams] = useSearchParams();
@@ -80,7 +117,7 @@ const SearchPage: React.FC = () => {
         const q = searchParams.get('q');
         if (q && q.trim().length >= 2) {
             setQuery(q);
-            performSearch(q);
+            performSearch(q, 1, true);
         }
     }, [searchParams, performSearch]);
 
@@ -91,7 +128,7 @@ const SearchPage: React.FC = () => {
         if (debounceRef.current) clearTimeout(debounceRef.current);
 
         debounceRef.current = setTimeout(() => {
-            performSearch(value);
+            performSearch(value, 1, true);
         }, 300);
     };
 
@@ -115,18 +152,17 @@ const SearchPage: React.FC = () => {
         return text.length > maxLength ? text.slice(0, maxLength) + '...' : text;
     };
 
-    const tagTotalCount = tagPublications.length + tagUsers.length;
+    const tagTotalCount = totalTagPublications + totalTagUsers;
 
     // Pagination helpers
     const paginate = <T,>(items: T[]) => {
-        const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-        return items.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+        return items;
     };
 
     const getTotalPages = (totalItems: number) => Math.ceil(totalItems / ITEMS_PER_PAGE);
 
     const handlePageChange = (page: number) => {
-        setCurrentPage(page);
+        performSearch(query, page, false, activeTab);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
@@ -134,6 +170,9 @@ const SearchPage: React.FC = () => {
         setActiveTab(tab);
         setCurrentPage(1);
         resetFilters();
+        if (searched) {
+            performSearch(query, 1, false, tab);
+        }
     };
 
     // ===== Filter Logic =====
@@ -212,9 +251,9 @@ const SearchPage: React.FC = () => {
     // Get filtered data
     const filteredUsers = filterUsers(users);
     const filteredPublications = filterPublications(publications);
-    const filteredTagUsers = filterUsers(tagUsers);
+
     const filteredTagPublications = filterPublications(tagPublications);
-    const filteredTagTotalCount = filteredTagPublications.length + filteredTagUsers.length;
+
 
     // Filter chip dropdown component
     const renderMultiSelect = (id: string, label: string, options: string[], selected: string[], setSelected: React.Dispatch<React.SetStateAction<string[]>>) => {
@@ -421,7 +460,7 @@ const SearchPage: React.FC = () => {
                     >
                         {t.search.people}
                         {searched && (
-                            <span className="search-tab-count">{filteredUsers.length}</span>
+                            <span className="search-tab-count">{totalUsers}</span>
                         )}
                     </button>
                     <button
@@ -430,7 +469,7 @@ const SearchPage: React.FC = () => {
                     >
                         {t.search.publications}
                         {searched && (
-                            <span className="search-tab-count">{filteredPublications.length}</span>
+                            <span className="search-tab-count">{totalPublications}</span>
                         )}
                     </button>
                     <button
@@ -439,7 +478,7 @@ const SearchPage: React.FC = () => {
                     >
                         {t.search.tags}
                         {searched && (
-                            <span className="search-tab-count">{filteredTagTotalCount}</span>
+                            <span className="search-tab-count">{totalTagPublications + totalTagUsers}</span>
                         )}
                     </button>
                 </div>
@@ -505,7 +544,7 @@ const SearchPage: React.FC = () => {
                                                 <span className="search-user-arrow">›</span>
                                             </div>
                                         ))}
-                                        {renderPagination(filteredUsers.length)}
+                                        {renderPagination(totalUsers)}
                                     </>
                                 )}
                             </>
@@ -583,7 +622,7 @@ const SearchPage: React.FC = () => {
                                                 )}
                                             </div>
                                         ))}
-                                        {renderPagination(filteredPublications.length)}
+                                        {renderPagination(totalPublications)}
                                     </>
                                 )}
                             </>
@@ -660,7 +699,7 @@ const SearchPage: React.FC = () => {
                                                         )}
                                                     </div>
                                                 ))}
-                                                {renderPagination(filteredTagPublications.length)}
+                                                {renderPagination(totalTagPublications)}
                                             </div>
                                         )}
                                     </>

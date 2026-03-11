@@ -209,16 +209,23 @@ public class FeedController : ControllerBase
 
     [Authorize]
     [HttpGet("saved")]
-    public async Task<ActionResult<IEnumerable<PublicationDto>>> GetSaved()
+    public async Task<ActionResult<PagedResult<PublicationDto>>> GetSaved([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
         var userId = GetCurrentUserId();
         if (userId == null) return Unauthorized();
 
-        var publications = await _publicationRepository.GetSavedByUserAsync(userId.Value);
+        var (publications, totalCount) = await _publicationRepository.GetSavedByUserAsync(userId.Value, page, pageSize);
         var dtos = new List<PublicationDto>();
         foreach (var p in publications)
             dtos.Add(await PublicationMapper.ToDto(p, _publicationRepository, userId));
-        return Ok(dtos);
+            
+        return Ok(new PagedResult<PublicationDto>(
+            dtos,
+            totalCount,
+            page,
+            pageSize,
+            page * pageSize < totalCount
+        ));
     }
 
     // ==================== SHARE ====================
@@ -313,13 +320,56 @@ public class FeedController : ControllerBase
     }
 
     [HttpGet("shared/{userId:guid}")]
-    public async Task<ActionResult<IEnumerable<SharedPublicationDto>>> GetSharedByUser(Guid userId)
+    public async Task<ActionResult<PagedResult<SharedPublicationDto>>> GetSharedByUser(Guid userId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
         var currentUserId = GetCurrentUserId();
-        var shares = await _publicationRepository.GetSharedByUserAsync(userId);
+        var (shares, totalCount) = await _publicationRepository.GetSharedByUserAsync(userId, page, pageSize);
         var dtos = new List<SharedPublicationDto>();
         foreach (var s in shares)
             dtos.Add(await PublicationMapper.ToSharedDto(s, _publicationRepository, currentUserId));
-        return Ok(dtos);
+            
+        return Ok(new PagedResult<SharedPublicationDto>(
+            dtos,
+            totalCount,
+            page,
+            pageSize,
+            page * pageSize < totalCount
+        ));
+    }
+
+    [HttpGet("user/{userId:guid}/posts")]
+    public async Task<ActionResult<PagedResult<FeedItemDto>>> GetUserPosts(Guid userId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+    {
+        var currentUserId = GetCurrentUserId();
+
+        // Fetch all items from repositories limit-free, then paginate in memory to maintain chronological order
+        var (publications, _) = await _publicationRepository.GetByAuthorIdAsync(userId, 1, int.MaxValue);
+        var (shares, _) = await _publicationRepository.GetSharedByUserAsync(userId, 1, int.MaxValue);
+
+        var timelineItems = new List<(DateTime Date, FeedItemDto Item)>();
+
+        foreach (var p in publications)
+        {
+            var dto = await PublicationMapper.ToDto(p, _publicationRepository, currentUserId);
+            timelineItems.Add((p.CreatedAt, new FeedItemDto("publication", dto, null)));
+        }
+
+        foreach (var s in shares)
+        {
+            var sharedDto = await PublicationMapper.ToSharedDto(s, _publicationRepository, currentUserId);
+            timelineItems.Add((s.SharedAt, new FeedItemDto("share", null, sharedDto)));
+        }
+
+        var sorted = timelineItems.OrderByDescending(t => t.Date).ToList();
+        var totalCount = sorted.Count;
+        var paged = sorted.Skip((page - 1) * pageSize).Take(pageSize).Select(t => t.Item).ToList();
+
+        return Ok(new PagedResult<FeedItemDto>(
+            paged,
+            totalCount,
+            page,
+            pageSize,
+            page * pageSize < totalCount
+        ));
     }
 }

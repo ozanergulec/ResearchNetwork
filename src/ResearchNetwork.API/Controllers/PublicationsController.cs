@@ -54,21 +54,28 @@ public class PublicationsController : ControllerBase
     }
 
     [HttpGet("author/{authorId:guid}")]
-    public async Task<ActionResult<IEnumerable<PublicationDto>>> GetByAuthor(Guid authorId)
+    public async Task<ActionResult<PagedResult<PublicationDto>>> GetByAuthor(Guid authorId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
         var currentUserId = GetCurrentUserId();
-        var publications = await _publicationRepository.GetByAuthorIdAsync(authorId);
+        var (publications, totalCount) = await _publicationRepository.GetByAuthorIdAsync(authorId, page, pageSize);
         var dtos = new List<PublicationDto>();
         foreach (var p in publications)
             dtos.Add(await PublicationMapper.ToDto(p, _publicationRepository, currentUserId));
-        return Ok(dtos);
+            
+        return Ok(new PagedResult<PublicationDto>(
+            dtos,
+            totalCount,
+            page,
+            pageSize,
+            page * pageSize < totalCount
+        ));
     }
 
     [HttpGet("author/{authorId:guid}/latest")]
     public async Task<ActionResult<IEnumerable<PublicationDto>>> GetLatestByAuthor(Guid authorId, [FromQuery] int count = 3)
     {
         var currentUserId = GetCurrentUserId();
-        var publications = await _publicationRepository.GetLatestPublicationsByAuthorAsync(authorId, count);
+        var (publications, _) = await _publicationRepository.GetLatestPublicationsByAuthorAsync(authorId, count);
         var dtos = new List<PublicationDto>();
         foreach (var p in publications)
             dtos.Add(await PublicationMapper.ToDto(p, _publicationRepository, currentUserId));
