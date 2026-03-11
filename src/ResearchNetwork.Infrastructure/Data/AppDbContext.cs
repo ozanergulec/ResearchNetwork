@@ -23,6 +23,7 @@ public class AppDbContext : DbContext
     public DbSet<UserFollow> UserFollows { get; set; } = null!;
     public DbSet<VerificationCode> VerificationCodes { get; set; } = null!;
     public DbSet<ReviewRequest> ReviewRequests { get; set; } = null!;
+    public DbSet<ReviewRating> ReviewRatings { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -227,6 +228,24 @@ public class AppDbContext : DbContext
             entity.HasOne(e => e.Reviewer)
                   .WithMany(u => u.ReviewRequests)
                   .HasForeignKey(e => e.ReviewerId)
+                  .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // ReviewRating
+        modelBuilder.Entity<ReviewRating>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.HasIndex(e => e.ReviewRequestId).IsUnique();
+
+            entity.HasOne(e => e.ReviewRequest)
+                  .WithOne(r => r.Rating)
+                  .HasForeignKey<ReviewRating>(e => e.ReviewRequestId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.RatedByUser)
+                  .WithMany(u => u.ReviewRatingsGiven)
+                  .HasForeignKey(e => e.RatedByUserId)
                   .OnDelete(DeleteBehavior.Restrict);
         });
     }

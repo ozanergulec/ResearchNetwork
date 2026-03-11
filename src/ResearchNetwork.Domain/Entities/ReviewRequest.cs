@@ -26,6 +26,9 @@ public class ReviewRequest
     // Reviewer's verdict (filled when reviewer submits)
     public ReviewVerdict? Verdict { get; set; }
 
+    // Rating given to this review by the publication author
+    public ReviewRating? Rating { get; set; }
+
     public DateTime CreatedAt { get; private set; }
     public DateTime? UpdatedAt { get; set; }
 

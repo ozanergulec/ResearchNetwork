@@ -70,6 +70,9 @@ public class User
     // Kullanıcının Puanı (Yayınlarının ortalama puanı)
     public double AvgScore { get; private set; }
 
+    // Hakemlik Puanı (Yapılan reviewlerin ortalama puanı)
+    public double ReviewerAvgScore { get; private set; }
+
     // Hesabın oluşturulma tarihi
     public DateTime CreatedAt { get; private set; }
     
@@ -98,6 +101,9 @@ public class User
     // Kullanıcının hakemlik başvuruları
     public ICollection<ReviewRequest> ReviewRequests { get; set; } = new List<ReviewRequest>();
 
+    // Kullanıcının verdiği review puanları
+    public ICollection<ReviewRating> ReviewRatingsGiven { get; set; } = new List<ReviewRating>();
+
     public User(string email, string fullName) 
     {
         Id = Guid.NewGuid();
@@ -107,11 +113,17 @@ public class User
         FollowerCount = 0;
         FollowingCount = 0;
         AvgScore = 0;
+        ReviewerAvgScore = 0;
     }
 
     public void UpdateReputationScore(double newScore)
     {
         AvgScore = newScore;
+    }
+
+    public void UpdateReviewerScore(double newScore)
+    {
+        ReviewerAvgScore = newScore;
     }
 
     public void IncrementFollowerCount() => FollowerCount++;

@@ -14,6 +14,7 @@ public record UserDto(
     int FollowerCount,
     int FollowingCount,
     double AvgScore,
+    double ReviewerAvgScore,
     DateTime CreatedAt,
     IEnumerable<TagDto> Tags
 );

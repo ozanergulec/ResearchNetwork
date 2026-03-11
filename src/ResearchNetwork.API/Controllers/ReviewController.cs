@@ -72,6 +72,7 @@ public class ReviewController : ControllerBase
             r.Message,
             r.ReviewComment,
             r.Verdict?.ToString(),
+            r.Rating?.Score,
             r.CreatedAt,
             r.UpdatedAt
         );
@@ -381,5 +382,76 @@ public class ReviewController : ControllerBase
         });
 
         return Ok(result);
+    }
+
+    // ==================== RATE REVIEW ====================
+
+    /// <summary>
+    /// Publication author rates a completed review (1-5)
+    /// </summary>
+    [Authorize]
+    [HttpPut("{requestId:guid}/rate")]
+    public async Task<ActionResult> RateReview(Guid requestId, [FromBody] RateReviewDto dto)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+
+        if (dto.Score < 1 || dto.Score > 5)
+            return BadRequest("Score must be between 1 and 5.");
+
+        var request = await _reviewRepository.GetByIdAsync(requestId);
+        if (request == null) return NotFound("Review request not found.");
+
+        // Only the publication author can rate
+        if (request.Publication.AuthorId != userId.Value) return Forbid();
+
+        // Only completed reviews can be rated
+        if (request.Status != ReviewRequestStatus.Completed)
+            return BadRequest("You can only rate completed reviews.");
+
+        // Check if already rated
+        var existingRating = await _reviewRepository.GetRatingByReviewRequestIdAsync(requestId);
+        if (existingRating != null)
+            return BadRequest("You have already rated this review.");
+
+        var rating = new ReviewRating(requestId, userId.Value, dto.Score);
+        await _reviewRepository.CreateRatingAsync(rating);
+
+        // Recalculate reviewer's average score
+        await UpdateReviewerAvgScore(request.ReviewerId);
+
+        return Ok(new { message = "Review rated successfully.", score = dto.Score });
+    }
+
+    // ==================== REVIEWER SCORE ====================
+
+    /// <summary>
+    /// Get a reviewer's average score and total review count
+    /// </summary>
+    [HttpGet("reviewer/{userId:guid}/score")]
+    public async Task<ActionResult> GetReviewerScore(Guid userId)
+    {
+        var user = await _userRepository.GetByIdAsync(userId);
+        if (user == null) return NotFound("User not found.");
+
+        var avgScore = await _reviewRepository.CalculateReviewerAverageScoreAsync(userId);
+        var completedReviews = (await _reviewRepository.GetByReviewerIdAsync(userId))
+            .Count(r => r.Status == ReviewRequestStatus.Completed);
+
+        return Ok(new
+        {
+            reviewerAvgScore = avgScore,
+            totalCompletedReviews = completedReviews
+        });
+    }
+
+    private async Task UpdateReviewerAvgScore(Guid reviewerId)
+    {
+        var reviewer = await _userRepository.GetByIdAsync(reviewerId);
+        if (reviewer == null) return;
+
+        var avgScore = await _reviewRepository.CalculateReviewerAverageScoreAsync(reviewerId);
+        reviewer.UpdateReviewerScore(avgScore);
+        await _userRepository.UpdateAsync(reviewer);
     }
 }

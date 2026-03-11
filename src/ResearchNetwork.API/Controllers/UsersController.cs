@@ -454,6 +454,7 @@ public class UsersController : ControllerBase
             user.FollowerCount,
             user.FollowingCount,
             user.AvgScore,
+            user.ReviewerAvgScore,
             user.CreatedAt,
             tags
         );

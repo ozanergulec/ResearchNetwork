@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using ResearchNetwork.Application.Interfaces;
 using ResearchNetwork.Domain.Entities;
+using ResearchNetwork.Domain.Enums;
 using ResearchNetwork.Infrastructure.Data;
 
 namespace ResearchNetwork.Infrastructure.Repositories;
@@ -20,6 +21,7 @@ public class ReviewRepository : IReviewRepository
             .Include(r => r.Publication)
                 .ThenInclude(p => p.Author)
             .Include(r => r.Reviewer)
+            .Include(r => r.Rating)
             .FirstOrDefaultAsync(r => r.Id == id);
     }
 
@@ -29,6 +31,7 @@ public class ReviewRepository : IReviewRepository
             .Include(r => r.Publication)
                 .ThenInclude(p => p.Author)
             .Include(r => r.Reviewer)
+            .Include(r => r.Rating)
             .FirstOrDefaultAsync(r => r.PublicationId == publicationId && r.ReviewerId == reviewerId);
     }
 
@@ -38,6 +41,7 @@ public class ReviewRepository : IReviewRepository
             .Include(r => r.Publication)
                 .ThenInclude(p => p.Author)
             .Include(r => r.Reviewer)
+            .Include(r => r.Rating)
             .Where(r => r.PublicationId == publicationId)
             .OrderByDescending(r => r.CreatedAt)
             .ToListAsync();
@@ -49,6 +53,7 @@ public class ReviewRepository : IReviewRepository
             .Include(r => r.Publication)
                 .ThenInclude(p => p.Author)
             .Include(r => r.Reviewer)
+            .Include(r => r.Rating)
             .Where(r => r.ReviewerId == reviewerId)
             .OrderByDescending(r => r.CreatedAt)
             .ToListAsync();
@@ -84,5 +89,33 @@ public class ReviewRepository : IReviewRepository
     {
         _context.ReviewRequests.Update(reviewRequest);
         await _context.SaveChangesAsync();
+    }
+
+    // ==================== Review Rating ====================
+
+    public async Task<ReviewRating?> GetRatingByReviewRequestIdAsync(Guid reviewRequestId)
+    {
+        return await _context.ReviewRatings
+            .FirstOrDefaultAsync(r => r.ReviewRequestId == reviewRequestId);
+    }
+
+    public async Task<ReviewRating> CreateRatingAsync(ReviewRating rating)
+    {
+        _context.ReviewRatings.Add(rating);
+        await _context.SaveChangesAsync();
+        return rating;
+    }
+
+    public async Task<double> CalculateReviewerAverageScoreAsync(Guid reviewerId)
+    {
+        var ratings = await _context.ReviewRatings
+            .Include(r => r.ReviewRequest)
+            .Where(r => r.ReviewRequest.ReviewerId == reviewerId)
+            .ToListAsync();
+
+        if (ratings.Count == 0)
+            return 0;
+
+        return ratings.Average(r => r.Score);
     }
 }

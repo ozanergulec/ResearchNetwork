@@ -11,4 +11,9 @@ public interface IReviewRepository
     Task<(IEnumerable<Publication> Items, int TotalCount)> GetPublicationsLookingForReviewersAsync(int page = 1, int pageSize = 10);
     Task<ReviewRequest> CreateAsync(ReviewRequest reviewRequest);
     Task UpdateAsync(ReviewRequest reviewRequest);
+
+    // Review Rating
+    Task<ReviewRating?> GetRatingByReviewRequestIdAsync(Guid reviewRequestId);
+    Task<ReviewRating> CreateRatingAsync(ReviewRating rating);
+    Task<double> CalculateReviewerAverageScoreAsync(Guid reviewerId);
 }

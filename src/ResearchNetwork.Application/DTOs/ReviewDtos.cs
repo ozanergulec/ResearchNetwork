@@ -10,6 +10,7 @@ public record ReviewRequestDto(
     string? Message,
     string? ReviewComment,
     string? Verdict,
+    int? ReviewScore,
     DateTime CreatedAt,
     DateTime? UpdatedAt
 );
@@ -21,4 +22,8 @@ public record CreateReviewRequestDto(
 public record SubmitReviewDto(
     string ReviewComment,
     string Verdict  // "Approve", "MinorRevision", "MajorRevision", "Reject"
+);
+
+public record RateReviewDto(
+    int Score  // 1-5
 );
