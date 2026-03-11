@@ -12,6 +12,7 @@ export interface ReviewRequest {
     message: string | null;
     reviewComment: string | null;
     verdict: 'Approve' | 'MinorRevision' | 'MajorRevision' | 'Reject' | null;
+    reviewScore: number | null;
     createdAt: string;
     updatedAt: string | null;
 }
@@ -69,6 +70,10 @@ export const reviewApi = {
     getMyRequests: () =>
         api.get<ReviewRequest[]>('/review/my-requests'),
 
+    // Get a specific review request by ID
+    getReviewRequest: (requestId: string) =>
+        api.get<ReviewRequest>(`/review/${requestId}`),
+
     // Get review requests for a specific publication
     getPublicationReviewRequests: (publicationId: string) =>
         api.get<ReviewRequest[]>(`/review/publication/${publicationId}`),
@@ -80,4 +85,12 @@ export const reviewApi = {
     // Check if current user is eligible to review
     canReview: () =>
         api.get<{ canReview: boolean }>('/review/can-review'),
+
+    // Rate a completed review (1-5)
+    rateReview: (requestId: string, score: number) =>
+        api.put<{ message: string; score: number }>(`/review/${requestId}/rate`, { score }),
+
+    // Get reviewer's average score
+    getReviewerScore: (userId: string) =>
+        api.get<{ reviewerAvgScore: number; totalCompletedReviews: number }>(`/review/reviewer/${userId}/score`),
 };

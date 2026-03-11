@@ -18,6 +18,11 @@ const ProfileStats: React.FC<ProfileStatsProps> = ({ user, onRefresh }) => {
         if (onRefresh) onRefresh();
     };
 
+    const reviewerTitles = ['Professor', 'Associate Professor', 'Assistant Professor'];
+    const isReviewer = user.title && reviewerTitles.some(t =>
+        t.toLowerCase() === user.title!.toLowerCase()
+    );
+
     return (
         <div className="profile-info-section">
             <h2 className="profile-info-section-title">Statistics</h2>
@@ -40,6 +45,12 @@ const ProfileStats: React.FC<ProfileStatsProps> = ({ user, onRefresh }) => {
                     <span className="stat-value">{user.avgScore.toFixed(1)}</span>
                     <span className="stat-label">Avg Score</span>
                 </div>
+                {isReviewer && (
+                    <div className="profile-stat">
+                        <span className="stat-value">{user.reviewerAvgScore.toFixed(1)}</span>
+                        <span className="stat-label">Reviewer Score</span>
+                    </div>
+                )}
             </div>
 
             {followModal && (

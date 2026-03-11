@@ -15,5 +15,6 @@ public interface IReviewRepository
     // Review Rating
     Task<ReviewRating?> GetRatingByReviewRequestIdAsync(Guid reviewRequestId);
     Task<ReviewRating> CreateRatingAsync(ReviewRating rating);
+    Task UpdateRatingAsync(ReviewRating rating);
     Task<double> CalculateReviewerAverageScoreAsync(Guid reviewerId);
 }

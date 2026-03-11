@@ -342,6 +342,26 @@ public class ReviewController : ControllerBase
     }
 
     /// <summary>
+    /// Get a single review request by ID
+    /// </summary>
+    [Authorize]
+    [HttpGet("{requestId:guid}")]
+    public async Task<ActionResult> GetRequestById(Guid requestId)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+
+        var request = await _reviewRepository.GetByIdAsync(requestId);
+        if (request == null) return NotFound("Review request not found.");
+
+        // Only author or reviewer can see the request
+        if (request.ReviewerId != userId.Value && request.Publication.AuthorId != userId.Value)
+            return Forbid();
+
+        return Ok(ToDto(request));
+    }
+
+    /// <summary>
     /// Get all review requests for a publication (author only)
     /// </summary>
     [Authorize]
@@ -412,10 +432,17 @@ public class ReviewController : ControllerBase
         // Check if already rated
         var existingRating = await _reviewRepository.GetRatingByReviewRequestIdAsync(requestId);
         if (existingRating != null)
-            return BadRequest("You have already rated this review.");
-
-        var rating = new ReviewRating(requestId, userId.Value, dto.Score);
-        await _reviewRepository.CreateRatingAsync(rating);
+        {
+            // Update existing rating
+            existingRating.UpdateScore(dto.Score);
+            await _reviewRepository.UpdateRatingAsync(existingRating);
+        }
+        else
+        {
+            // Create new rating
+            var rating = new ReviewRating(requestId, userId.Value, dto.Score);
+            await _reviewRepository.CreateRatingAsync(rating);
+        }
 
         // Recalculate reviewer's average score
         await UpdateReviewerAvgScore(request.ReviewerId);

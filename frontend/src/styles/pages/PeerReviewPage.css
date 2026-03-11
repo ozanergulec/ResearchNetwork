@@ -897,6 +897,80 @@
     justify-content: flex-end;
 }
 
+/* Star Rating */
+.pr-star-rating {
+    display: inline-flex;
+    gap: 2px;
+    align-items: center;
+}
+
+.pr-star {
+    line-height: 1;
+    user-select: none;
+}
+
+.pr-star-filled {
+    color: #f59e0b;
+}
+
+.pr-star-empty {
+    color: #d1d5db;
+}
+
+/* Rating Section */
+.pr-rating-form {
+    padding: 0.75rem 0;
+}
+
+.pr-rating-hint {
+    font-size: 0.84rem;
+    color: var(--text-primary);
+    opacity: 0.6;
+    margin: 0 0 0.75rem 0;
+}
+
+.pr-rating-display {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 0;
+}
+
+.pr-rating-label {
+    font-size: 0.84rem;
+    color: var(--text-primary);
+    opacity: 0.7;
+    font-weight: 500;
+}
+
+.pr-rating-success .pr-rating-label {
+    color: #059669;
+    opacity: 1;
+}
+
+.pr-rating-error {
+    font-size: 0.82rem;
+    color: #ef4444;
+    margin-top: 0.5rem;
+}
+
+.pr-rating-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-left: 0.5rem;
+}
+
+.pr-rating-inline .pr-star {
+    font-size: 14px;
+}
+
+.pr-rating-inline-score {
+    font-size: 0.75rem;
+    color: #f59e0b;
+    font-weight: 600;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .pr-container {

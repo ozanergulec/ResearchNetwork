@@ -106,6 +106,12 @@ public class ReviewRepository : IReviewRepository
         return rating;
     }
 
+    public async Task UpdateRatingAsync(ReviewRating rating)
+    {
+        _context.ReviewRatings.Update(rating);
+        await _context.SaveChangesAsync();
+    }
+
     public async Task<double> CalculateReviewerAverageScoreAsync(Guid reviewerId)
     {
         var ratings = await _context.ReviewRatings

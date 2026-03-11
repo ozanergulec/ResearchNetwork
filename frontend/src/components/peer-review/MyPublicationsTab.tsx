@@ -144,7 +144,15 @@ const MyPublicationsTab: React.FC<MyPublicationsTabProps> = ({ myPublications, o
                                         {req.message && <div className="pr-request-message">"{req.message}"</div>}
                                         {req.reviewComment && (
                                             <div className="pr-request-review-content">
-                                                <div className="pr-request-review-label">Review {renderVerdict(req.verdict)}</div>
+                                                <div className="pr-request-review-label">
+                                                    Review {renderVerdict(req.verdict)}
+                                                    {req.reviewScore != null && (
+                                                        <span className="pr-rating-inline">
+                                                            <span className="pr-star pr-star-filled" style={{ fontSize: '14px' }}>★</span>
+                                                            <span className="pr-rating-inline-score">{req.reviewScore}/5</span>
+                                                        </span>
+                                                    )}
+                                                </div>
                                                 <p className="pr-request-review-text">{req.reviewComment}</p>
                                             </div>
                                         )}
@@ -166,6 +174,12 @@ const MyPublicationsTab: React.FC<MyPublicationsTabProps> = ({ myPublications, o
                     onSubmitReview={() => { }}
                     onAccept={handleAccept}
                     onReject={handleReject}
+                    onRated={async () => {
+                        if (selectedPubId) {
+                            const res = await reviewApi.getPublicationReviewRequests(selectedPubId);
+                            setPubReviewRequests(res.data);
+                        }
+                    }}
                 />
             )}
         </>

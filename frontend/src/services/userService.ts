@@ -22,6 +22,7 @@ export interface User {
     followerCount: number;
     followingCount: number;
     avgScore: number;
+    reviewerAvgScore: number;
     createdAt: string;
     tags: Tag[];
 }

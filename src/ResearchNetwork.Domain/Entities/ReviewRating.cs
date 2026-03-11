@@ -23,6 +23,13 @@ public class ReviewRating
 
     private ReviewRating() { }
 
+    public void UpdateScore(int newScore)
+    {
+        if (newScore < 1 || newScore > 5)
+            throw new ArgumentOutOfRangeException(nameof(newScore), "Score must be between 1 and 5.");
+        Score = newScore;
+    }
+
     public ReviewRating(Guid reviewRequestId, Guid ratedByUserId, int score)
     {
         if (score < 1 || score > 5)
