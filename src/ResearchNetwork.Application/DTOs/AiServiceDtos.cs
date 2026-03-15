@@ -29,3 +29,22 @@ public record SimilarPublicationDto(
     UserSummaryDto Author,
     double Similarity
 );
+
+public record ResearcherMatchDto(
+    Guid UserId,
+    string FullName,
+    string? Title,
+    string? Institution,
+    string? Department,
+    string? ProfileImageUrl,
+    bool IsVerified,
+    double Similarity,
+    List<string> CommonTags
+);
+
+public record PdfProcessResultDto(
+    string? Abstract,
+    List<string> Keywords,
+    string Summary,
+    int ReferenceCount
+);

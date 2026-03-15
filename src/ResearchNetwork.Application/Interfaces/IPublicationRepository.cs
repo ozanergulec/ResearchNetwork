@@ -43,4 +43,5 @@ public interface IPublicationRepository
     Task<PublicationEmbedding?> GetEmbeddingAsync(Guid publicationId);
     Task UpsertEmbeddingAsync(PublicationEmbedding embedding);
     Task<List<(Guid PublicationId, double Similarity)>> FindSimilarByEmbeddingAsync(float[] queryEmbedding, int topK = 10, Guid? excludePublicationId = null);
+    Task<List<PublicationEmbedding>> GetEmbeddingsByAuthorAsync(Guid authorId);
 }

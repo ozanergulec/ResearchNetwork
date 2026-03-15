@@ -344,6 +344,18 @@ public class PublicationRepository : IPublicationRepository
         return denominator == 0 ? 0 : dot / denominator;
     }
 
+    public async Task<List<PublicationEmbedding>> GetEmbeddingsByAuthorAsync(Guid authorId)
+    {
+        var publicationIds = await _context.Publications
+            .Where(p => p.AuthorId == authorId)
+            .Select(p => p.Id)
+            .ToListAsync();
+
+        return await _context.PublicationEmbeddings
+            .Where(e => publicationIds.Contains(e.PublicationId))
+            .ToListAsync();
+    }
+
     // --- Search ---
 
     public async Task<(IEnumerable<Publication> Items, int TotalCount)> SearchAsync(string query, int page, int pageSize)
