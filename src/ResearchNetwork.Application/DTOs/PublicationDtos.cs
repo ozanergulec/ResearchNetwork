@@ -4,6 +4,7 @@ public record PublicationDto(
     Guid Id,
     string Title,
     string? Abstract,
+    string? Summary,
     string? DOI,
     string? FileUrl,
     DateTime? PublishedDate,

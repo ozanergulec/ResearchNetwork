@@ -31,6 +31,7 @@ public static class PublicationMapper
             p.Id,
             p.Title,
             p.Abstract,
+            p.Summary,
             p.DOI,
             p.FileUrl,
             p.PublishedDate,

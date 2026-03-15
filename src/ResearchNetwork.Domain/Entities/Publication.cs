@@ -15,6 +15,9 @@ public class Publication
     // DOI numarası (Digital Object Identifier)
     public string? DOI { get; set; }
 
+    // AI tarafından üretilen özet
+    public string? Summary { get; set; }
+
     // Yüklenen dosyanın yolu (PDF veya Word)
     public string? FileUrl { get; set; }
 

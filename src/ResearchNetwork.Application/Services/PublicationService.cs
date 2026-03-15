@@ -60,7 +60,7 @@ public class PublicationService : IPublicationService
         // Save the publication (this will also save the PublicationTag associations)
         await _publicationRepository.CreateAsync(publication);
 
-        await GenerateAndSaveEmbeddingAsync(publication);
+        await GenerateAiContentAsync(publication);
 
         return publication;
     }
@@ -100,12 +100,12 @@ public class PublicationService : IPublicationService
 
         await _publicationRepository.UpdateAsync(publication);
 
-        await GenerateAndSaveEmbeddingAsync(publication);
+        await GenerateAiContentAsync(publication);
 
         return publication;
     }
 
-    private async Task GenerateAndSaveEmbeddingAsync(Publication publication)
+    private async Task GenerateAiContentAsync(Publication publication)
     {
         try
         {
@@ -119,10 +119,21 @@ public class PublicationService : IPublicationService
                 var embeddingEntity = new PublicationEmbedding(publication.Id, embeddingVector);
                 await _publicationRepository.UpsertEmbeddingAsync(embeddingEntity);
             }
+
+            var textForSummary = publication.Abstract ?? publication.Title;
+            if (textForSummary.Split(' ').Length > 20)
+            {
+                var summary = await _aiService.SummarizeAsync(textForSummary);
+                if (!string.IsNullOrWhiteSpace(summary))
+                {
+                    publication.Summary = summary;
+                    await _publicationRepository.UpdateAsync(publication);
+                }
+            }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[AI Service] Embedding generation failed for publication {publication.Id}: {ex.Message}");
+            Console.WriteLine($"[AI Service] AI content generation failed for publication {publication.Id}: {ex.Message}");
         }
     }
 

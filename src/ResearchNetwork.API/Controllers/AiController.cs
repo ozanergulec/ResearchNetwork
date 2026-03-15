@@ -108,9 +108,22 @@ public class AiController : ControllerBase
         var pdfBytes = await System.IO.File.ReadAllBytesAsync(filePath);
         var result = await _aiService.ProcessPdfAsync(pdfBytes, fileName);
 
+        bool needsUpdate = false;
+
         if (!string.IsNullOrEmpty(result.Abstract) && string.IsNullOrEmpty(publication.Abstract))
         {
             publication.Abstract = result.Abstract;
+            needsUpdate = true;
+        }
+
+        if (!string.IsNullOrEmpty(result.Summary))
+        {
+            publication.Summary = result.Summary;
+            needsUpdate = true;
+        }
+
+        if (needsUpdate)
+        {
             await _publicationRepository.UpdateAsync(publication);
         }
 
