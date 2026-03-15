@@ -41,5 +41,70 @@ class PDFService:
             return [r.strip() for r in refs if len(r.strip()) > 20]
         return []
 
+    def parse_reference(self, raw_ref: str) -> dict:
+        """Parse a raw reference string into structured data (title, DOI, year, authors)."""
+        result = {"raw": raw_ref, "title": None, "doi": None, "year": None, "authors": None}
+
+        doi_match = re.search(
+            r"(?:doi[:\s]*|https?://doi\.org/)(10\.\d{4,}/[^\s,;\"'\]]+)",
+            raw_ref,
+            re.IGNORECASE,
+        )
+        if doi_match:
+            result["doi"] = doi_match.group(1).rstrip(".")
+
+        year_match = re.search(r"\b(19|20)\d{2}\b", raw_ref)
+        if year_match:
+            result["year"] = int(year_match.group(0))
+
+        title = self._extract_title_from_ref(raw_ref)
+        if title:
+            result["title"] = title
+
+        authors = self._extract_authors_from_ref(raw_ref)
+        if authors:
+            result["authors"] = authors
+
+        return result
+
+    def _extract_title_from_ref(self, raw_ref: str) -> str | None:
+        # IEEE style: "Title in quotes"
+        quoted = re.search(r'"([^"]{10,})"', raw_ref)
+        if quoted:
+            return quoted.group(1).strip().rstrip(".")
+
+        # APA style: Authors (Year). Title. Journal...
+        apa = re.search(
+            r"\(\d{4}\)\.\s*([^.]{10,?}\.)",
+            raw_ref,
+        )
+        if apa:
+            return apa.group(1).strip().rstrip(".")
+
+        # Fallback: text after year, before journal/venue indicators
+        fallback = re.search(
+            r"\b(?:19|20)\d{2}\b[.)]*\s*[,.]?\s*([^,]{10,?})[.,]",
+            raw_ref,
+        )
+        if fallback:
+            candidate = fallback.group(1).strip().rstrip(".")
+            if len(candidate) > 10:
+                return candidate
+
+        return None
+
+    def _extract_authors_from_ref(self, raw_ref: str) -> str | None:
+        # Try to get text before the year as authors
+        match = re.match(r"^(.+?)(?:\(?\b(?:19|20)\d{2}\b)", raw_ref)
+        if match:
+            authors = match.group(1).strip().rstrip(".,;")
+            if 3 < len(authors) < 200:
+                return authors
+        return None
+
+    def parse_all_references(self, full_text: str) -> list[dict]:
+        raw_refs = self.extract_references(full_text)
+        return [self.parse_reference(ref) for ref in raw_refs]
+
 
 pdf_service = PDFService()

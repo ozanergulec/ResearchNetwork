@@ -1,5 +1,11 @@
 from fastapi import APIRouter, UploadFile, File
-from models.pdf import PDFExtractResponse, PDFProcessResponse
+from models.pdf import (
+    PDFExtractResponse,
+    PDFProcessResponse,
+    ParseReferencesRequest,
+    ParseReferencesResponse,
+    ParsedReference,
+)
 from services.pdf_service import pdf_service
 from services.embedding_service import embedding_service
 from services.summarization_service import summarization_service
@@ -49,4 +55,13 @@ async def process_pdf(file: UploadFile = File(...)):
         references=references,
         summary=summary,
         embedding=embedding,
+    )
+
+
+@router.post("/parse-references", response_model=ParseReferencesResponse)
+def parse_references(request: ParseReferencesRequest):
+    """Parse raw reference strings into structured data (title, DOI, year, authors)."""
+    parsed = [pdf_service.parse_reference(ref) for ref in request.references]
+    return ParseReferencesResponse(
+        parsed=[ParsedReference(**p) for p in parsed]
     )

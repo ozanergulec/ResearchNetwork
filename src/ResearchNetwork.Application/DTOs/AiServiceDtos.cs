@@ -48,3 +48,65 @@ public record PdfProcessResultDto(
     string Summary,
     int ReferenceCount
 );
+
+public record AiCitationAnalysisRequest(string Full_text);
+
+public record AiCitationItem(
+    string Sentence,
+    List<int> Citation_numbers,
+    string Intent,
+    double Confidence
+);
+
+public record AiCitationAnalysisResponse(List<AiCitationItem> Citations);
+
+public record CitationAnalysisDto(
+    string Sentence,
+    List<int> CitationNumbers,
+    string Intent,
+    double Confidence
+);
+
+public record CitationGraphNodeDto(
+    Guid Id,
+    string Title,
+    string Type
+);
+
+public record CitationGraphEdgeDto(
+    Guid Source,
+    Guid Target,
+    string? Intent,
+    double? Confidence
+);
+
+public record CitationGraphDto(
+    List<CitationGraphNodeDto> Nodes,
+    List<CitationGraphEdgeDto> Edges
+);
+
+// Reference parsing
+public record AiParsedReference(
+    string Raw,
+    string? Title,
+    string? Doi,
+    int? Year,
+    string? Authors
+);
+
+public record AiParseReferencesRequest(List<string> References);
+public record AiParseReferencesResponse(List<AiParsedReference> Parsed);
+
+// Auto-citation result
+public record AutoCitationMatchDto(
+    Guid MatchedPublicationId,
+    string MatchedTitle,
+    string MatchMethod,
+    double Confidence
+);
+
+public record AutoCitationResultDto(
+    int TotalReferences,
+    int MatchedCount,
+    List<AutoCitationMatchDto> Matches
+);

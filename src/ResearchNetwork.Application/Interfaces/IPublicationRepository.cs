@@ -44,4 +44,14 @@ public interface IPublicationRepository
     Task UpsertEmbeddingAsync(PublicationEmbedding embedding);
     Task<List<(Guid PublicationId, double Similarity)>> FindSimilarByEmbeddingAsync(float[] queryEmbedding, int topK = 10, Guid? excludePublicationId = null);
     Task<List<PublicationEmbedding>> GetEmbeddingsByAuthorAsync(Guid authorId);
+
+    // Citation Analysis
+    Task<CitationAnalysis?> GetCitationAnalysisAsync(Guid publicationId);
+    Task UpsertCitationAnalysisAsync(CitationAnalysis analysis);
+
+    // Reference matching
+    Task<Publication?> GetByDoiAsync(string doi);
+    Task<List<Publication>> SearchByTitleAsync(string title);
+    Task<bool> CitationExistsAsync(Guid publicationId, Guid userId);
+    Task AddCitationAsync(PublicationCitation citation);
 }

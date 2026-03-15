@@ -216,7 +216,247 @@ public class AiController : ControllerBase
         return Ok(results.OrderByDescending(r => r.Similarity).Take(topK));
     }
 
+    // ==================== CITATION ANALYSIS ====================
+
+    [HttpGet("publications/{id:guid}/citation-analysis")]
+    public async Task<ActionResult<List<CitationAnalysisDto>>> GetCitationAnalysis(Guid id)
+    {
+        var existing = await _publicationRepository.GetCitationAnalysisAsync(id);
+        if (existing != null)
+        {
+            var items = existing.GetItems().Select(i => new CitationAnalysisDto(
+                i.Sentence, i.CitationNumbers, i.Intent, i.Confidence
+            )).ToList();
+            return Ok(items);
+        }
+
+        return Ok(new List<CitationAnalysisDto>());
+    }
+
+    [Authorize]
+    [HttpPost("publications/{id:guid}/analyze-citations")]
+    public async Task<ActionResult<List<CitationAnalysisDto>>> AnalyzeCitations(Guid id)
+    {
+        var publication = await _publicationRepository.GetByIdAsync(id);
+        if (publication == null) return NotFound();
+
+        var cached = await _publicationRepository.GetCitationAnalysisAsync(id);
+        if (cached != null)
+        {
+            var cachedItems = cached.GetItems().Select(i => new CitationAnalysisDto(
+                i.Sentence, i.CitationNumbers, i.Intent, i.Confidence
+            )).ToList();
+            return Ok(cachedItems);
+        }
+
+        string textToAnalyze;
+
+        if (!string.IsNullOrEmpty(publication.FileUrl))
+        {
+            var fileName = Path.GetFileName(publication.FileUrl);
+            var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "publications", fileName);
+
+            if (System.IO.File.Exists(filePath))
+            {
+                var pdfBytes = await System.IO.File.ReadAllBytesAsync(filePath);
+                var pdfResult = await _aiService.ProcessPdfAsync(pdfBytes, fileName);
+                textToAnalyze = pdfResult.Full_text;
+            }
+            else
+            {
+                textToAnalyze = $"{publication.Title}. {publication.Abstract ?? ""}";
+            }
+        }
+        else
+        {
+            textToAnalyze = $"{publication.Title}. {publication.Abstract ?? ""}";
+        }
+
+        var aiResult = await _aiService.AnalyzeCitationsAsync(textToAnalyze);
+
+        var entries = aiResult.Citations.Select(c => new CitationAnalysisEntry
+        {
+            Sentence = c.Sentence,
+            CitationNumbers = c.Citation_numbers,
+            Intent = c.Intent,
+            Confidence = c.Confidence
+        }).ToList();
+
+        var analysis = new CitationAnalysis(publication.Id, entries);
+        await _publicationRepository.UpsertCitationAnalysisAsync(analysis);
+
+        var result = entries.Select(e => new CitationAnalysisDto(
+            e.Sentence, e.CitationNumbers, e.Intent, e.Confidence
+        )).ToList();
+
+        return Ok(result);
+    }
+
+    [HttpGet("publications/{id:guid}/citation-graph")]
+    public async Task<ActionResult<CitationGraphDto>> GetCitationGraph(Guid id)
+    {
+        var publication = await _publicationRepository.GetByIdAsync(id);
+        if (publication == null) return NotFound();
+
+        var analysis = await _publicationRepository.GetCitationAnalysisAsync(id);
+        if (analysis == null)
+            return Ok(new CitationGraphDto(new List<CitationGraphNodeDto>(), new List<CitationGraphEdgeDto>()));
+
+        var items = analysis.GetItems();
+
+        var nodes = new List<CitationGraphNodeDto>
+        {
+            new(publication.Id, publication.Title, "source")
+        };
+
+        var edges = new List<CitationGraphEdgeDto>();
+        var addedRefs = new HashSet<int>();
+
+        foreach (var item in items)
+        {
+            foreach (var citNum in item.CitationNumbers)
+            {
+                if (addedRefs.Add(citNum))
+                {
+                    var refNodeId = GenerateDeterministicGuid(publication.Id, citNum);
+                    nodes.Add(new CitationGraphNodeDto(refNodeId, $"Reference [{citNum}]", "reference"));
+                }
+
+                var edgeTargetId = GenerateDeterministicGuid(publication.Id, citNum);
+                edges.Add(new CitationGraphEdgeDto(
+                    publication.Id,
+                    edgeTargetId,
+                    item.Intent,
+                    Math.Round(item.Confidence, 4)
+                ));
+            }
+        }
+
+        return Ok(new CitationGraphDto(nodes, edges));
+    }
+
+    // ==================== AUTO-CITATION (REFERENCE MATCHING) ====================
+
+    [Authorize]
+    [HttpPost("publications/{id:guid}/auto-cite")]
+    public async Task<ActionResult<AutoCitationResultDto>> AutoCiteFromReferences(Guid id)
+    {
+        var publication = await _publicationRepository.GetByIdAsync(id);
+        if (publication == null) return NotFound();
+
+        var currentUserId = GetCurrentUserId();
+        if (currentUserId == null) return Unauthorized();
+        if (publication.AuthorId != currentUserId.Value)
+            return Forbid();
+
+        if (string.IsNullOrEmpty(publication.FileUrl))
+            return BadRequest(new { message = "This publication has no uploaded PDF." });
+
+        var fileName = Path.GetFileName(publication.FileUrl);
+        var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "publications", fileName);
+
+        if (!System.IO.File.Exists(filePath))
+            return NotFound(new { message = "File not found on server." });
+
+        var pdfBytes = await System.IO.File.ReadAllBytesAsync(filePath);
+        var pdfResult = await _aiService.ProcessPdfAsync(pdfBytes, fileName);
+
+        if (pdfResult.References.Count == 0)
+            return Ok(new AutoCitationResultDto(0, 0, new List<AutoCitationMatchDto>()));
+
+        var parsedRefs = await _aiService.ParseReferencesAsync(pdfResult.References);
+
+        var matches = new List<AutoCitationMatchDto>();
+
+        foreach (var pRef in parsedRefs)
+        {
+            Publication? matched = null;
+            string matchMethod = "";
+            double confidence = 0;
+
+            if (!string.IsNullOrEmpty(pRef.Doi))
+            {
+                matched = await _publicationRepository.GetByDoiAsync(pRef.Doi);
+                if (matched != null)
+                {
+                    matchMethod = "DOI";
+                    confidence = 1.0;
+                }
+            }
+
+            if (matched == null && !string.IsNullOrEmpty(pRef.Title))
+            {
+                var candidates = await _publicationRepository.SearchByTitleAsync(pRef.Title);
+                if (candidates.Count > 0)
+                {
+                    var refEmbedding = await _aiService.GetEmbeddingAsync(pRef.Title);
+
+                    foreach (var candidate in candidates)
+                    {
+                        if (candidate.Id == publication.Id) continue;
+
+                        var candidateEmbedding = await _publicationRepository.GetEmbeddingAsync(candidate.Id);
+                        float[] candidateVector;
+
+                        if (candidateEmbedding != null)
+                        {
+                            candidateVector = candidateEmbedding.Embedding;
+                        }
+                        else
+                        {
+                            candidateVector = await _aiService.GetEmbeddingAsync(candidate.Title);
+                        }
+
+                        var similarity = CosineSimilarity(refEmbedding, candidateVector);
+
+                        if (similarity > 0.75 && similarity > confidence)
+                        {
+                            matched = candidate;
+                            matchMethod = "Title Similarity";
+                            confidence = similarity;
+                        }
+                    }
+                }
+            }
+
+            if (matched != null && matched.Id != publication.Id)
+            {
+                var alreadyCited = await _publicationRepository.CitationExistsAsync(matched.Id, currentUserId.Value);
+                if (!alreadyCited)
+                {
+                    var citation = new PublicationCitation(matched.Id, currentUserId.Value);
+                    await _publicationRepository.AddCitationAsync(citation);
+                    matched.IncrementCitationCount();
+                    await _publicationRepository.UpdateAsync(matched);
+                }
+
+                matches.Add(new AutoCitationMatchDto(
+                    matched.Id,
+                    matched.Title,
+                    matchMethod,
+                    Math.Round(confidence, 4)
+                ));
+            }
+        }
+
+        return Ok(new AutoCitationResultDto(
+            pdfResult.References.Count,
+            matches.Count,
+            matches
+        ));
+    }
+
     // ==================== HELPERS ====================
+
+    private static Guid GenerateDeterministicGuid(Guid publicationId, int refNumber)
+    {
+        var bytes = publicationId.ToByteArray();
+        var refBytes = BitConverter.GetBytes(refNumber);
+        for (int i = 0; i < 4; i++)
+            bytes[i] ^= refBytes[i];
+        return new Guid(bytes);
+    }
+
 
     private static float[] ComputeAverageVector(List<float[]> vectors)
     {

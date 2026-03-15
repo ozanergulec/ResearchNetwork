@@ -9,4 +9,6 @@ public interface IAiService
     Task<string> SummarizeAsync(string text, int maxLength = 200, int minLength = 50);
     Task<AiSimilarityResponse> CompareVectorsAsync(float[] vectorA, float[] vectorB);
     Task<AiPdfProcessResponse> ProcessPdfAsync(byte[] pdfBytes, string fileName);
+    Task<AiCitationAnalysisResponse> AnalyzeCitationsAsync(string fullText);
+    Task<List<AiParsedReference>> ParseReferencesAsync(List<string> rawReferences);
 }

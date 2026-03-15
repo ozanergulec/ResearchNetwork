@@ -400,5 +400,60 @@ public class PublicationRepository : IPublicationRepository
 
         return (items, totalCount);
     }
+
+    // Citation Analysis
+    public async Task<CitationAnalysis?> GetCitationAnalysisAsync(Guid publicationId)
+    {
+        return await _context.CitationAnalyses
+            .FirstOrDefaultAsync(c => c.PublicationId == publicationId);
+    }
+
+    public async Task UpsertCitationAnalysisAsync(CitationAnalysis analysis)
+    {
+        var existing = await _context.CitationAnalyses
+            .FirstOrDefaultAsync(c => c.PublicationId == analysis.PublicationId);
+
+        if (existing != null)
+        {
+            existing.Update(analysis.GetItems());
+        }
+        else
+        {
+            await _context.CitationAnalyses.AddAsync(analysis);
+        }
+
+        await _context.SaveChangesAsync();
+    }
+
+    // Reference matching
+    public async Task<Publication?> GetByDoiAsync(string doi)
+    {
+        return await _context.Publications
+            .Include(p => p.Author)
+            .Include(p => p.Tags).ThenInclude(pt => pt.Tag)
+            .FirstOrDefaultAsync(p => p.DOI != null && p.DOI.ToLower() == doi.ToLower());
+    }
+
+    public async Task<List<Publication>> SearchByTitleAsync(string title)
+    {
+        var lowerTitle = title.ToLower().Trim();
+        return await _context.Publications
+            .Include(p => p.Author)
+            .Where(p => p.Title.ToLower().Contains(lowerTitle) || lowerTitle.Contains(p.Title.ToLower()))
+            .Take(5)
+            .ToListAsync();
+    }
+
+    public async Task<bool> CitationExistsAsync(Guid publicationId, Guid userId)
+    {
+        return await _context.PublicationCitations
+            .AnyAsync(c => c.PublicationId == publicationId && c.UserId == userId);
+    }
+
+    public async Task AddCitationAsync(PublicationCitation citation)
+    {
+        await _context.PublicationCitations.AddAsync(citation);
+        await _context.SaveChangesAsync();
+    }
 }
 

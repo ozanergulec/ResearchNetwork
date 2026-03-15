@@ -70,4 +70,24 @@ public class AiServiceClient : IAiService
         var result = await response.Content.ReadFromJsonAsync<AiPdfProcessResponse>(JsonOptions);
         return result!;
     }
+
+    public async Task<AiCitationAnalysisResponse> AnalyzeCitationsAsync(string fullText)
+    {
+        var request = new AiCitationAnalysisRequest(fullText);
+        var response = await _httpClient.PostAsJsonAsync("/api/citation/analyze", request, JsonOptions);
+        response.EnsureSuccessStatusCode();
+
+        var result = await response.Content.ReadFromJsonAsync<AiCitationAnalysisResponse>(JsonOptions);
+        return result ?? new AiCitationAnalysisResponse(new List<AiCitationItem>());
+    }
+
+    public async Task<List<AiParsedReference>> ParseReferencesAsync(List<string> rawReferences)
+    {
+        var request = new AiParseReferencesRequest(rawReferences);
+        var response = await _httpClient.PostAsJsonAsync("/api/pdf/parse-references", request, JsonOptions);
+        response.EnsureSuccessStatusCode();
+
+        var result = await response.Content.ReadFromJsonAsync<AiParseReferencesResponse>(JsonOptions);
+        return result?.Parsed ?? new List<AiParsedReference>();
+    }
 }
