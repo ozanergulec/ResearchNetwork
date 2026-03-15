@@ -38,4 +38,9 @@ public interface IPublicationRepository
     // Search
     Task<(IEnumerable<Publication> Items, int TotalCount)> SearchAsync(string query, int page, int pageSize);
     Task<(IEnumerable<Publication> Items, int TotalCount)> SearchByTagAsync(string tagName, int page, int pageSize);
+
+    // Embedding
+    Task<PublicationEmbedding?> GetEmbeddingAsync(Guid publicationId);
+    Task UpsertEmbeddingAsync(PublicationEmbedding embedding);
+    Task<List<(Guid PublicationId, double Similarity)>> FindSimilarByEmbeddingAsync(float[] queryEmbedding, int topK = 10, Guid? excludePublicationId = null);
 }

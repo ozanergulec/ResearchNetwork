@@ -59,6 +59,14 @@ builder.Services.AddScoped<IReviewRepository, ReviewRepository>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IPublicationService, PublicationService>();
 
+// AI Service (HttpClient → Python FastAPI)
+builder.Services.AddHttpClient<IAiService, AiServiceClient>(client =>
+{
+    var aiBaseUrl = builder.Configuration["AiService:BaseUrl"] ?? "http://localhost:8000";
+    client.BaseAddress = new Uri(aiBaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(120);
+});
+
 // JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "DefaultSecretKeyForDevelopment123456";
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "ResearchNetwork";

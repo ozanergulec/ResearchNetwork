@@ -281,6 +281,69 @@ public class PublicationRepository : IPublicationRepository
         return (items, totalCount);
     }
 
+    // --- Embedding ---
+
+    public async Task<PublicationEmbedding?> GetEmbeddingAsync(Guid publicationId)
+    {
+        return await _context.PublicationEmbeddings
+            .FirstOrDefaultAsync(e => e.PublicationId == publicationId);
+    }
+
+    public async Task UpsertEmbeddingAsync(PublicationEmbedding embedding)
+    {
+        var existing = await _context.PublicationEmbeddings
+            .FirstOrDefaultAsync(e => e.PublicationId == embedding.PublicationId);
+
+        if (existing != null)
+        {
+            existing.UpdateEmbedding(embedding.Embedding);
+        }
+        else
+        {
+            _context.PublicationEmbeddings.Add(embedding);
+        }
+
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task<List<(Guid PublicationId, double Similarity)>> FindSimilarByEmbeddingAsync(
+        float[] queryEmbedding, int topK = 10, Guid? excludePublicationId = null)
+    {
+        var allEmbeddings = await _context.PublicationEmbeddings.ToListAsync();
+
+        var scored = new List<(Guid PublicationId, double Similarity)>();
+
+        foreach (var item in allEmbeddings)
+        {
+            if (excludePublicationId.HasValue && item.PublicationId == excludePublicationId.Value)
+                continue;
+
+            var similarity = CosineSimilarity(queryEmbedding, item.Embedding);
+            scored.Add((item.PublicationId, similarity));
+        }
+
+        return scored
+            .OrderByDescending(x => x.Similarity)
+            .Take(topK)
+            .ToList();
+    }
+
+    private static double CosineSimilarity(float[] a, float[] b)
+    {
+        if (a.Length != b.Length) return 0;
+
+        double dot = 0, normA = 0, normB = 0;
+        for (int i = 0; i < a.Length; i++)
+        {
+            dot += a[i] * b[i];
+            normA += a[i] * a[i];
+            normB += b[i] * b[i];
+        }
+
+        var denominator = Math.Sqrt(normA) * Math.Sqrt(normB);
+        return denominator == 0 ? 0 : dot / denominator;
+    }
+
     // --- Search ---
 
     public async Task<(IEnumerable<Publication> Items, int TotalCount)> SearchAsync(string query, int page, int pageSize)

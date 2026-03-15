@@ -24,6 +24,7 @@ public class AppDbContext : DbContext
     public DbSet<VerificationCode> VerificationCodes { get; set; } = null!;
     public DbSet<ReviewRequest> ReviewRequests { get; set; } = null!;
     public DbSet<ReviewRating> ReviewRatings { get; set; } = null!;
+    public DbSet<PublicationEmbedding> PublicationEmbeddings { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -229,6 +230,18 @@ public class AppDbContext : DbContext
                   .WithMany(u => u.ReviewRequests)
                   .HasForeignKey(e => e.ReviewerId)
                   .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // PublicationEmbedding
+        modelBuilder.Entity<PublicationEmbedding>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.PublicationId).IsUnique();
+
+            entity.HasOne(e => e.Publication)
+                  .WithOne()
+                  .HasForeignKey<PublicationEmbedding>(e => e.PublicationId)
+                  .OnDelete(DeleteBehavior.Cascade);
         });
 
         // ReviewRating

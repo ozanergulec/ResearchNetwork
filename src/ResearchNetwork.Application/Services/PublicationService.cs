@@ -9,15 +9,18 @@ public class PublicationService : IPublicationService
     private readonly IPublicationRepository _publicationRepository;
     private readonly ITagRepository _tagRepository;
     private readonly IUserRepository _userRepository;
+    private readonly IAiService _aiService;
 
     public PublicationService(
         IPublicationRepository publicationRepository,
         ITagRepository tagRepository,
-        IUserRepository userRepository)
+        IUserRepository userRepository,
+        IAiService aiService)
     {
         _publicationRepository = publicationRepository;
         _tagRepository = tagRepository;
         _userRepository = userRepository;
+        _aiService = aiService;
     }
 
     public async Task<Publication> CreatePublicationAsync(Guid authorId, CreatePublicationDto dto)
@@ -57,6 +60,8 @@ public class PublicationService : IPublicationService
         // Save the publication (this will also save the PublicationTag associations)
         await _publicationRepository.CreateAsync(publication);
 
+        await GenerateAndSaveEmbeddingAsync(publication);
+
         return publication;
     }
 
@@ -94,7 +99,31 @@ public class PublicationService : IPublicationService
         }
 
         await _publicationRepository.UpdateAsync(publication);
+
+        await GenerateAndSaveEmbeddingAsync(publication);
+
         return publication;
+    }
+
+    private async Task GenerateAndSaveEmbeddingAsync(Publication publication)
+    {
+        try
+        {
+            var tagNames = publication.Tags.Select(t => t.Tag?.Name ?? "").Where(n => n.Length > 0);
+            var textForEmbedding = $"{publication.Title}. {publication.Abstract ?? ""} Keywords: {string.Join(", ", tagNames)}";
+
+            var embeddingVector = await _aiService.GetEmbeddingAsync(textForEmbedding);
+
+            if (embeddingVector.Length > 0)
+            {
+                var embeddingEntity = new PublicationEmbedding(publication.Id, embeddingVector);
+                await _publicationRepository.UpsertEmbeddingAsync(embeddingEntity);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[AI Service] Embedding generation failed for publication {publication.Id}: {ex.Message}");
+        }
     }
 
     public async Task<List<Tag>> FindOrCreateTagsAsync(List<string> tagNames)
