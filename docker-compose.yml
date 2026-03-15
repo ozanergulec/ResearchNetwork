@@ -1,7 +1,7 @@
 services:
-  # --- Veritabanı ---
+  # --- Veritabanı (pgvector destekli) ---
   postgres:
-    image: postgres:17
+    image: pgvector/pgvector:pg17
     container_name: research_network_db
     environment:
       POSTGRES_USER: postgres
@@ -50,8 +50,15 @@ services:
       context: .
       dockerfile: Dockerfile.ai-service
     container_name: research_network_ai
+    environment:
+      - EMBEDDING_MODEL=all-MiniLM-L6-v2
+      - SUMMARIZATION_MODEL=sshleifer/distilbart-cnn-12-6
+      - CLASSIFICATION_MODEL=valhalla/distilbart-mnli-12-1
+      - ALLOWED_ORIGINS=http://localhost:5000,http://localhost:5001,http://localhost:5051,http://api:8080
     ports:
       - "8000:8000"
+    volumes:
+      - model_cache:/root/.cache/huggingface
     networks:
       - research-net
 
@@ -62,3 +69,4 @@ networks:
 volumes:
   postgres_data:
   uploads_data:
+  model_cache:

@@ -1,118 +1,63 @@
+import logging
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import List, Optional
-from datetime import datetime
+from config import settings
+
+from routers import health, embedding, summarization, pdf, citation, match
+from services.embedding_service import embedding_service
+from services.summarization_service import summarization_service
+from services.citation_service import citation_service
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("Loading ML models — this may take a minute on first run...")
+
+    logger.info(f"Loading embedding model: {settings.EMBEDDING_MODEL}")
+    embedding_service.load_model()
+    logger.info("Embedding model loaded.")
+
+    logger.info(f"Loading summarization model: {settings.SUMMARIZATION_MODEL}")
+    summarization_service.load_model()
+    logger.info("Summarization model loaded.")
+
+    logger.info(f"Loading classification model: {settings.CLASSIFICATION_MODEL}")
+    citation_service.load_model()
+    logger.info("Classification model loaded.")
+
+    logger.info("All models ready.")
+    yield
+    logger.info("Shutting down AI service.")
+
 
 app = FastAPI(
     title="Research Network AI Service",
-    description="AI-powered matching engine for academic collaboration",
-    version="1.0.0"
+    description="Stateless NLP computation engine: embeddings, summarization, PDF processing, citation analysis",
+    version="2.0.0",
+    lifespan=lifespan,
 )
 
-# CORS configuration for .NET backend
+origins = [o.strip() for o in settings.ALLOWED_ORIGINS.split(",")]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5000",
-        "http://localhost:5001",
-        "https://localhost:5000",
-        "https://localhost:5001",
-    ],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Models
-class UserProfile(BaseModel):
-    id: str
-    fullName: str
-    interestTags: List[str]
-    institution: Optional[str] = None
-    department: Optional[str] = None
-
-class MatchRequest(BaseModel):
-    userId: str
-    userProfile: UserProfile
-    allUsers: List[UserProfile]
-    topN: int = 5
-
-class MatchResult(BaseModel):
-    userId: str
-    fullName: str
-    score: float
-    matchedTags: List[str]
-
-class MatchResponse(BaseModel):
-    userId: str
-    recommendations: List[MatchResult]
-    timestamp: datetime
-
-
-# Endpoints
-@app.get("/health")
-def health_check():
-    """Health check endpoint for service monitoring"""
-    return {
-        "status": "healthy",
-        "service": "ai-service",
-        "timestamp": datetime.utcnow().isoformat()
-    }
-
-
-@app.get("/api/hello")
-def hello():
-    """Hello World endpoint for testing .NET integration"""
-    return {
-        "message": "Hello from AI Service!",
-        "description": "This is the Research Network AI Matching Engine",
-        "version": "1.0.0"
-    }
-
-
-@app.post("/api/match", response_model=MatchResponse)
-def find_matches(request: MatchRequest):
-    """
-    Find matching researchers based on interest tags.
-    
-    This is a simple tag-matching algorithm as a placeholder.
-    In production, this would use NLP and ML models for better matching.
-    """
-    recommendations = []
-    user_tags = set(tag.lower() for tag in request.userProfile.interestTags)
-    
-    for candidate in request.allUsers:
-        # Skip the requesting user
-        if candidate.id == request.userId:
-            continue
-        
-        candidate_tags = set(tag.lower() for tag in candidate.interestTags)
-        matched_tags = user_tags.intersection(candidate_tags)
-        
-        if matched_tags:
-            # Simple Jaccard similarity
-            union_tags = user_tags.union(candidate_tags)
-            score = len(matched_tags) / len(union_tags) if union_tags else 0
-            
-            recommendations.append(MatchResult(
-                userId=candidate.id,
-                fullName=candidate.fullName,
-                score=round(score, 3),
-                matchedTags=list(matched_tags)
-            ))
-    
-    # Sort by score descending and take top N
-    recommendations.sort(key=lambda x: x.score, reverse=True)
-    recommendations = recommendations[:request.topN]
-    
-    return MatchResponse(
-        userId=request.userId,
-        recommendations=recommendations,
-        timestamp=datetime.utcnow()
-    )
-
+app.include_router(health.router)
+app.include_router(embedding.router)
+app.include_router(summarization.router)
+app.include_router(pdf.router)
+app.include_router(citation.router)
+app.include_router(match.router)
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)
