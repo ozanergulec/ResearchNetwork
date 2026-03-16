@@ -8,7 +8,7 @@ export { ProfileEditForm, ProfileHeader, ProfileInfo, TagManagementPopup } from 
 export { AddPublicationModal, DocumentViewerModal, PublicationCard, PublicationsList } from './publications';
 
 // Recommendations components
-export { UserCard } from './recommendations';
+export { UserCard, ResearcherMatchCard } from './recommendations';
 
 // Feed components
 export { FeedPublicationCard } from './feed';

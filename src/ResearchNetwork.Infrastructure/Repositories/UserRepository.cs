@@ -39,7 +39,10 @@ public class UserRepository : IUserRepository
 
     public async Task<IEnumerable<User>> GetAllAsync()
     {
-        return await _context.Users.ToListAsync();
+        return await _context.Users
+            .Include(u => u.Tags)
+                .ThenInclude(ut => ut.Tag)
+            .ToListAsync();
     }
 
     public async Task<User> CreateAsync(User user)

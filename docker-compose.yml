@@ -34,10 +34,12 @@ services:
       - Email__SmtpPass=${SMTP_PASS}
       - Email__FromEmail=${SMTP_USER}
       - Email__FromName=Research Network
+      - AiService__BaseUrl=http://ai-service:8000
     ports:
       - "5051:8080"
     depends_on:
       - postgres
+      - ai-service
     volumes:
       - uploads_data:/app/wwwroot/uploads
     networks:

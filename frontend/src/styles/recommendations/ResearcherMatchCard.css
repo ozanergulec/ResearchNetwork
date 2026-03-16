@@ -1,0 +1,145 @@
+.rmc-card {
+    background: #fff;
+    border: 1px solid var(--ui-detail);
+    border-radius: 16px;
+    padding: 1.5rem;
+    text-align: center;
+    position: relative;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.rmc-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 30px rgba(42, 31, 29, 0.1);
+    border-color: var(--heading-color);
+}
+
+.rmc-similarity-badge {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 20px;
+    letter-spacing: 0.3px;
+}
+
+.rmc-profile {
+    margin-bottom: 1rem;
+}
+
+.rmc-profile .avatar {
+    margin: 0 auto 0.75rem;
+}
+
+.rmc-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.rmc-verified {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    background: var(--heading-color);
+    color: #fff;
+    border-radius: 50%;
+    font-size: 10px;
+}
+
+.rmc-title {
+    font-size: 0.85rem;
+    color: rgba(42, 31, 29, 0.7);
+    margin: 0 0 2px;
+}
+
+.rmc-institution {
+    font-size: 0.8rem;
+    color: rgba(42, 31, 29, 0.6);
+    margin: 0 0 2px;
+}
+
+.rmc-department {
+    font-size: 0.75rem;
+    color: rgba(42, 31, 29, 0.5);
+    margin: 0;
+}
+
+.rmc-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: center;
+    margin-bottom: 1rem;
+}
+
+.rmc-tag {
+    background: rgba(122, 31, 43, 0.08);
+    color: var(--heading-color);
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 500;
+}
+
+.rmc-tag-more {
+    background: rgba(122, 31, 43, 0.15);
+}
+
+.rmc-similarity-bar {
+    margin-bottom: 1rem;
+}
+
+.rmc-bar-bg {
+    width: 100%;
+    height: 4px;
+    background: var(--ui-detail);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.rmc-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.6s ease;
+}
+
+.rmc-follow-btn {
+    width: 100%;
+    padding: 0.65rem;
+    background: var(--heading-color);
+    color: #fff;
+    border: 2px solid var(--heading-color);
+    border-radius: 10px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.25s ease;
+}
+
+.rmc-follow-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(122, 31, 43, 0.3);
+}
+
+.rmc-follow-btn.rmc-following {
+    background: transparent;
+    color: var(--heading-color);
+}
+
+.rmc-follow-btn.rmc-following:hover {
+    background: rgba(122, 31, 43, 0.05);
+    box-shadow: none;
+    transform: none;
+}
