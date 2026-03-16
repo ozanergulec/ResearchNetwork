@@ -184,6 +184,17 @@ const PublicationDetailModal: React.FC<PublicationDetailModalProps> = ({ publica
                             </div>
                         )}
 
+                        {/* AI Summary */}
+                        {publication.summary && (
+                            <div className="pub-detail-summary">
+                                <h5>
+                                    <span className="pub-detail-summary-icon">✨</span>
+                                    AI Summary
+                                </h5>
+                                <p>{publication.summary}</p>
+                            </div>
+                        )}
+
                         {/* DOI */}
                         {publication.doi && (
                             <div className="pub-detail-doi">

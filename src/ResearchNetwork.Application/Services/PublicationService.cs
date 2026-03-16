@@ -109,6 +109,45 @@ public class PublicationService : IPublicationService
     {
         try
         {
+            string? pdfFullText = null;
+
+            if (!string.IsNullOrEmpty(publication.FileUrl))
+            {
+                try
+                {
+                    var fileName = Path.GetFileName(publication.FileUrl);
+                    var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "publications", fileName);
+
+                    if (File.Exists(filePath))
+                    {
+                        var pdfBytes = await File.ReadAllBytesAsync(filePath);
+                        var pdfResult = await _aiService.ProcessPdfAsync(pdfBytes, fileName);
+                        pdfFullText = pdfResult.Full_text;
+
+                        if (!string.IsNullOrEmpty(pdfResult.Abstract) && string.IsNullOrEmpty(publication.Abstract))
+                            publication.Abstract = pdfResult.Abstract;
+
+                        if (pdfResult.Embedding.Length > 0)
+                        {
+                            var embeddingEntity = new PublicationEmbedding(publication.Id, pdfResult.Embedding);
+                            await _publicationRepository.UpsertEmbeddingAsync(embeddingEntity);
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(pdfResult.Summary))
+                        {
+                            publication.Summary = pdfResult.Summary;
+                            await _publicationRepository.UpdateAsync(publication);
+                        }
+
+                        return;
+                    }
+                }
+                catch (Exception pdfEx)
+                {
+                    Console.WriteLine($"[AI Service] PDF processing failed, falling back to text-based: {pdfEx.Message}");
+                }
+            }
+
             var tagNames = publication.Tags.Select(t => t.Tag?.Name ?? "").Where(n => n.Length > 0);
             var textForEmbedding = $"{publication.Title}. {publication.Abstract ?? ""} Keywords: {string.Join(", ", tagNames)}";
 
@@ -121,7 +160,7 @@ public class PublicationService : IPublicationService
             }
 
             var textForSummary = publication.Abstract ?? publication.Title;
-            if (textForSummary.Split(' ').Length > 20)
+            if (textForSummary.Split(' ').Length > 10)
             {
                 var summary = await _aiService.SummarizeAsync(textForSummary);
                 if (!string.IsNullOrWhiteSpace(summary))

@@ -39,7 +39,7 @@ async def process_pdf(file: UploadFile = File(...)):
     keywords = pdf_service.extract_keywords(full_text)
     references = pdf_service.extract_references(full_text)
 
-    text_for_summary = abstract or full_text[:5000]
+    text_for_summary = abstract or full_text[:3000]
     summary = summarization_service.summarize(text_for_summary)
 
     kw_text = ", ".join(keywords) if keywords else ""

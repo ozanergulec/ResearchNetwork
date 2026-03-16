@@ -15,6 +15,7 @@ export interface Publication {
     id: string;
     title: string;
     abstract?: string;
+    summary?: string;
     doi?: string;
     fileUrl?: string;
     publishedDate?: string;
