@@ -102,6 +102,30 @@ class PDFService:
                 return authors
         return None
 
+    def strip_references(self, full_text: str) -> str:
+        """Remove references/bibliography section from the end of the text."""
+        last_match = None
+        for match in re.finditer(
+            r"(?i)\n\s*(?:references|bibliography)\s*\n", full_text
+        ):
+            last_match = match
+        if last_match:
+            return full_text[: last_match.start()].strip()
+        return full_text
+
+    def get_body_text(self, full_text: str) -> str:
+        """Extract the main body: strip abstract/preamble from the start and references from the end."""
+        body = self.strip_references(full_text)
+
+        intro_match = re.search(
+            r"(?i)\n\s*(?:1[\.\s]+\s*introduction|introduction)\s*\n",
+            body,
+        )
+        if intro_match:
+            body = body[intro_match.start():].strip()
+
+        return body
+
     def parse_all_references(self, full_text: str) -> list[dict]:
         raw_refs = self.extract_references(full_text)
         return [self.parse_reference(ref) for ref in raw_refs]

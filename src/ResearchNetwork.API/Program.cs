@@ -64,7 +64,7 @@ builder.Services.AddHttpClient<IAiService, AiServiceClient>(client =>
 {
     var aiBaseUrl = builder.Configuration["AiService:BaseUrl"] ?? "http://localhost:8000";
     client.BaseAddress = new Uri(aiBaseUrl);
-    client.Timeout = TimeSpan.FromSeconds(120);
+    client.Timeout = TimeSpan.FromSeconds(300);
 });
 
 // JWT Authentication

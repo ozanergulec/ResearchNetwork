@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, UploadFile, File
 from models.pdf import (
     PDFExtractResponse,
@@ -9,6 +10,8 @@ from models.pdf import (
 from services.pdf_service import pdf_service
 from services.embedding_service import embedding_service
 from services.summarization_service import summarization_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/pdf", tags=["PDF Processing"])
 
@@ -39,8 +42,18 @@ async def process_pdf(file: UploadFile = File(...)):
     keywords = pdf_service.extract_keywords(full_text)
     references = pdf_service.extract_references(full_text)
 
-    text_for_summary = abstract or full_text[:3000]
-    summary = summarization_service.summarize(text_for_summary)
+    body_text = pdf_service.get_body_text(full_text)
+
+    full_words = len(full_text.split())
+    body_words = len(body_text.split())
+    logger.info(
+        f"[PDF Process] full_text={full_words} words, "
+        f"body_text(intro→conclusion)={body_words} words, "
+        f"abstract={'yes' if abstract else 'no'}, "
+        f"keywords={len(keywords)}, references={len(references)}"
+    )
+
+    summary = summarization_service.summarize(body_text)
 
     kw_text = ", ".join(keywords) if keywords else ""
     embed_input = f"{abstract or ''}. {kw_text}"
