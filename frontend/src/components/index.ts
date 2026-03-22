@@ -5,7 +5,7 @@ export { Avatar, FormInput, Loading, Navbar, TagBadge, Toast } from './common';
 export { ProfileEditForm, ProfileHeader, ProfileInfo, TagManagementPopup } from './profile';
 
 // Publications components
-export { AddPublicationModal, DocumentViewerModal, PublicationCard, PublicationsList } from './publications';
+export { AddPublicationModal, DocumentViewerModal } from './publications';
 
 // Recommendations components
 export { UserCard, ResearcherMatchCard } from './recommendations';
