@@ -166,39 +166,48 @@ public class AiController : ControllerBase
     public async Task<ActionResult<IEnumerable<ResearcherMatchDto>>> GetResearcherMatches(
         Guid userId, [FromQuery] int topK = 10)
     {
-        var user = await _userRepository.GetByIdAsync(userId);
-        if (user == null) return NotFound();
-
-        var userEmbeddings = await _publicationRepository.GetEmbeddingsByAuthorAsync(userId);
-        if (userEmbeddings.Count == 0)
-            return Ok(new List<ResearcherMatchDto>());
-
-        var userProfileVector = ComputeAverageVector(userEmbeddings.Select(e => e.Embedding).ToList());
-        var userTagNames = user.Tags.Select(t => t.Tag.Name.ToLower()).ToHashSet();
+        var currentUserId = GetCurrentUserId();
+        if (currentUserId == null || currentUserId.Value != userId)
+            return Forbid();
 
         var allUsers = await _userRepository.GetAllAsync();
+        var user = allUsers.FirstOrDefault(u => u.Id == userId);
+        if (user == null) return NotFound();
+
+        var userTagNames = user.Tags.Select(t => t.Tag.Name.ToLower()).ToHashSet();
+
+        var embeddingsByAuthor = await _publicationRepository.GetAllEmbeddingsGroupedByAuthorAsync();
+        var userVectors = embeddingsByAuthor.GetValueOrDefault(userId);
+        bool userHasEmbeddings = userVectors != null && userVectors.Count > 0;
+
         var results = new List<ResearcherMatchDto>();
 
         foreach (var candidate in allUsers)
         {
             if (candidate.Id == userId) continue;
 
-            var candidateEmbeddings = await _publicationRepository.GetEmbeddingsByAuthorAsync(candidate.Id);
-            if (candidateEmbeddings.Count == 0) continue;
-
-            var candidateVector = ComputeAverageVector(candidateEmbeddings.Select(e => e.Embedding).ToList());
-            var contentSimilarity = CosineSimilarity(userProfileVector, candidateVector);
-
-            var candidateUser = await _userRepository.GetByIdAsync(candidate.Id);
-            var candidateTagNames = candidateUser?.Tags.Select(t => t.Tag.Name.ToLower()).ToHashSet()
-                                    ?? new HashSet<string>();
+            var candidateTagNames = candidate.Tags
+                .Select(t => t.Tag.Name.ToLower()).ToHashSet();
 
             var commonTags = userTagNames.Intersect(candidateTagNames).ToList();
-            double tagScore = (userTagNames.Count + candidateTagNames.Count) > 0
-                ? (double)commonTags.Count / userTagNames.Union(candidateTagNames).Count()
-                : 0;
+            var unionCount = userTagNames.Union(candidateTagNames).Count();
+            double tagScore = unionCount > 0 ? (double)commonTags.Count / unionCount : 0;
 
-            var finalScore = 0.7 * contentSimilarity + 0.3 * tagScore;
+            double contentSimilarity = 0;
+            var candidateVectors = embeddingsByAuthor.GetValueOrDefault(candidate.Id);
+
+            if (userHasEmbeddings && candidateVectors != null && candidateVectors.Count > 0)
+            {
+                contentSimilarity = MaxPairwiseSimilarity(userVectors!, candidateVectors);
+            }
+
+            double finalScore;
+            if (userHasEmbeddings && candidateVectors != null && candidateVectors.Count > 0)
+                finalScore = 0.7 * contentSimilarity + 0.3 * tagScore;
+            else
+                finalScore = tagScore;
+
+            if (finalScore < 0.01) continue;
 
             results.Add(new ResearcherMatchDto(
                 candidate.Id,
@@ -448,6 +457,25 @@ public class AiController : ControllerBase
 
     // ==================== HELPERS ====================
 
+    /// <summary>
+    /// Returns the highest cosine similarity between any publication of user A
+    /// and any publication of user B. This captures "at least one very similar paper"
+    /// which is more meaningful than comparing averaged vectors.
+    /// </summary>
+    private static double MaxPairwiseSimilarity(List<float[]> vectorsA, List<float[]> vectorsB)
+    {
+        double maxSim = 0;
+        foreach (var a in vectorsA)
+        {
+            foreach (var b in vectorsB)
+            {
+                var sim = CosineSimilarity(a, b);
+                if (sim > maxSim) maxSim = sim;
+            }
+        }
+        return maxSim;
+    }
+
     private static Guid GenerateDeterministicGuid(Guid publicationId, int refNumber)
     {
         var bytes = publicationId.ToByteArray();
@@ -457,25 +485,6 @@ public class AiController : ControllerBase
         return new Guid(bytes);
     }
 
-
-    private static float[] ComputeAverageVector(List<float[]> vectors)
-    {
-        if (vectors.Count == 0) return Array.Empty<float>();
-
-        var dimension = vectors[0].Length;
-        var avg = new float[dimension];
-
-        foreach (var vec in vectors)
-        {
-            for (int i = 0; i < dimension; i++)
-                avg[i] += vec[i];
-        }
-
-        for (int i = 0; i < dimension; i++)
-            avg[i] /= vectors.Count;
-
-        return avg;
-    }
 
     private static double CosineSimilarity(float[] a, float[] b)
     {

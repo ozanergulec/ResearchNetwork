@@ -356,6 +356,22 @@ public class PublicationRepository : IPublicationRepository
             .ToListAsync();
     }
 
+    public async Task<Dictionary<Guid, List<float[]>>> GetAllEmbeddingsGroupedByAuthorAsync()
+    {
+        var data = await _context.PublicationEmbeddings
+            .Join(
+                _context.Publications,
+                e => e.PublicationId,
+                p => p.Id,
+                (e, p) => new { AuthorId = p.AuthorId, Vector = e.Embedding }
+            )
+            .ToListAsync();
+
+        return data
+            .GroupBy(x => x.AuthorId)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.Vector).ToList());
+    }
+
     // --- Search ---
 
     public async Task<(IEnumerable<Publication> Items, int TotalCount)> SearchAsync(string query, int page, int pageSize)

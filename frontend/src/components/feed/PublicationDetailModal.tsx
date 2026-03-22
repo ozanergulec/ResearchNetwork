@@ -16,7 +16,6 @@ const PublicationDetailModal: React.FC<PublicationDetailModalProps> = ({ publica
     const [wordHtml, setWordHtml] = useState<string | null>(null);
     const [wordLoading, setWordLoading] = useState(false);
     const [wordError, setWordError] = useState<string | null>(null);
-
     const fileUrl = publication.fileUrl ? `${API_SERVER_URL}${publication.fileUrl}` : null;
     const downloadUrl = publication.fileUrl
         ? `${API_SERVER_URL}/api/publications/download?fileUrl=${encodeURIComponent(publication.fileUrl)}`

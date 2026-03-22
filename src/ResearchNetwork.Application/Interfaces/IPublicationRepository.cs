@@ -44,6 +44,7 @@ public interface IPublicationRepository
     Task UpsertEmbeddingAsync(PublicationEmbedding embedding);
     Task<List<(Guid PublicationId, double Similarity)>> FindSimilarByEmbeddingAsync(float[] queryEmbedding, int topK = 10, Guid? excludePublicationId = null);
     Task<List<PublicationEmbedding>> GetEmbeddingsByAuthorAsync(Guid authorId);
+    Task<Dictionary<Guid, List<float[]>>> GetAllEmbeddingsGroupedByAuthorAsync();
 
     // Citation Analysis
     Task<CitationAnalysis?> GetCitationAnalysisAsync(Guid publicationId);
