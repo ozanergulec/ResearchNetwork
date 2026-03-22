@@ -21,9 +21,9 @@ async def lifespan(app: FastAPI):
     embedding_service.load_model()
     logger.info("Embedding model loaded.")
 
-    logger.info(f"Loading summarization model: {settings.SUMMARIZATION_MODEL}")
+    logger.info(f"Initializing Groq summarization client (model: {settings.GROQ_MODEL})")
     summarization_service.load_model()
-    logger.info("Summarization model loaded.")
+    logger.info("Summarization service ready.")
 
     logger.info(f"Loading classification model: {settings.CLASSIFICATION_MODEL}")
     citation_service.load_model()
