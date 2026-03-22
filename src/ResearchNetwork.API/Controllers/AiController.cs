@@ -174,10 +174,13 @@ public class AiController : ControllerBase
         var user = allUsers.FirstOrDefault(u => u.Id == userId);
         if (user == null) return NotFound();
 
-        var userTagNames = user.Tags.Select(t => t.Tag.Name.ToLower()).ToHashSet();
+        var userInterestTags = user.Tags.Select(t => t.Tag.Name.ToLower()).ToHashSet();
 
         var embeddingsByAuthor = await _publicationRepository.GetAllEmbeddingsGroupedByAuthorAsync();
+        var pubTagsByAuthor = await _publicationRepository.GetPublicationTagsByAuthorAsync();
+
         var userVectors = embeddingsByAuthor.GetValueOrDefault(userId);
+        var userPubTags = pubTagsByAuthor.GetValueOrDefault(userId) ?? new HashSet<string>();
         bool userHasEmbeddings = userVectors != null && userVectors.Count > 0;
 
         var results = new List<ResearcherMatchDto>();
@@ -186,26 +189,41 @@ public class AiController : ControllerBase
         {
             if (candidate.Id == userId) continue;
 
-            var candidateTagNames = candidate.Tags
+            var candidateInterestTags = candidate.Tags
                 .Select(t => t.Tag.Name.ToLower()).ToHashSet();
-
-            var commonTags = userTagNames.Intersect(candidateTagNames).ToList();
-            var unionCount = userTagNames.Union(candidateTagNames).Count();
-            double tagScore = unionCount > 0 ? (double)commonTags.Count / unionCount : 0;
-
-            double contentSimilarity = 0;
+            var candidatePubTags = pubTagsByAuthor.GetValueOrDefault(candidate.Id)
+                                   ?? new HashSet<string>();
             var candidateVectors = embeddingsByAuthor.GetValueOrDefault(candidate.Id);
 
-            if (userHasEmbeddings && candidateVectors != null && candidateVectors.Count > 0)
-            {
-                contentSimilarity = MaxPairwiseSimilarity(userVectors!, candidateVectors);
-            }
+            bool hasContent = userHasEmbeddings && candidateVectors != null && candidateVectors.Count > 0;
+            bool hasPubTags = userPubTags.Count > 0 && candidatePubTags.Count > 0;
 
-            double finalScore;
-            if (userHasEmbeddings && candidateVectors != null && candidateVectors.Count > 0)
-                finalScore = 0.7 * contentSimilarity + 0.3 * tagScore;
+            double contentScore = 0;
+            if (hasContent)
+                contentScore = MaxPairwiseSimilarity(userVectors!, candidateVectors!);
+
+            double interestTagScore = JaccardSimilarity(userInterestTags, candidateInterestTags);
+            double pubTagScore = hasPubTags ? JaccardSimilarity(userPubTags, candidatePubTags) : 0;
+
+            var allCommonTags = userInterestTags.Intersect(candidateInterestTags)
+                .Union(userPubTags.Intersect(candidatePubTags))
+                .ToList();
+
+            double rawScore;
+            if (hasContent)
+                rawScore = 0.40 * contentScore + 0.30 * pubTagScore + 0.30 * interestTagScore;
             else
-                finalScore = tagScore;
+                rawScore = 0.50 * pubTagScore + 0.50 * interestTagScore;
+
+            int activeSignals = (hasContent ? 1 : 0) + (hasPubTags ? 1 : 0) + (interestTagScore > 0 ? 1 : 0);
+            double confidence = activeSignals switch
+            {
+                3 => 1.0,
+                2 => 0.65,
+                1 => 0.35,
+                _ => 0.0
+            };
+            double finalScore = rawScore * confidence;
 
             if (finalScore < 0.01) continue;
 
@@ -218,7 +236,7 @@ public class AiController : ControllerBase
                 candidate.ProfileImageUrl,
                 candidate.IsVerified,
                 Math.Round(finalScore, 4),
-                commonTags
+                allCommonTags
             ));
         }
 
@@ -457,11 +475,14 @@ public class AiController : ControllerBase
 
     // ==================== HELPERS ====================
 
-    /// <summary>
-    /// Returns the highest cosine similarity between any publication of user A
-    /// and any publication of user B. This captures "at least one very similar paper"
-    /// which is more meaningful than comparing averaged vectors.
-    /// </summary>
+    private static double JaccardSimilarity(HashSet<string> setA, HashSet<string> setB)
+    {
+        if (setA.Count == 0 && setB.Count == 0) return 0;
+        int intersection = setA.Count(t => setB.Contains(t));
+        int union = setA.Count + setB.Count - intersection;
+        return union > 0 ? (double)intersection / union : 0;
+    }
+
     private static double MaxPairwiseSimilarity(List<float[]> vectorsA, List<float[]> vectorsB)
     {
         double maxSim = 0;

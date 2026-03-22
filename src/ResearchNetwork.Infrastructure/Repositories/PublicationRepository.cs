@@ -372,6 +372,23 @@ public class PublicationRepository : IPublicationRepository
             .ToDictionary(g => g.Key, g => g.Select(x => x.Vector).ToList());
     }
 
+    public async Task<Dictionary<Guid, HashSet<string>>> GetPublicationTagsByAuthorAsync()
+    {
+        var data = await _context.Publications
+            .SelectMany(
+                p => p.Tags,
+                (p, pt) => new { p.AuthorId, TagName = pt.Tag.Name.ToLower() }
+            )
+            .ToListAsync();
+
+        return data
+            .GroupBy(x => x.AuthorId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(x => x.TagName).ToHashSet()
+            );
+    }
+
     // --- Search ---
 
     public async Task<(IEnumerable<Publication> Items, int TotalCount)> SearchAsync(string query, int page, int pageSize)
