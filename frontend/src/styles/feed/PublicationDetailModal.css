@@ -233,6 +233,24 @@
     color: var(--text-primary);
 }
 
+/* See more / Show less toggle */
+.pub-detail-toggle-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    margin-top: 6px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--heading-color);
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.15s;
+}
+
+.pub-detail-toggle-btn:hover {
+    opacity: 1;
+}
+
 /* DOI */
 .pub-detail-doi {
     margin-bottom: 16px;

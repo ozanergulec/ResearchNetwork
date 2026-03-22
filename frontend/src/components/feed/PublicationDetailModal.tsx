@@ -16,6 +16,11 @@ const PublicationDetailModal: React.FC<PublicationDetailModalProps> = ({ publica
     const [wordHtml, setWordHtml] = useState<string | null>(null);
     const [wordLoading, setWordLoading] = useState(false);
     const [wordError, setWordError] = useState<string | null>(null);
+    const [abstractExpanded, setAbstractExpanded] = useState(false);
+    const [summaryExpanded, setSummaryExpanded] = useState(false);
+    const ABSTRACT_LIMIT = 250;
+    const SUMMARY_LIMIT = 200;
+
     const fileUrl = publication.fileUrl ? `${API_SERVER_URL}${publication.fileUrl}` : null;
     const downloadUrl = publication.fileUrl
         ? `${API_SERVER_URL}/api/publications/download?fileUrl=${encodeURIComponent(publication.fileUrl)}`
@@ -179,7 +184,19 @@ const PublicationDetailModal: React.FC<PublicationDetailModalProps> = ({ publica
                         {publication.abstract && (
                             <div className="pub-detail-abstract">
                                 <h5>Abstract</h5>
-                                <p>{publication.abstract}</p>
+                                <p>
+                                    {abstractExpanded || publication.abstract.length <= ABSTRACT_LIMIT
+                                        ? publication.abstract
+                                        : publication.abstract.substring(0, ABSTRACT_LIMIT) + '...'}
+                                </p>
+                                {publication.abstract.length > ABSTRACT_LIMIT && (
+                                    <button
+                                        className="pub-detail-toggle-btn"
+                                        onClick={() => setAbstractExpanded(!abstractExpanded)}
+                                    >
+                                        {abstractExpanded ? 'Show less' : 'See more'}
+                                    </button>
+                                )}
                             </div>
                         )}
 
@@ -190,7 +207,19 @@ const PublicationDetailModal: React.FC<PublicationDetailModalProps> = ({ publica
                                     <span className="pub-detail-summary-icon">✨</span>
                                     AI Summary
                                 </h5>
-                                <p>{publication.summary}</p>
+                                <p>
+                                    {summaryExpanded || publication.summary.length <= SUMMARY_LIMIT
+                                        ? publication.summary
+                                        : publication.summary.substring(0, SUMMARY_LIMIT) + '...'}
+                                </p>
+                                {publication.summary.length > SUMMARY_LIMIT && (
+                                    <button
+                                        className="pub-detail-toggle-btn"
+                                        onClick={() => setSummaryExpanded(!summaryExpanded)}
+                                    >
+                                        {summaryExpanded ? 'Show less' : 'See more'}
+                                    </button>
+                                )}
                             </div>
                         )}
 
@@ -249,7 +278,7 @@ const PublicationDetailModal: React.FC<PublicationDetailModalProps> = ({ publica
                         )}
                     </div>
 
-                    {/* Right side: Document Preview (first page) */}
+                    {/* Right side: Document Preview */}
                     {fileUrl && (
                         <div className="pub-detail-preview">
                             <h5 className="pub-detail-preview-title">Document Preview</h5>
