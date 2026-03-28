@@ -108,6 +108,10 @@ public class AiController : ControllerBase
         var pdfBytes = await System.IO.File.ReadAllBytesAsync(filePath);
         var result = await _aiService.ProcessPdfAsync(pdfBytes, fileName);
 
+        // Save references to disk
+        var refsJson = System.Text.Json.JsonSerializer.Serialize(result.References);
+        await System.IO.File.WriteAllTextAsync(filePath + ".refs.json", refsJson);
+
         bool needsUpdate = false;
 
         if (!string.IsNullOrEmpty(result.Abstract) && string.IsNullOrEmpty(publication.Abstract))
@@ -288,6 +292,10 @@ public class AiController : ControllerBase
                 var pdfBytes = await System.IO.File.ReadAllBytesAsync(filePath);
                 var pdfResult = await _aiService.ProcessPdfAsync(pdfBytes, fileName);
                 textToAnalyze = pdfResult.Full_text;
+                
+                // Save references to disk so they can be read by CitationGraph
+                var refsJson = System.Text.Json.JsonSerializer.Serialize(pdfResult.References);
+                await System.IO.File.WriteAllTextAsync(filePath + ".refs.json", refsJson);
             }
             else
             {
@@ -339,6 +347,24 @@ public class AiController : ControllerBase
         var edges = new List<CitationGraphEdgeDto>();
         var addedRefs = new HashSet<int>();
 
+        var referencesList = new List<string>();
+        if (!string.IsNullOrEmpty(publication.FileUrl))
+        {
+            var fileName = Path.GetFileName(publication.FileUrl);
+            var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "publications", fileName);
+            var refsFilePath = filePath + ".refs.json";
+            
+            if (System.IO.File.Exists(refsFilePath))
+            {
+                try
+                {
+                    var refsJson = await System.IO.File.ReadAllTextAsync(refsFilePath);
+                    referencesList = System.Text.Json.JsonSerializer.Deserialize<List<string>>(refsJson) ?? new List<string>();
+                }
+                catch { } // Ignore errors if json is malformed
+            }
+        }
+
         foreach (var item in items)
         {
             foreach (var citNum in item.CitationNumbers)
@@ -346,7 +372,16 @@ public class AiController : ControllerBase
                 if (addedRefs.Add(citNum))
                 {
                     var refNodeId = GenerateDeterministicGuid(publication.Id, citNum);
-                    nodes.Add(new CitationGraphNodeDto(refNodeId, $"Reference [{citNum}]", "reference"));
+                    string refTitle = $"Reference [{citNum}]";
+                    
+                    if (citNum > 0 && citNum <= referencesList.Count)
+                    {
+                        var rawRef = referencesList[citNum - 1];
+                        var truncated = rawRef.Length > 80 ? rawRef.Substring(0, 80) + "..." : rawRef;
+                        refTitle = $"[{citNum}] {truncated}";
+                    }
+
+                    nodes.Add(new CitationGraphNodeDto(refNodeId, refTitle, "reference"));
                 }
 
                 var edgeTargetId = GenerateDeterministicGuid(publication.Id, citNum);
@@ -354,7 +389,8 @@ public class AiController : ControllerBase
                     publication.Id,
                     edgeTargetId,
                     item.Intent,
-                    Math.Round(item.Confidence, 4)
+                    Math.Round(item.Confidence, 4),
+                    item.Sentence
                 ));
             }
         }

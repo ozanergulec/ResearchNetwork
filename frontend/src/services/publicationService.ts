@@ -30,6 +30,7 @@ export interface CitationGraphEdge {
     target: string;
     intent?: string;
     confidence?: number;
+    sentence?: string;
 }
 
 export interface CitationGraph {

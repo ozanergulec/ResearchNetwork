@@ -77,7 +77,8 @@ public record CitationGraphEdgeDto(
     Guid Source,
     Guid Target,
     string? Intent,
-    double? Confidence
+    double? Confidence,
+    string? Sentence
 );
 
 public record CitationGraphDto(
