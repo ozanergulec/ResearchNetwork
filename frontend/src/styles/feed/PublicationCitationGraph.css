@@ -1,0 +1,68 @@
+.citation-graph-container {
+    border: 1px solid rgba(42, 31, 29, 0.1);
+    border-radius: 8px;
+    overflow: hidden;
+    position: relative;
+    background: #f8f9fa;
+    margin-top: 10px;
+}
+
+.citation-graph-loading,
+.citation-graph-error,
+.citation-graph-empty {
+    padding: 40px;
+    text-align: center;
+    color: #666;
+    background: rgba(0, 0, 0, 0.02);
+    border-radius: 8px;
+    border: 1px dashed rgba(0, 0, 0, 0.1);
+    margin-top: 10px;
+}
+
+.citation-graph-error {
+    color: #e74c3c;
+    background: rgba(231, 76, 60, 0.05);
+    border-color: rgba(231, 76, 60, 0.2);
+}
+
+.citation-graph-legend {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 8px 12px;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.75rem;
+    pointer-events: none;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #333;
+}
+
+.legend-color {
+    width: 12px;
+    height: 12px;
+    display: inline-block;
+    border-radius: 3px;
+}
+
+.legend-color.support { background: #27ae60; }
+.legend-color.contradict { background: #c0392b; }
+.legend-color.method { background: #8e44ad; }
+.legend-color.extend { background: #2980b9; }
+.legend-color.neutral { background: #7f8c8d; }
+
+.citation-graph-wrapper {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    overflow: hidden;
+}

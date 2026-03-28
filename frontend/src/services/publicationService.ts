@@ -18,6 +18,25 @@ export interface CitationAnalysisEntry {
     confidence: number;
 }
 
+// Citation Graph Interfaces
+export interface CitationGraphNode {
+    id: string;
+    title: string;
+    type: string; // 'source' or 'reference'
+}
+
+export interface CitationGraphEdge {
+    source: string;
+    target: string;
+    intent?: string;
+    confidence?: number;
+}
+
+export interface CitationGraph {
+    nodes: CitationGraphNode[];
+    edges: CitationGraphEdge[];
+}
+
 // Publication Interface (matches backend PublicationDto)
 export interface Publication {
     id: string;
@@ -101,6 +120,9 @@ export const publicationsApi = {
 
     getLatestByAuthor: (authorId: string, count: number = 3) =>
         api.get<Publication[]>(`/publications/author/${authorId}/latest?count=${count}`),
+
+    getCitationGraph: (publicationId: string) =>
+        api.get<CitationGraph>(`/ai/publications/${publicationId}/citation-graph`),
 
     uploadFile: async (file: File) => {
         const formData = new FormData();
