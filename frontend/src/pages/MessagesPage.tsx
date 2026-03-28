@@ -23,6 +23,12 @@ const MessagesPage: React.FC = () => {
     const [loadingMessages, setLoadingMessages] = useState(false);
     const [sending, setSending] = useState(false);
 
+    // Pagination
+    const [currentPage, setCurrentPage] = useState(1);
+    const [hasMore, setHasMore] = useState(false);
+    const [loadingOlder, setLoadingOlder] = useState(false);
+    const chatContainerRef = useRef<HTMLDivElement>(null);
+
     // New chat modal
     const [showNewChat, setShowNewChat] = useState(false);
     const [contactSearch, setContactSearch] = useState('');
@@ -93,9 +99,11 @@ const MessagesPage: React.FC = () => {
 
     const fetchMessages = useCallback(async (userId: string) => {
         setLoadingMessages(true);
+        setCurrentPage(1);
         try {
-            const res = await messageApi.getConversation(userId);
-            setMessages(res.data);
+            const res = await messageApi.getConversation(userId, 1, 30);
+            setMessages(res.data.items);
+            setHasMore(res.data.hasMore);
             setConversations(prev =>
                 prev.map(c => c.userId === userId ? { ...c, unreadCount: 0 } : c)
             );
@@ -106,10 +114,42 @@ const MessagesPage: React.FC = () => {
         }
     }, []);
 
+    const loadOlderMessages = async () => {
+        if (!selectedUserId || loadingOlder || !hasMore) return;
+        setLoadingOlder(true);
+        const nextPage = currentPage + 1;
+
+        const container = chatContainerRef.current;
+        const prevScrollHeight = container?.scrollHeight ?? 0;
+
+        try {
+            const res = await messageApi.getConversation(selectedUserId, nextPage, 30);
+            setMessages(prev => [...res.data.items, ...prev]);
+            setCurrentPage(nextPage);
+            setHasMore(res.data.hasMore);
+
+            requestAnimationFrame(() => {
+                if (container) {
+                    container.scrollTop = container.scrollHeight - prevScrollHeight;
+                }
+            });
+        } catch (err) {
+            console.error('Failed to load older messages', err);
+        } finally {
+            setLoadingOlder(false);
+        }
+    };
+
     const pollMessages = useCallback(async (userId: string) => {
         try {
-            const res = await messageApi.getConversation(userId);
-            setMessages(res.data);
+            const res = await messageApi.getConversation(userId, 1, 30);
+            const latestItems = res.data.items;
+            setMessages(prev => {
+                const existingIds = new Set(prev.map(m => m.id));
+                const newMsgs = latestItems.filter(m => !existingIds.has(m.id));
+                if (newMsgs.length === 0) return prev;
+                return [...prev, ...newMsgs];
+            });
             fetchConversations();
         } catch {
             // Silently fail
@@ -419,7 +459,7 @@ const MessagesPage: React.FC = () => {
                                 </div>
 
                                 {/* Messages */}
-                                <div className="chat-messages">
+                                <div className="chat-messages" ref={chatContainerRef}>
                                     {loadingMessages ? (
                                         <div className="chat-loading">
                                             <div className="chat-spinner" />
@@ -431,6 +471,21 @@ const MessagesPage: React.FC = () => {
                                         </div>
                                     ) : (
                                         <>
+                                            {hasMore && (
+                                                <div className="chat-load-older">
+                                                    <button
+                                                        className="chat-load-older-btn"
+                                                        onClick={loadOlderMessages}
+                                                        disabled={loadingOlder}
+                                                    >
+                                                        {loadingOlder ? (
+                                                            <span className="chat-load-older-spinner" />
+                                                        ) : (
+                                                            t.messages.loadOlder || 'Load older messages'
+                                                        )}
+                                                    </button>
+                                                </div>
+                                            )}
                                             {messages.map((msg, idx) => {
                                                 const isMine = msg.senderId === currentUser.id;
                                                 const prevMsg = messages[idx - 1];

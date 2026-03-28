@@ -85,12 +85,19 @@ public class MessagesController : ControllerBase
     }
 
     [HttpGet("{otherUserId:guid}")]
-    public async Task<ActionResult<IEnumerable<MessageDto>>> GetConversation(Guid otherUserId)
+    public async Task<ActionResult<PagedResult<MessageDto>>> GetConversation(
+        Guid otherUserId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 30)
     {
         var userId = GetCurrentUserId();
         if (userId == null) return Unauthorized();
 
-        var messages = await _messageRepository.GetConversationAsync(userId.Value, otherUserId);
+        if (page < 1) page = 1;
+        if (pageSize < 1) pageSize = 30;
+        if (pageSize > 100) pageSize = 100;
+
+        var (messages, totalCount) = await _messageRepository.GetConversationAsync(userId.Value, otherUserId, page, pageSize);
 
         await _messageRepository.MarkConversationAsReadAsync(userId.Value, otherUserId);
 
@@ -107,7 +114,13 @@ public class MessagesController : ControllerBase
             MapPublication(m.AttachedPublication)
         ));
 
-        return Ok(dtos);
+        return Ok(new PagedResult<MessageDto>(
+            dtos,
+            totalCount,
+            page,
+            pageSize,
+            page * pageSize < totalCount
+        ));
     }
 
     [HttpPost]

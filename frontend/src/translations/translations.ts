@@ -221,6 +221,7 @@ export interface Translations {
         noMyPubs: string;
         noTheirPubs: string;
         addComment: string;
+        loadOlder: string;
     };
 }
 
@@ -435,6 +436,7 @@ const en: Translations = {
         noMyPubs: 'You have no publications yet',
         noTheirPubs: 'No publications found',
         addComment: 'Add a comment about this publication...',
+        loadOlder: 'Load older messages',
     },
 };
 
@@ -649,6 +651,7 @@ const tr: Translations = {
         noMyPubs: 'Henüz yayınınız yok',
         noTheirPubs: 'Yayın bulunamadı',
         addComment: 'Bu yayın hakkında yorum ekle...',
+        loadOlder: 'Eski mesajları yükle',
     },
 };
 

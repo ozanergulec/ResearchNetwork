@@ -250,18 +250,30 @@ public class AiController : ControllerBase
     // ==================== CITATION ANALYSIS ====================
 
     [HttpGet("publications/{id:guid}/citation-analysis")]
-    public async Task<ActionResult<List<CitationAnalysisDto>>> GetCitationAnalysis(Guid id)
+    public async Task<ActionResult<PagedResult<CitationAnalysisDto>>> GetCitationAnalysis(
+        Guid id,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10)
     {
+        if (page < 1) page = 1;
+        if (pageSize < 1) pageSize = 10;
+        if (pageSize > 50) pageSize = 50;
+
         var existing = await _publicationRepository.GetCitationAnalysisAsync(id);
         if (existing != null)
         {
-            var items = existing.GetItems().Select(i => new CitationAnalysisDto(
-                i.Sentence, i.CitationNumbers, i.Intent, i.Confidence
-            )).ToList();
-            return Ok(items);
+            var allItems = existing.GetItems();
+            var totalCount = allItems.Count;
+            var paged = allItems
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(i => new CitationAnalysisDto(i.Sentence, i.CitationNumbers, i.Intent, i.Confidence))
+                .ToList();
+
+            return Ok(new PagedResult<CitationAnalysisDto>(paged, totalCount, page, pageSize, page * pageSize < totalCount));
         }
 
-        return Ok(new List<CitationAnalysisDto>());
+        return Ok(new PagedResult<CitationAnalysisDto>(new List<CitationAnalysisDto>(), 0, page, pageSize, false));
     }
 
     [Authorize]

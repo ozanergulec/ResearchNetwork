@@ -37,9 +37,18 @@ export interface ConversationData {
     unreadCount: number;
 }
 
+export interface PagedMessages {
+    items: MessageData[];
+    totalCount: number;
+    page: number;
+    pageSize: number;
+    hasMore: boolean;
+}
+
 export const messageApi = {
     getConversations: () => api.get<ConversationData[]>('/messages/conversations'),
-    getConversation: (otherUserId: string) => api.get<MessageData[]>(`/messages/${otherUserId}`),
+    getConversation: (otherUserId: string, page = 1, pageSize = 30) =>
+        api.get<PagedMessages>(`/messages/${otherUserId}?page=${page}&pageSize=${pageSize}`),
     sendMessage: (receiverId: string, content: string, attachedPublicationId?: string) =>
         api.post<MessageData>('/messages', {
             receiverId,

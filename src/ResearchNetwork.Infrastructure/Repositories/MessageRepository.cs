@@ -14,18 +14,28 @@ public class MessageRepository : IMessageRepository
         _context = context;
     }
 
-    public async Task<IEnumerable<Message>> GetConversationAsync(Guid userId1, Guid userId2)
+    public async Task<(IEnumerable<Message> Messages, int TotalCount)> GetConversationAsync(Guid userId1, Guid userId2, int page, int pageSize)
     {
-        return await _context.Messages
+        var query = _context.Messages
             .Include(m => m.Sender)
             .Include(m => m.Receiver)
             .Include(m => m.AttachedPublication)
                 .ThenInclude(p => p != null ? p.Author : null)
             .Where(m =>
                 (m.SenderId == userId1 && m.ReceiverId == userId2) ||
-                (m.SenderId == userId2 && m.ReceiverId == userId1))
+                (m.SenderId == userId2 && m.ReceiverId == userId1));
+
+        var totalCount = await query.CountAsync();
+
+        // En yeni mesajlardan page kadar atla, sonra sırala (eski→yeni)
+        var messages = await query
+            .OrderByDescending(m => m.SentAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .OrderBy(m => m.SentAt)
             .ToListAsync();
+
+        return (messages, totalCount);
     }
 
     public async Task<IEnumerable<(Guid OtherUserId, Message LastMessage, int UnreadCount)>> GetConversationsAsync(Guid userId)

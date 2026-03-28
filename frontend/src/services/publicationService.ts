@@ -122,6 +122,9 @@ export const publicationsApi = {
     getLatestByAuthor: (authorId: string, count: number = 3) =>
         api.get<Publication[]>(`/publications/author/${authorId}/latest?count=${count}`),
 
+    getCitationAnalysis: (publicationId: string, page: number = 1, pageSize: number = 10) =>
+        api.get<PagedResult<CitationAnalysisEntry>>(`/ai/publications/${publicationId}/citation-analysis?page=${page}&pageSize=${pageSize}`),
+
     getCitationGraph: (publicationId: string) =>
         api.get<CitationGraph>(`/ai/publications/${publicationId}/citation-graph`),
 
