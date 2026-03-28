@@ -17,12 +17,27 @@ interface IntentStyle {
 }
 
 const INTENTS: Record<string, IntentStyle> = {
-    support:    { label: 'Supports',    fill: '#dcfce7', stroke: '#22c55e', text: '#15803d' },
-    contradict: { label: 'Contradicts', fill: '#fee2e2', stroke: '#ef4444', text: '#b91c1c' },
-    dispute:    { label: 'Contradicts', fill: '#fee2e2', stroke: '#ef4444', text: '#b91c1c' },
-    method:     { label: 'Uses Method', fill: '#ede9fe', stroke: '#8b5cf6', text: '#6d28d9' },
-    use:        { label: 'Uses Method', fill: '#ede9fe', stroke: '#8b5cf6', text: '#6d28d9' },
-    extend:     { label: 'Extends',     fill: '#dbeafe', stroke: '#3b82f6', text: '#1d4ed8' },
+    // Green family — positive/supporting
+    support:     { label: 'Supports',       fill: '#dcfce7', stroke: '#22c55e', text: '#15803d' },
+    evidence:    { label: 'Provides Evidence', fill: '#d1fae5', stroke: '#10b981', text: '#065f46' },
+    replicate:   { label: 'Replicates',     fill: '#ccfbf1', stroke: '#14b8a6', text: '#0f766e' },
+
+    // Red family — negative/critical
+    contradict:  { label: 'Contradicts',    fill: '#fee2e2', stroke: '#ef4444', text: '#b91c1c' },
+    dispute:     { label: 'Contradicts',    fill: '#fee2e2', stroke: '#ef4444', text: '#b91c1c' },
+    critique:    { label: 'Critiques',      fill: '#fff1f2', stroke: '#f43f5e', text: '#be123c' },
+    limitation:  { label: 'Identifies Limitations', fill: '#fef2f2', stroke: '#f87171', text: '#991b1b' },
+    alternative: { label: 'Proposes Alternative',   fill: '#fff7ed', stroke: '#f97316', text: '#c2410c' },
+
+    // Purple/blue family — methodology/extension
+    method:      { label: 'Uses Method',    fill: '#ede9fe', stroke: '#8b5cf6', text: '#6d28d9' },
+    use:         { label: 'Uses Method',    fill: '#ede9fe', stroke: '#8b5cf6', text: '#6d28d9' },
+    extend:      { label: 'Extends',        fill: '#dbeafe', stroke: '#3b82f6', text: '#1d4ed8' },
+    framework:   { label: 'Builds Framework', fill: '#e0e7ff', stroke: '#6366f1', text: '#4338ca' },
+
+    // Gray family — neutral
+    background:  { label: 'Background',     fill: '#f3f4f6', stroke: '#9ca3af', text: '#6b7280' },
+    compare:     { label: 'Compares With',  fill: '#fef9c3', stroke: '#eab308', text: '#a16207' },
 };
 
 function getStyle(intent?: string): IntentStyle {
@@ -358,9 +373,17 @@ const PublicationCitationGraph: React.FC<PublicationCitationGraphProps> = ({ pub
                         </div>
                         <div className="cg-legend-bar">
                             <div className="cg-legend-item"><span style={{ background: '#22c55e' }}></span> Supports</div>
+                            <div className="cg-legend-item"><span style={{ background: '#10b981' }}></span> Evidence</div>
+                            <div className="cg-legend-item"><span style={{ background: '#14b8a6' }}></span> Replicates</div>
                             <div className="cg-legend-item"><span style={{ background: '#ef4444' }}></span> Contradicts</div>
-                            <div className="cg-legend-item"><span style={{ background: '#8b5cf6' }}></span> Uses Method</div>
+                            <div className="cg-legend-item"><span style={{ background: '#f43f5e' }}></span> Critiques</div>
+                            <div className="cg-legend-item"><span style={{ background: '#f87171' }}></span> Limitations</div>
+                            <div className="cg-legend-item"><span style={{ background: '#f97316' }}></span> Alternative</div>
+                            <div className="cg-legend-item"><span style={{ background: '#8b5cf6' }}></span> Method</div>
                             <div className="cg-legend-item"><span style={{ background: '#3b82f6' }}></span> Extends</div>
+                            <div className="cg-legend-item"><span style={{ background: '#6366f1' }}></span> Framework</div>
+                            <div className="cg-legend-item"><span style={{ background: '#eab308' }}></span> Compares</div>
+                            <div className="cg-legend-item"><span style={{ background: '#9ca3af' }}></span> Background</div>
                         </div>
                     </div>
                 </div>

@@ -9,6 +9,12 @@ INTENT_LABELS = [
     "supports findings of",
     "contradicts findings of",
     "extends work of",
+    "critiques approach of",
+    "builds theoretical framework from",
+    "provides empirical evidence for",
+    "identifies limitations of",
+    "proposes alternative to",
+    "replicates study of",
 ]
 
 

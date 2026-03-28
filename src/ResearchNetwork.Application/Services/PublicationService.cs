@@ -1,6 +1,7 @@
 using ResearchNetwork.Application.DTOs;
 using ResearchNetwork.Application.Interfaces;
 using ResearchNetwork.Domain.Entities;
+using ResearchNetwork.Domain.Enums;
 
 namespace ResearchNetwork.Application.Services;
 
@@ -10,17 +11,20 @@ public class PublicationService : IPublicationService
     private readonly ITagRepository _tagRepository;
     private readonly IUserRepository _userRepository;
     private readonly IAiService _aiService;
+    private readonly INotificationRepository _notificationRepository;
 
     public PublicationService(
         IPublicationRepository publicationRepository,
         ITagRepository tagRepository,
         IUserRepository userRepository,
-        IAiService aiService)
+        IAiService aiService,
+        INotificationRepository notificationRepository)
     {
         _publicationRepository = publicationRepository;
         _tagRepository = tagRepository;
         _userRepository = userRepository;
         _aiService = aiService;
+        _notificationRepository = notificationRepository;
     }
 
     public async Task<Publication> CreatePublicationAsync(Guid authorId, CreatePublicationDto dto)
@@ -61,6 +65,9 @@ public class PublicationService : IPublicationService
         await _publicationRepository.CreateAsync(publication);
 
         await GenerateAiContentAsync(publication);
+
+        // Send notifications to users whose interests match this publication's tags
+        _ = Task.Run(() => SendTagMatchNotificationsAsync(publication, author));
 
         return publication;
     }
@@ -258,5 +265,67 @@ public class PublicationService : IPublicationService
         }
 
         await Task.CompletedTask;
+    }
+
+    private async Task SendTagMatchNotificationsAsync(Publication publication, User author)
+    {
+        try
+        {
+            var publicationTagNames = publication.Tags
+                .Select(pt => pt.Tag.Name.ToLower())
+                .ToHashSet();
+
+            if (publicationTagNames.Count == 0) return;
+
+            var allUsers = await _userRepository.GetAllAsync();
+
+            foreach (var user in allUsers)
+            {
+                // Don't notify the author about their own publication
+                if (user.Id == author.Id) continue;
+
+                // Check user's interest tags
+                var userInterestTags = user.Tags
+                    .Select(ut => ut.Tag.Name.ToLower())
+                    .ToHashSet();
+
+                // Check user's publication tags
+                var userPublicationTags = user.Publications
+                    .SelectMany(p => p.Tags)
+                    .Select(pt => pt.Tag.Name.ToLower())
+                    .ToHashSet();
+
+                // Combine both sets
+                var allUserTags = new HashSet<string>(userInterestTags);
+                allUserTags.UnionWith(userPublicationTags);
+
+                // Find matching tags
+                var matchingTags = publicationTagNames
+                    .Intersect(allUserTags)
+                    .ToList();
+
+                if (matchingTags.Count == 0) continue;
+
+                var tagList = string.Join(", ", matchingTags.Take(3));
+                var extra = matchingTags.Count > 3 ? $" +{matchingTags.Count - 3} more" : "";
+
+                var notification = new Notification(
+                    userId: user.Id,
+                    title: "New publication matching your interests",
+                    message: $"\"{publication.Title}\" was published by {author.FullName}. Matching tags: {tagList}{extra}",
+                    type: NotificationType.Recommendation,
+                    targetUrl: $"/home?pubId={publication.Id}",
+                    actorId: author.Id,
+                    actorName: author.FullName,
+                    actorProfileImageUrl: author.ProfileImageUrl
+                );
+
+                await _notificationRepository.AddAsync(notification);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to send tag-match notifications: {ex.Message}");
+        }
     }
 }
