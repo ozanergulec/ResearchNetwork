@@ -1,5 +1,17 @@
 import api from './apiClient';
 
+export interface AttachedPublicationData {
+    id: string;
+    title: string;
+    abstract: string | null;
+    authorName: string;
+    authorProfileImageUrl: string | null;
+    authorIsVerified: boolean;
+    averageRating: number;
+    citationCount: number;
+    publishedDate: string | null;
+}
+
 export interface MessageData {
     id: string;
     senderId: string;
@@ -10,6 +22,7 @@ export interface MessageData {
     content: string;
     sentAt: string;
     isRead: boolean;
+    attachedPublication: AttachedPublicationData | null;
 }
 
 export interface ConversationData {
@@ -27,8 +40,12 @@ export interface ConversationData {
 export const messageApi = {
     getConversations: () => api.get<ConversationData[]>('/messages/conversations'),
     getConversation: (otherUserId: string) => api.get<MessageData[]>(`/messages/${otherUserId}`),
-    sendMessage: (receiverId: string, content: string) =>
-        api.post<MessageData>('/messages', { receiverId, content }),
+    sendMessage: (receiverId: string, content: string, attachedPublicationId?: string) =>
+        api.post<MessageData>('/messages', {
+            receiverId,
+            content,
+            attachedPublicationId: attachedPublicationId ?? null,
+        }),
     getUnreadCount: () => api.get<{ count: number }>('/messages/unread-count'),
     markAsRead: (otherUserId: string) => api.put(`/messages/${otherUserId}/read`),
 };

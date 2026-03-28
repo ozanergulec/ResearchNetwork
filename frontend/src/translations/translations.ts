@@ -213,6 +213,14 @@ export interface Translations {
         noContactsHint: string;
         noContactsFound: string;
         contactsSectionLabel: string;
+        attachPublication: string;
+        attachTitle: string;
+        myPublications: string;
+        theirPublications: string;
+        searchPublications: string;
+        noMyPubs: string;
+        noTheirPubs: string;
+        addComment: string;
     };
 }
 
@@ -419,6 +427,14 @@ const en: Translations = {
         noContactsHint: 'Follow researchers to start conversations',
         noContactsFound: 'No results found',
         contactsSectionLabel: 'Followers & Following',
+        attachPublication: 'Attach Publication',
+        attachTitle: 'Attach a Publication',
+        myPublications: 'My Publications',
+        theirPublications: 'Their Publications',
+        searchPublications: 'Search publications...',
+        noMyPubs: 'You have no publications yet',
+        noTheirPubs: 'No publications found',
+        addComment: 'Add a comment about this publication...',
     },
 };
 
@@ -625,6 +641,14 @@ const tr: Translations = {
         noContactsHint: 'Konuşma başlatmak için araştırmacıları takip edin',
         noContactsFound: 'Sonuç bulunamadı',
         contactsSectionLabel: 'Takipçiler & Takip Edilenler',
+        attachPublication: 'Yayın Ekle',
+        attachTitle: 'Yayın Ekle',
+        myPublications: 'Yayınlarım',
+        theirPublications: 'Yayınları',
+        searchPublications: 'Yayın ara...',
+        noMyPubs: 'Henüz yayınınız yok',
+        noTheirPubs: 'Yayın bulunamadı',
+        addComment: 'Bu yayın hakkında yorum ekle...',
     },
 };
 

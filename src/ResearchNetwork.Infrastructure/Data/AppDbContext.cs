@@ -273,6 +273,12 @@ public class AppDbContext : DbContext
                   .WithMany()
                   .HasForeignKey(e => e.ReceiverId)
                   .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.AttachedPublication)
+                  .WithMany()
+                  .HasForeignKey(e => e.AttachedPublicationId)
+                  .OnDelete(DeleteBehavior.SetNull)
+                  .IsRequired(false);
         });
 
         // ReviewRating

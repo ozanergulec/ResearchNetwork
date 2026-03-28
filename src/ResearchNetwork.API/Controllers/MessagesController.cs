@@ -14,11 +14,16 @@ public class MessagesController : ControllerBase
 {
     private readonly IMessageRepository _messageRepository;
     private readonly IUserRepository _userRepository;
+    private readonly IPublicationRepository _publicationRepository;
 
-    public MessagesController(IMessageRepository messageRepository, IUserRepository userRepository)
+    public MessagesController(
+        IMessageRepository messageRepository,
+        IUserRepository userRepository,
+        IPublicationRepository publicationRepository)
     {
         _messageRepository = messageRepository;
         _userRepository = userRepository;
+        _publicationRepository = publicationRepository;
     }
 
     private Guid? GetCurrentUserId()
@@ -27,6 +32,22 @@ public class MessagesController : ControllerBase
         if (userIdClaim != null && Guid.TryParse(userIdClaim, out var userId))
             return userId;
         return null;
+    }
+
+    private static AttachedPublicationDto? MapPublication(Publication? pub)
+    {
+        if (pub == null) return null;
+        return new AttachedPublicationDto(
+            pub.Id,
+            pub.Title,
+            pub.Abstract,
+            pub.Author.FullName,
+            pub.Author.ProfileImageUrl,
+            pub.Author.IsVerified,
+            pub.AverageRating,
+            pub.CitationCount,
+            pub.PublishedDate?.ToString("yyyy-MM-dd")
+        );
     }
 
     [HttpGet("conversations")]
@@ -43,6 +64,10 @@ public class MessagesController : ControllerBase
             var otherUser = await _userRepository.GetByIdAsync(otherUserId);
             if (otherUser == null) continue;
 
+            var lastMsgText = lastMessage.AttachedPublicationId.HasValue && string.IsNullOrWhiteSpace(lastMessage.Content)
+                ? "📎 Publication attached"
+                : lastMessage.Content;
+
             result.Add(new ConversationDto(
                 otherUser.Id,
                 otherUser.FullName,
@@ -50,7 +75,7 @@ public class MessagesController : ControllerBase
                 otherUser.IsVerified,
                 otherUser.Title,
                 otherUser.Institution,
-                lastMessage.Content,
+                lastMsgText,
                 lastMessage.SentAt,
                 unreadCount
             ));
@@ -78,7 +103,8 @@ public class MessagesController : ControllerBase
             m.Receiver.FullName,
             m.Content,
             m.SentAt,
-            m.IsRead
+            m.IsRead,
+            MapPublication(m.AttachedPublication)
         ));
 
         return Ok(dtos);
@@ -90,8 +116,8 @@ public class MessagesController : ControllerBase
         var userId = GetCurrentUserId();
         if (userId == null) return Unauthorized();
 
-        if (string.IsNullOrWhiteSpace(dto.Content))
-            return BadRequest("Message content cannot be empty.");
+        if (string.IsNullOrWhiteSpace(dto.Content) && dto.AttachedPublicationId == null)
+            return BadRequest("Message must have content or an attached publication.");
 
         if (userId == dto.ReceiverId)
             return BadRequest("You cannot send a message to yourself.");
@@ -102,7 +128,15 @@ public class MessagesController : ControllerBase
         var sender = await _userRepository.GetByIdAsync(userId.Value);
         if (sender == null) return Unauthorized();
 
-        var message = new Message(userId.Value, dto.ReceiverId, dto.Content.Trim());
+        Publication? attachedPub = null;
+        if (dto.AttachedPublicationId.HasValue)
+        {
+            attachedPub = await _publicationRepository.GetByIdAsync(dto.AttachedPublicationId.Value);
+            if (attachedPub == null)
+                return NotFound("Attached publication not found.");
+        }
+
+        var message = new Message(userId.Value, dto.ReceiverId, dto.Content?.Trim() ?? string.Empty, dto.AttachedPublicationId);
         await _messageRepository.SendAsync(message);
 
         var result = new MessageDto(
@@ -114,7 +148,8 @@ public class MessagesController : ControllerBase
             receiver.FullName,
             message.Content,
             message.SentAt,
-            message.IsRead
+            message.IsRead,
+            MapPublication(attachedPub)
         );
 
         return Ok(result);

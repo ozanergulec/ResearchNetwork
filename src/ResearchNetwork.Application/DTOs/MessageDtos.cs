@@ -1,5 +1,17 @@
 namespace ResearchNetwork.Application.DTOs;
 
+public record AttachedPublicationDto(
+    Guid Id,
+    string Title,
+    string? Abstract,
+    string AuthorName,
+    string? AuthorProfileImageUrl,
+    bool AuthorIsVerified,
+    double AverageRating,
+    int CitationCount,
+    string? PublishedDate
+);
+
 public record MessageDto(
     Guid Id,
     Guid SenderId,
@@ -9,7 +21,8 @@ public record MessageDto(
     string ReceiverName,
     string Content,
     DateTime SentAt,
-    bool IsRead
+    bool IsRead,
+    AttachedPublicationDto? AttachedPublication
 );
 
 public record ConversationDto(
@@ -24,4 +37,4 @@ public record ConversationDto(
     int UnreadCount
 );
 
-public record SendMessageDto(Guid ReceiverId, string Content);
+public record SendMessageDto(Guid ReceiverId, string Content, Guid? AttachedPublicationId = null);

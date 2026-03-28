@@ -19,6 +19,8 @@ public class MessageRepository : IMessageRepository
         return await _context.Messages
             .Include(m => m.Sender)
             .Include(m => m.Receiver)
+            .Include(m => m.AttachedPublication)
+                .ThenInclude(p => p != null ? p.Author : null)
             .Where(m =>
                 (m.SenderId == userId1 && m.ReceiverId == userId2) ||
                 (m.SenderId == userId2 && m.ReceiverId == userId1))

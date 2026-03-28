@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Navbar from '../components/common/Navbar';
 import { HomeProfileSidebar } from '../components/feed';
+import PublicationDetailModal from '../components/feed/PublicationDetailModal';
 import { messageApi, type ConversationData, type MessageData } from '../services/messageService';
 import { usersApi } from '../services/userService';
-import type { UserSummary } from '../services/publicationService';
+import { publicationsApi, type Publication, type UserSummary } from '../services/publicationService';
 import { API_SERVER_URL } from '../services/apiClient';
 import { useTranslation } from '../translations/translations';
 import '../styles/pages/MessagesPage.css';
@@ -28,10 +29,24 @@ const MessagesPage: React.FC = () => {
     const [contacts, setContacts] = useState<UserSummary[]>([]);
     const [loadingContacts, setLoadingContacts] = useState(false);
 
+    // Publication attach picker
+    const [showAttachPicker, setShowAttachPicker] = useState(false);
+    const [attachTab, setAttachTab] = useState<'mine' | 'theirs'>('mine');
+    const [attachSearch, setAttachSearch] = useState('');
+    const [myPublications, setMyPublications] = useState<Publication[]>([]);
+    const [theirPublications, setTheirPublications] = useState<Publication[]>([]);
+    const [loadingPubs, setLoadingPubs] = useState(false);
+    const [attachedPublication, setAttachedPublication] = useState<Publication | null>(null);
+
+    // Publication detail modal (click on card in chat)
+    const [modalPublication, setModalPublication] = useState<Publication | null>(null);
+    const [loadingModal, setLoadingModal] = useState(false);
+
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const searchInputRef = useRef<HTMLInputElement>(null);
+    const attachPickerRef = useRef<HTMLDivElement>(null);
 
     const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
 
@@ -159,15 +174,66 @@ const MessagesPage: React.FC = () => {
         (u.title ?? '').toLowerCase().includes(contactSearch.toLowerCase())
     );
 
+    // Attach picker
+    const openAttachPicker = async () => {
+        if (!selectedUserId) return;
+        setShowAttachPicker(true);
+        setAttachSearch('');
+        setAttachTab('mine');
+        setLoadingPubs(true);
+        try {
+            const [myRes, theirRes] = await Promise.all([
+                publicationsApi.getByAuthor(currentUser.id, 1, 50),
+                publicationsApi.getByAuthor(selectedUserId, 1, 50),
+            ]);
+            setMyPublications(myRes.data.items);
+            setTheirPublications(theirRes.data.items);
+        } catch (err) {
+            console.error('Failed to load publications', err);
+        } finally {
+            setLoadingPubs(false);
+        }
+    };
+
+    const closeAttachPicker = () => {
+        setShowAttachPicker(false);
+        setAttachSearch('');
+    };
+
+    const handleSelectPublication = (pub: Publication) => {
+        setAttachedPublication(pub);
+        closeAttachPicker();
+        textareaRef.current?.focus();
+    };
+
+    const openPublicationModal = async (pubId: string) => {
+        setLoadingModal(true);
+        try {
+            const res = await publicationsApi.getById(pubId);
+            setModalPublication(res.data);
+        } catch (err) {
+            console.error('Failed to load publication', err);
+        } finally {
+            setLoadingModal(false);
+        }
+    };
+
+    const activePubs = (attachTab === 'mine' ? myPublications : theirPublications).filter(p =>
+        p.title.toLowerCase().includes(attachSearch.toLowerCase()) ||
+        (p.abstract ?? '').toLowerCase().includes(attachSearch.toLowerCase())
+    );
+
     const handleSendMessage = async () => {
-        if (!newMessage.trim() || !selectedUserId || sending) return;
+        if ((!newMessage.trim() && !attachedPublication) || !selectedUserId || sending) return;
 
         const content = newMessage.trim();
+        const pubId = attachedPublication?.id;
         setNewMessage('');
+        setAttachedPublication(null);
         setSending(true);
 
         try {
-            const res = await messageApi.sendMessage(selectedUserId, content);
+            const res = await messageApi.sendMessage(selectedUserId, content, pubId);
             setMessages(prev => [...prev, res.data]);
             fetchConversations();
         } catch (err) {
@@ -396,9 +462,48 @@ const MessagesPage: React.FC = () => {
                                                                 </div>
                                                             )}
                                                             <div className="chat-bubble-wrap">
-                                                                <div className={`chat-bubble ${isMine ? 'mine' : 'theirs'}`}>
-                                                                    {msg.content}
-                                                                </div>
+                                                                {/* Publication card */}
+                                                                {msg.attachedPublication && (
+                                                                    <div
+                                                                        className={`chat-pub-card ${isMine ? 'mine' : 'theirs'} ${loadingModal ? 'loading' : ''}`}
+                                                                        onClick={() => openPublicationModal(msg.attachedPublication!.id)}
+                                                                    >
+                                                                        <div className="chat-pub-card-top">
+                                                                            <span className="chat-pub-card-icon">📄</span>
+                                                                            <div className="chat-pub-card-info">
+                                                                                <span className="chat-pub-card-title">{msg.attachedPublication.title}</span>
+                                                                                <span className="chat-pub-card-author">
+                                                                                    {msg.attachedPublication.authorName}
+                                                                                    {msg.attachedPublication.publishedDate && ` · ${new Date(msg.attachedPublication.publishedDate).getFullYear()}`}
+                                                                                </span>
+                                                                            </div>
+                                                                        </div>
+                                                                        {msg.attachedPublication.abstract && (
+                                                                            <p className="chat-pub-card-abstract">
+                                                                                {msg.attachedPublication.abstract.length > 120
+                                                                                    ? msg.attachedPublication.abstract.slice(0, 120) + '...'
+                                                                                    : msg.attachedPublication.abstract}
+                                                                            </p>
+                                                                        )}
+                                                                        <div className="chat-pub-card-stats">
+                                                                            <div style={{ display: 'flex', gap: 8 }}>
+                                                                                {msg.attachedPublication.averageRating > 0 && (
+                                                                                    <span>⭐ {msg.attachedPublication.averageRating.toFixed(1)}</span>
+                                                                                )}
+                                                                                {msg.attachedPublication.citationCount > 0 && (
+                                                                                    <span>📚 {msg.attachedPublication.citationCount}</span>
+                                                                                )}
+                                                                            </div>
+                                                                            <span className="chat-pub-card-open-hint">Aç →</span>
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                                {/* Text bubble (only if there's content) */}
+                                                                {msg.content && (
+                                                                    <div className={`chat-bubble ${isMine ? 'mine' : 'theirs'}`}>
+                                                                        {msg.content}
+                                                                    </div>
+                                                                )}
                                                                 <span className="chat-msg-time">
                                                                     {formatMessageTime(msg.sentAt)}
                                                                     {isMine && (
@@ -417,32 +522,128 @@ const MessagesPage: React.FC = () => {
                                     )}
                                 </div>
 
-                                {/* Input */}
-                                <div className="chat-input-area">
-                                    <textarea
-                                        ref={textareaRef}
-                                        className="chat-input"
-                                        placeholder={t.messages.inputPlaceholder}
-                                        value={newMessage}
-                                        onChange={e => setNewMessage(e.target.value)}
-                                        onKeyDown={handleKeyDown}
-                                        rows={1}
-                                        maxLength={2000}
-                                    />
-                                    <button
-                                        className={`chat-send-btn ${(!newMessage.trim() || sending) ? 'disabled' : ''}`}
-                                        onClick={handleSendMessage}
-                                        disabled={!newMessage.trim() || sending}
-                                    >
-                                        {sending ? (
-                                            <span className="chat-send-spinner" />
-                                        ) : (
-                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                <line x1="22" y1="2" x2="11" y2="13" />
-                                                <polygon points="22 2 15 22 11 13 2 9 22 2" />
-                                            </svg>
-                                        )}
-                                    </button>
+                                {/* Input area */}
+                                <div className="chat-input-wrapper">
+                                    {/* Attached publication preview */}
+                                    {attachedPublication && (
+                                        <div className="chat-attach-preview">
+                                            <div className="chat-attach-preview-icon">📎</div>
+                                            <div className="chat-attach-preview-info">
+                                                <span className="chat-attach-preview-title">{attachedPublication.title}</span>
+                                                <span className="chat-attach-preview-author">{attachedPublication.author.fullName}</span>
+                                            </div>
+                                            <button
+                                                className="chat-attach-preview-remove"
+                                                onClick={() => setAttachedPublication(null)}
+                                            >×</button>
+                                        </div>
+                                    )}
+
+                                    <div className="chat-input-area">
+                                        {/* Attach button */}
+                                        <div className="chat-attach-wrap" ref={attachPickerRef}>
+                                            <button
+                                                className={`chat-attach-btn ${showAttachPicker ? 'active' : ''}`}
+                                                onClick={() => showAttachPicker ? closeAttachPicker() : openAttachPicker()}
+                                                title={t.messages.attachPublication}
+                                            >
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                                                </svg>
+                                            </button>
+
+                                            {/* Attach picker panel */}
+                                            {showAttachPicker && (
+                                                <div className="attach-picker-panel">
+                                                    <div className="attach-picker-header">
+                                                        <span className="attach-picker-title">{t.messages.attachTitle}</span>
+                                                        <button className="attach-picker-close" onClick={closeAttachPicker}>×</button>
+                                                    </div>
+
+                                                    <div className="attach-picker-tabs">
+                                                        <button
+                                                            className={`attach-tab ${attachTab === 'mine' ? 'active' : ''}`}
+                                                            onClick={() => setAttachTab('mine')}
+                                                        >
+                                                            {t.messages.myPublications}
+                                                        </button>
+                                                        <button
+                                                            className={`attach-tab ${attachTab === 'theirs' ? 'active' : ''}`}
+                                                            onClick={() => setAttachTab('theirs')}
+                                                        >
+                                                            {selectedConversation?.userName || t.messages.theirPublications}
+                                                        </button>
+                                                    </div>
+
+                                                    <div className="attach-picker-search-wrap">
+                                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="attach-picker-search-icon">
+                                                            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                                                        </svg>
+                                                        <input
+                                                            type="text"
+                                                            className="attach-picker-search"
+                                                            placeholder={t.messages.searchPublications}
+                                                            value={attachSearch}
+                                                            onChange={e => setAttachSearch(e.target.value)}
+                                                        />
+                                                    </div>
+
+                                                    <div className="attach-picker-list">
+                                                        {loadingPubs ? (
+                                                            <div className="attach-picker-loading">
+                                                                <div className="attach-picker-spinner" />
+                                                            </div>
+                                                        ) : activePubs.length === 0 ? (
+                                                            <div className="attach-picker-empty">
+                                                                <span>{attachTab === 'mine' ? t.messages.noMyPubs : t.messages.noTheirPubs}</span>
+                                                            </div>
+                                                        ) : activePubs.map(pub => (
+                                                            <div
+                                                                key={pub.id}
+                                                                className="attach-pub-item"
+                                                                onClick={() => handleSelectPublication(pub)}
+                                                            >
+                                                                <div className="attach-pub-icon">📄</div>
+                                                                <div className="attach-pub-info">
+                                                                    <span className="attach-pub-title">{pub.title}</span>
+                                                                    <span className="attach-pub-meta">
+                                                                        {pub.author.fullName}
+                                                                        {pub.publishedDate && ` · ${new Date(pub.publishedDate).getFullYear()}`}
+                                                                        {pub.averageRating > 0 && ` · ⭐ ${pub.averageRating.toFixed(1)}`}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <textarea
+                                            ref={textareaRef}
+                                            className="chat-input"
+                                            placeholder={attachedPublication ? t.messages.addComment : t.messages.inputPlaceholder}
+                                            value={newMessage}
+                                            onChange={e => setNewMessage(e.target.value)}
+                                            onKeyDown={handleKeyDown}
+                                            rows={1}
+                                            maxLength={2000}
+                                        />
+                                        <button
+                                            className={`chat-send-btn ${(!newMessage.trim() && !attachedPublication) || sending ? 'disabled' : ''}`}
+                                            onClick={handleSendMessage}
+                                            disabled={(!newMessage.trim() && !attachedPublication) || sending}
+                                        >
+                                            {sending ? (
+                                                <span className="chat-send-spinner" />
+                                            ) : (
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                    <line x1="22" y1="2" x2="11" y2="13" />
+                                                    <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                                                </svg>
+                                            )}
+                                        </button>
+                                    </div>
                                 </div>
                             </>
                         )}
@@ -532,6 +733,19 @@ const MessagesPage: React.FC = () => {
                     </div>
                 </div>
             </div>
+        )}
+
+        {/* Publication detail modal */}
+        {loadingModal && (
+            <div className="pub-modal-loading-overlay">
+                <div className="pub-modal-loading-spinner" />
+            </div>
+        )}
+        {modalPublication && (
+            <PublicationDetailModal
+                publication={modalPublication}
+                onClose={() => setModalPublication(null)}
+            />
         )}
         </>
     );

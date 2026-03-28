@@ -16,12 +16,17 @@ public class Message
 
     public bool IsRead { get; set; }
 
-    public Message(Guid senderId, Guid receiverId, string content)
+    // Optionally attached publication
+    public Guid? AttachedPublicationId { get; private set; }
+    public Publication? AttachedPublication { get; set; }
+
+    public Message(Guid senderId, Guid receiverId, string content, Guid? attachedPublicationId = null)
     {
         Id = Guid.NewGuid();
         SenderId = senderId;
         ReceiverId = receiverId;
         Content = content;
+        AttachedPublicationId = attachedPublicationId;
         SentAt = DateTime.UtcNow;
         IsRead = false;
     }
