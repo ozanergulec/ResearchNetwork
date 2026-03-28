@@ -26,6 +26,7 @@ public class AppDbContext : DbContext
     public DbSet<ReviewRating> ReviewRatings { get; set; } = null!;
     public DbSet<PublicationEmbedding> PublicationEmbeddings { get; set; } = null!;
     public DbSet<CitationAnalysis> CitationAnalyses { get; set; } = null!;
+    public DbSet<Message> Messages { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -255,6 +256,23 @@ public class AppDbContext : DbContext
                   .WithOne()
                   .HasForeignKey<CitationAnalysis>(e => e.PublicationId)
                   .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Message
+        modelBuilder.Entity<Message>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Content).IsRequired().HasMaxLength(2000);
+
+            entity.HasOne(e => e.Sender)
+                  .WithMany()
+                  .HasForeignKey(e => e.SenderId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.Receiver)
+                  .WithMany()
+                  .HasForeignKey(e => e.ReceiverId)
+                  .OnDelete(DeleteBehavior.Restrict);
         });
 
         // ReviewRating

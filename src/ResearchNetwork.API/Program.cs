@@ -54,6 +54,7 @@ builder.Services.AddScoped<IVerificationCodeRepository, VerificationCodeReposito
 builder.Services.AddScoped<ITagRepository, TagRepository>();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<IReviewRepository, ReviewRepository>();
+builder.Services.AddScoped<IMessageRepository, MessageRepository>();
 
 // Services
 builder.Services.AddScoped<IEmailService, EmailService>();

@@ -11,6 +11,7 @@ export interface Translations {
         settings: string;
         recommendations: string;
         peerReview: string;
+        messages: string;
         logout: string;
         searchPlaceholder: string;
         searching: string;
@@ -190,6 +191,29 @@ export interface Translations {
         followers: string;
         following: string;
     };
+    // Messages page
+    messages: {
+        title: string;
+        noConversations: string;
+        noConversationsHint: string;
+        selectConversation: string;
+        selectConversationHint: string;
+        startConversation: string;
+        inputPlaceholder: string;
+        send: string;
+        viewProfile: string;
+        justNow: string;
+        minutesAgo: string;
+        hoursAgo: string;
+        daysAgo: string;
+        newChat: string;
+        searchContacts: string;
+        loadingContacts: string;
+        noContacts: string;
+        noContactsHint: string;
+        noContactsFound: string;
+        contactsSectionLabel: string;
+    };
 }
 
 // ==================== ENGLISH ====================
@@ -202,6 +226,7 @@ const en: Translations = {
         settings: 'Settings',
         recommendations: 'Recommendations',
         peerReview: 'Peer Review',
+        messages: 'Messages',
         logout: 'Logout',
         searchPlaceholder: 'Search people or publications...',
         searching: 'Searching...',
@@ -373,6 +398,28 @@ const en: Translations = {
         followers: 'Followers',
         following: 'Following',
     },
+    messages: {
+        title: 'Messages',
+        noConversations: 'No messages yet',
+        noConversationsHint: 'Start a conversation from someone\'s profile',
+        selectConversation: 'Select a conversation',
+        selectConversationHint: 'Choose a conversation from the list to start chatting',
+        startConversation: 'Send a message to start the conversation',
+        inputPlaceholder: 'Type a message... (Enter to send)',
+        send: 'Send',
+        viewProfile: 'View Profile',
+        justNow: 'Just now',
+        minutesAgo: 'm ago',
+        hoursAgo: 'h ago',
+        daysAgo: 'd ago',
+        newChat: 'New Conversation',
+        searchContacts: 'Search followers and following...',
+        loadingContacts: 'Loading contacts...',
+        noContacts: 'No connections yet',
+        noContactsHint: 'Follow researchers to start conversations',
+        noContactsFound: 'No results found',
+        contactsSectionLabel: 'Followers & Following',
+    },
 };
 
 // ==================== TURKISH ====================
@@ -385,6 +432,7 @@ const tr: Translations = {
         settings: 'Ayarlar',
         recommendations: 'Öneriler',
         peerReview: 'Hakemlik',
+        messages: 'Mesajlar',
         logout: 'Çıkış',
         searchPlaceholder: 'Kişi veya yayın ara...',
         searching: 'Aranıyor...',
@@ -555,6 +603,28 @@ const tr: Translations = {
     profile: {
         followers: 'Takipçiler',
         following: 'Takip Edilen',
+    },
+    messages: {
+        title: 'Mesajlar',
+        noConversations: 'Henüz mesaj yok',
+        noConversationsHint: 'Birinin profilinden konuşma başlatabilirsiniz',
+        selectConversation: 'Bir konuşma seçin',
+        selectConversationHint: 'Mesajlaşmaya başlamak için listeden bir konuşma seçin',
+        startConversation: 'Konuşmayı başlatmak için bir mesaj gönderin',
+        inputPlaceholder: 'Mesaj yazın... (Göndermek için Enter)',
+        send: 'Gönder',
+        viewProfile: 'Profili Gör',
+        justNow: 'Az önce',
+        minutesAgo: 'dk önce',
+        hoursAgo: 'sa önce',
+        daysAgo: 'g önce',
+        newChat: 'Yeni Sohbet',
+        searchContacts: 'Takipçi ve takip edilenlerde ara...',
+        loadingContacts: 'Kişiler yükleniyor...',
+        noContacts: 'Henüz bağlantı yok',
+        noContactsHint: 'Konuşma başlatmak için araştırmacıları takip edin',
+        noContactsFound: 'Sonuç bulunamadı',
+        contactsSectionLabel: 'Takipçiler & Takip Edilenler',
     },
 };
 

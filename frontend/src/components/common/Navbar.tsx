@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { searchApi } from '../../services/searchService';
 import { notificationApi } from '../../services/notificationService';
+import { messageApi } from '../../services/messageService';
 import { API_SERVER_URL } from '../../services/apiClient';
 import type { UserSummary, Publication } from '../../services/publicationService';
 import PublicationDetailModal from '../feed/PublicationDetailModal';
@@ -9,7 +10,7 @@ import { useTranslation } from '../../translations/translations';
 import '../../styles/common/Navbar.css';
 
 interface NavbarProps {
-    currentPage: 'home' | 'search' | 'profile' | 'recommendations' | 'notifications' | 'settings' | 'peer-review' | 'none';
+    currentPage: 'home' | 'search' | 'profile' | 'recommendations' | 'notifications' | 'settings' | 'peer-review' | 'messages' | 'none';
 }
 
 const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
@@ -23,6 +24,7 @@ const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
     const [searched, setSearched] = useState(false);
     const [selectedPublication, setSelectedPublication] = useState<Publication | null>(null);
     const [unreadCount, setUnreadCount] = useState(0);
+    const [unreadMessages, setUnreadMessages] = useState(0);
     const [menuOpen, setMenuOpen] = useState(false);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -109,6 +111,25 @@ const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
 
         fetchUnreadCount();
         const interval = setInterval(fetchUnreadCount, 30000);
+        return () => clearInterval(interval);
+    }, []);
+
+    // Fetch unread message count
+    useEffect(() => {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        const fetchUnreadMessages = async () => {
+            try {
+                const res = await messageApi.getUnreadCount();
+                setUnreadMessages(res.data.count);
+            } catch {
+                // Silently fail
+            }
+        };
+
+        fetchUnreadMessages();
+        const interval = setInterval(fetchUnreadMessages, 30000);
         return () => clearInterval(interval);
     }, []);
 
@@ -271,6 +292,17 @@ const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
                             <span /><span /><span />
                         </button>
                         <div ref={menuRef} className={`navbar-dropdown-menu ${menuOpen ? 'open' : ''}`}>
+                            <button
+                                onClick={() => { setMenuOpen(false); navigate('/messages'); }}
+                                className={`navbar-dropdown-item navbar-dropdown-messages ${currentPage === 'messages' ? 'active' : ''}`}
+                            >
+                                {t.navbar.messages}
+                                {unreadMessages > 0 && (
+                                    <span className="navbar-dropdown-badge">
+                                        {unreadMessages > 9 ? '9+' : unreadMessages}
+                                    </span>
+                                )}
+                            </button>
                             <button
                                 onClick={() => { setMenuOpen(false); navigate('/recommendations'); }}
                                 className={`navbar-dropdown-item ${currentPage === 'recommendations' ? 'active' : ''}`}
