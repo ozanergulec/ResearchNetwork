@@ -223,6 +223,38 @@ const PublicationDetailModal: React.FC<PublicationDetailModalProps> = ({ publica
                             </div>
                         )}
 
+                        {/* Citation Analysis */}
+                        {publication.citationAnalysis && publication.citationAnalysis.length > 0 && (
+                            <div className="pub-detail-citation-analysis">
+                                <h5>
+                                    <span className="pub-detail-summary-icon">🔍</span>
+                                    Citation Analysis
+                                </h5>
+                                <ul className="pub-detail-citation-list">
+                                    {publication.citationAnalysis.map((citation, idx) => {
+                                        const lowerIntent = citation.intent.toLowerCase();
+                                        let intentClass = 'intent-neutral';
+                                        if (lowerIntent.includes('support')) intentClass = 'intent-support';
+                                        else if (lowerIntent.includes('contradict') || lowerIntent.includes('dispute')) intentClass = 'intent-dispute';
+                                        else if (lowerIntent.includes('method')) intentClass = 'intent-method';
+                                        else if (lowerIntent.includes('extend')) intentClass = 'intent-extend';
+
+                                        return (
+                                            <li key={idx} className={`pub-detail-citation-item ${intentClass}`}>
+                                                <span className="citation-intent-badge">{citation.intent}</span>
+                                                <span className="citation-sentence">"{citation.sentence}"</span>
+                                                {citation.citationNumbers && citation.citationNumbers.length > 0 && (
+                                                    <span className="citation-numbers">
+                                                        [{citation.citationNumbers.join(', ')}]
+                                                    </span>
+                                                )}
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            </div>
+                        )}
+
                         {/* DOI */}
                         {publication.doi && (
                             <div className="pub-detail-doi">

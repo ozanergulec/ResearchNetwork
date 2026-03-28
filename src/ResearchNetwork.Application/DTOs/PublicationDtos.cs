@@ -18,7 +18,8 @@ public record PublicationDto(
     bool IsSaved = false,
     bool IsShared = false,
     int? UserRating = null,
-    bool IsLookingForReviewers = false
+    bool IsLookingForReviewers = false,
+    List<CitationAnalysisDto>? CitationAnalysis = null
 );
 
 public record CreatePublicationDto(

@@ -233,6 +233,96 @@
     color: var(--text-primary);
 }
 
+/* Citation Analysis */
+.pub-detail-citation-analysis {
+    margin-bottom: 16px;
+    padding: 14px 16px;
+    background: rgba(41, 128, 185, 0.04);
+    border: 1px solid rgba(41, 128, 185, 0.15);
+    border-radius: 10px;
+}
+
+.pub-detail-citation-analysis h5 {
+    margin: 0 0 12px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #2980b9;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.pub-detail-citation-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.pub-detail-citation-item {
+    font-size: 0.88rem;
+    line-height: 1.5;
+    color: var(--text-primary);
+    padding-bottom: 10px;
+    border-bottom: 1px dotted rgba(0, 0, 0, 0.1);
+}
+
+.pub-detail-citation-item:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.citation-intent-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    margin-right: 8px;
+    text-transform: capitalize;
+}
+
+/* Colors for specific intents */
+.intent-support .citation-intent-badge {
+    background: rgba(46, 204, 113, 0.15);
+    color: #27ae60;
+}
+
+.intent-neutral .citation-intent-badge {
+    background: rgba(149, 165, 166, 0.15);
+    color: #7f8c8d;
+}
+
+.intent-method .citation-intent-badge {
+    background: rgba(155, 89, 182, 0.15);
+    color: #8e44ad;
+}
+
+.intent-extend .citation-intent-badge {
+    background: rgba(52, 152, 219, 0.15);
+    color: #2980b9;
+}
+
+.intent-dispute .citation-intent-badge,
+.intent-contradict .citation-intent-badge {
+    background: rgba(231, 76, 60, 0.15);
+    color: #c0392b;
+}
+
+.citation-sentence {
+    font-style: italic;
+    color: #555;
+}
+
+.citation-numbers {
+    color: #2980b9;
+    font-weight: 600;
+    margin-left: 6px;
+}
+
+
 /* See more / Show less toggle */
 .pub-detail-toggle-btn {
     background: none;

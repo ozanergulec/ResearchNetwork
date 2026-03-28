@@ -27,6 +27,15 @@ public static class PublicationMapper
             userRating = ratingCheck?.Score;
         }
 
+        List<CitationAnalysisDto>? citationAnalysis = null;
+        var analysisCheck = await repo.GetCitationAnalysisAsync(p.Id);
+        if (analysisCheck != null)
+        {
+            citationAnalysis = analysisCheck.GetItems()
+                .Select(a => new CitationAnalysisDto(a.Sentence, a.CitationNumbers, a.Intent, a.Confidence))
+                .ToList();
+        }
+
         return new PublicationDto(
             p.Id,
             p.Title,
@@ -53,7 +62,8 @@ public static class PublicationMapper
             isSaved,
             isShared,
             userRating,
-            p.IsLookingForReviewers
+            p.IsLookingForReviewers,
+            citationAnalysis
         );
     }
 

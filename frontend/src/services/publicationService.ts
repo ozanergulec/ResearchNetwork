@@ -10,6 +10,14 @@ export interface UserSummary {
     isVerified: boolean;
 }
 
+// Citation Analysis Interface
+export interface CitationAnalysisEntry {
+    sentence: string;
+    citationNumbers: number[];
+    intent: string;
+    confidence: number;
+}
+
 // Publication Interface (matches backend PublicationDto)
 export interface Publication {
     id: string;
@@ -30,6 +38,7 @@ export interface Publication {
     isShared: boolean;
     userRating: number | null;
     isLookingForReviewers: boolean;
+    citationAnalysis?: CitationAnalysisEntry[];
 }
 
 // Create Publication DTO

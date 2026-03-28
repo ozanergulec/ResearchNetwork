@@ -139,6 +139,31 @@ public class PublicationService : IPublicationService
                             await _publicationRepository.UpdateAsync(publication);
                         }
 
+                        if (!string.IsNullOrWhiteSpace(pdfFullText))
+                        {
+                            try
+                            {
+                                var citationAnalysisResult = await _aiService.AnalyzeCitationsAsync(pdfFullText);
+                                if (citationAnalysisResult != null && citationAnalysisResult.Citations.Any())
+                                {
+                                    var entries = citationAnalysisResult.Citations.Select(c => new CitationAnalysisEntry
+                                    {
+                                        Sentence = c.Sentence,
+                                        CitationNumbers = c.Citation_numbers ?? new List<int>(),
+                                        Intent = c.Intent,
+                                        Confidence = c.Confidence
+                                    }).ToList();
+
+                                    var analysisEntity = new CitationAnalysis(publication.Id, entries);
+                                    await _publicationRepository.UpsertCitationAnalysisAsync(analysisEntity);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"[AI Service] Citation analysis failed: {ex.Message}");
+                            }
+                        }
+
                         return;
                     }
                 }
