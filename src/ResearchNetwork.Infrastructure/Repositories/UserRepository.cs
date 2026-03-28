@@ -42,6 +42,9 @@ public class UserRepository : IUserRepository
         return await _context.Users
             .Include(u => u.Tags)
                 .ThenInclude(ut => ut.Tag)
+            .Include(u => u.Publications)
+                .ThenInclude(p => p.Tags)
+                    .ThenInclude(pt => pt.Tag)
             .ToListAsync();
     }
 

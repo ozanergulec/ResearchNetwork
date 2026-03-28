@@ -66,8 +66,8 @@ public class PublicationService : IPublicationService
 
         await GenerateAiContentAsync(publication);
 
-        // Send notifications to users whose interests match this publication's tags
-        _ = Task.Run(() => SendTagMatchNotificationsAsync(publication, author));
+        // Send notifications to users whose interests or past publication tags match
+        await SendTagMatchNotificationsAsync(publication, author);
 
         return publication;
     }
