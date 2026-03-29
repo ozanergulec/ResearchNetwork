@@ -247,6 +247,41 @@ public class AiController : ControllerBase
         return Ok(results.OrderByDescending(r => r.Similarity).Take(topK));
     }
 
+    // ==================== TAG SUGGESTIONS ====================
+
+    [Authorize]
+    [HttpPost("suggest-tags")]
+    public async Task<ActionResult<List<string>>> SuggestTags([FromBody] SuggestTagsRequestDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Text))
+            return BadRequest("Text is required.");
+
+        var tags = await _aiService.SuggestTagsAsync(dto.Text, dto.ExistingTags ?? new List<string>(), dto.MaxSuggestions);
+        return Ok(tags);
+    }
+
+    [Authorize]
+    [HttpPost("suggest-tags-from-file")]
+    public async Task<ActionResult<List<string>>> SuggestTagsFromFile(
+        IFormFile file,
+        [FromForm] string? existingTags = null,
+        [FromForm] int maxSuggestions = 6)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest("File is required.");
+
+        using var ms = new System.IO.MemoryStream();
+        await file.CopyToAsync(ms);
+        var fileBytes = ms.ToArray();
+
+        var tagList = string.IsNullOrWhiteSpace(existingTags)
+            ? new List<string>()
+            : existingTags.Split(',', System.StringSplitOptions.RemoveEmptyEntries | System.StringSplitOptions.TrimEntries).ToList();
+
+        var tags = await _aiService.SuggestTagsFromFileAsync(fileBytes, file.FileName, tagList, maxSuggestions);
+        return Ok(tags);
+    }
+
     // ==================== CITATION ANALYSIS ====================
 
     [HttpGet("publications/{id:guid}/citation-analysis")]

@@ -11,4 +11,6 @@ public interface IAiService
     Task<AiPdfProcessResponse> ProcessPdfAsync(byte[] pdfBytes, string fileName);
     Task<AiCitationAnalysisResponse> AnalyzeCitationsAsync(string fullText);
     Task<List<AiParsedReference>> ParseReferencesAsync(List<string> rawReferences);
+    Task<List<string>> SuggestTagsAsync(string text, List<string> existingTags, int maxSuggestions = 6);
+    Task<List<string>> SuggestTagsFromFileAsync(byte[] fileBytes, string fileName, List<string> existingTags, int maxSuggestions = 6);
 }

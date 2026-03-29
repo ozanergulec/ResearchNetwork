@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from config import settings
 
-from routers import health, embedding, summarization, pdf, citation
+from routers import health, embedding, summarization, pdf, citation, tags
 from services.embedding_service import embedding_service
 from services.summarization_service import summarization_service
 from services.citation_service import citation_service
@@ -55,6 +55,7 @@ app.include_router(embedding.router)
 app.include_router(summarization.router)
 app.include_router(pdf.router)
 app.include_router(citation.router)
+app.include_router(tags.router)
 
 if __name__ == "__main__":
     import uvicorn

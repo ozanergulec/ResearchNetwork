@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { publicationsApi, type CreatePublicationDto } from '../../services/publicationService';
+import { aiApi } from '../../services/aiService';
 import { RESEARCH_TOPICS } from '../../data/researchTopics';
 import '../../styles/common/Modal.css';
 import '../../styles/publications/AddPublicationModal.css';
@@ -11,7 +12,7 @@ interface AddPublicationModalProps {
 
 type TabType = 'manual' | 'file';
 
-const MAX_TAGS = 4;
+const MAX_TAGS = 6;
 
 const AddPublicationModal: React.FC<AddPublicationModalProps> = ({ onClose, onPublicationAdded }) => {
     const [activeTab, setActiveTab] = useState<TabType>('manual');
@@ -47,6 +48,10 @@ const AddPublicationModal: React.FC<AddPublicationModalProps> = ({ onClose, onPu
     const fileTagRef = useRef<HTMLDivElement>(null);
     const fileTagListRef = useRef<HTMLUListElement>(null);
     const [dragActive, setDragActive] = useState(false);
+
+    // AI tag suggestions
+    const [suggestedTags, setSuggestedTags] = useState<string[]>([]);
+    const [loadingSuggestions, setLoadingSuggestions] = useState(false);
 
     // Click outside handlers for autocomplete dropdowns
     useEffect(() => {
@@ -220,6 +225,49 @@ const AddPublicationModal: React.FC<AddPublicationModalProps> = ({ onClose, onPu
         if (file) {
             validateAndSetFile(file);
         }
+    };
+
+    const handleSuggestTags = async () => {
+        const isFile = activeTab === 'file';
+        const currentTags = isFile ? fileTags : manualTags;
+
+        setLoadingSuggestions(true);
+        setSuggestedTags([]);
+        try {
+            let res;
+            if (isFile && selectedFile) {
+                res = await aiApi.suggestTagsFromFile(selectedFile, currentTags, 6);
+            } else {
+                const title = isFile ? fileUploadData.title : formData.title;
+                const abstract = isFile ? fileUploadData.abstract : formData.abstract;
+                const text = [title, abstract].filter(Boolean).join('. ');
+                if (text.trim().length < 10) {
+                    setLoadingSuggestions(false);
+                    return;
+                }
+                res = await aiApi.suggestTags(text, currentTags, 6);
+            }
+            const currentLower = new Set(currentTags.map(t => t.toLowerCase()));
+            const filtered = res.data.filter(t => !currentLower.has(t.toLowerCase()));
+            setSuggestedTags(filtered);
+        } catch (err) {
+            console.error('Failed to get tag suggestions', err);
+        } finally {
+            setLoadingSuggestions(false);
+        }
+    };
+
+    const handleAcceptSuggestedTag = (tag: string) => {
+        const isFile = activeTab === 'file';
+        const currentTags = isFile ? fileTags : manualTags;
+        if (currentTags.length >= MAX_TAGS) return;
+
+        if (isFile) {
+            setFileTags(prev => [...prev, tag]);
+        } else {
+            setManualTags(prev => [...prev, tag]);
+        }
+        setSuggestedTags(prev => prev.filter(t => t !== tag));
     };
 
     const handleManualSubmit = async (e: React.FormEvent) => {
@@ -404,6 +452,38 @@ const AddPublicationModal: React.FC<AddPublicationModalProps> = ({ onClose, onPu
                                         </ul>
                                     )}
                                 </div>
+
+                                <button
+                                    type="button"
+                                    className="ai-suggest-btn"
+                                    onClick={handleSuggestTags}
+                                    disabled={loadingSuggestions || (!formData.title.trim() && !formData.abstract.trim()) || manualTags.length >= MAX_TAGS}
+                                >
+                                    {loadingSuggestions ? (
+                                        <><span className="ai-suggest-spinner" /> Analyzing...</>
+                                    ) : (
+                                        <><span className="ai-suggest-icon">✨</span> AI Suggest Tags</>
+                                    )}
+                                </button>
+
+                                {suggestedTags.length > 0 && activeTab === 'manual' && (
+                                    <div className="ai-suggested-tags">
+                                        <span className="ai-suggested-label">AI Suggestions:</span>
+                                        <div className="ai-suggested-chips">
+                                            {suggestedTags.map(tag => (
+                                                <button
+                                                    key={tag}
+                                                    type="button"
+                                                    className="ai-suggested-chip"
+                                                    onClick={() => handleAcceptSuggestedTag(tag)}
+                                                    disabled={manualTags.length >= MAX_TAGS}
+                                                >
+                                                    + {tag}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="modal-actions">
@@ -525,6 +605,38 @@ const AddPublicationModal: React.FC<AddPublicationModalProps> = ({ onClose, onPu
                                         </ul>
                                     )}
                                 </div>
+
+                                <button
+                                    type="button"
+                                    className="ai-suggest-btn"
+                                    onClick={handleSuggestTags}
+                                    disabled={loadingSuggestions || (!selectedFile && !fileUploadData.title.trim() && !fileUploadData.abstract.trim()) || fileTags.length >= MAX_TAGS}
+                                >
+                                    {loadingSuggestions ? (
+                                        <><span className="ai-suggest-spinner" /> Analyzing...</>
+                                    ) : (
+                                        <><span className="ai-suggest-icon">✨</span> AI Suggest Tags</>
+                                    )}
+                                </button>
+
+                                {suggestedTags.length > 0 && activeTab === 'file' && (
+                                    <div className="ai-suggested-tags">
+                                        <span className="ai-suggested-label">AI Suggestions:</span>
+                                        <div className="ai-suggested-chips">
+                                            {suggestedTags.map(tag => (
+                                                <button
+                                                    key={tag}
+                                                    type="button"
+                                                    className="ai-suggested-chip"
+                                                    onClick={() => handleAcceptSuggestedTag(tag)}
+                                                    disabled={fileTags.length >= MAX_TAGS}
+                                                >
+                                                    + {tag}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="modal-actions">

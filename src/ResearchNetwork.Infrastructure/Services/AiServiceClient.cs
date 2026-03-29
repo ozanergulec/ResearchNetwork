@@ -90,4 +90,30 @@ public class AiServiceClient : IAiService
         var result = await response.Content.ReadFromJsonAsync<AiParseReferencesResponse>(JsonOptions);
         return result?.Parsed ?? new List<AiParsedReference>();
     }
+
+    public async Task<List<string>> SuggestTagsAsync(string text, List<string> existingTags, int maxSuggestions = 6)
+    {
+        var request = new AiTagSuggestRequest(text, existingTags, maxSuggestions);
+        var response = await _httpClient.PostAsJsonAsync("/api/tags/suggest", request, JsonOptions);
+        response.EnsureSuccessStatusCode();
+
+        var result = await response.Content.ReadFromJsonAsync<AiTagSuggestResponse>(JsonOptions);
+        return result?.Suggested_tags ?? new List<string>();
+    }
+
+    public async Task<List<string>> SuggestTagsFromFileAsync(byte[] fileBytes, string fileName, List<string> existingTags, int maxSuggestions = 6)
+    {
+        using var content = new MultipartFormDataContent();
+        var fileContent = new ByteArrayContent(fileBytes);
+        fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/pdf");
+        content.Add(fileContent, "file", fileName);
+        content.Add(new StringContent(string.Join(",", existingTags)), "existing_tags");
+        content.Add(new StringContent(maxSuggestions.ToString()), "max_suggestions");
+
+        var response = await _httpClient.PostAsync("/api/tags/suggest-from-file", content);
+        response.EnsureSuccessStatusCode();
+
+        var result = await response.Content.ReadFromJsonAsync<AiTagSuggestResponse>(JsonOptions);
+        return result?.Suggested_tags ?? new List<string>();
+    }
 }

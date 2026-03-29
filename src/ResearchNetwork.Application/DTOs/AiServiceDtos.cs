@@ -98,6 +98,11 @@ public record AiParsedReference(
 public record AiParseReferencesRequest(List<string> References);
 public record AiParseReferencesResponse(List<AiParsedReference> Parsed);
 
+// Tag suggestions
+public record AiTagSuggestRequest(string Text, List<string> Existing_tags, int Max_suggestions = 6);
+public record AiTagSuggestResponse(List<string> Suggested_tags);
+public record SuggestTagsRequestDto(string Text, List<string>? ExistingTags = null, int MaxSuggestions = 6);
+
 // Auto-citation result
 public record AutoCitationMatchDto(
     Guid MatchedPublicationId,

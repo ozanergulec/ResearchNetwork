@@ -98,4 +98,17 @@ export const aiApi = {
 
     autoCite: (publicationId: string) =>
         api.post<AutoCitationResult>(`/ai/publications/${publicationId}/auto-cite`),
+
+    suggestTags: (text: string, existingTags: string[] = [], maxSuggestions: number = 6) =>
+        api.post<string[]>('/ai/suggest-tags', { text, existingTags, maxSuggestions }),
+
+    suggestTagsFromFile: (file: File, existingTags: string[] = [], maxSuggestions: number = 6) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('existingTags', existingTags.join(','));
+        formData.append('maxSuggestions', maxSuggestions.toString());
+        return api.post<string[]>('/ai/suggest-tags-from-file', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+    },
 };
