@@ -357,12 +357,6 @@
     margin-left: 6px;
 }
 
-.pub-detail-citation-loading {
-    display: flex;
-    justify-content: center;
-    padding: 24px 0;
-}
-
 /* Citation Pagination */
 .pub-detail-citation-pagination {
     display: flex;

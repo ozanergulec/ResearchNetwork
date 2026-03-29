@@ -13,6 +13,7 @@ import SettingsPage from './pages/SettingsPage';
 import NotificationsPage from './pages/NotificationsPage';
 import PeerReviewPage from './pages/PeerReviewPage';
 import MessagesPage from './pages/MessagesPage';
+import FloatingChat from './components/chat/FloatingChat';
 
 function App() {
   return (
@@ -34,6 +35,7 @@ function App() {
           <Route path="/messages" element={<MessagesPage />} />
           <Route path="/" element={<Navigate to="/home" replace />} />
         </Routes>
+        <FloatingChat />
       </Router>
     </LanguageProvider>
   );

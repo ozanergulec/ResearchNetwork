@@ -6,6 +6,7 @@ import PublicationDetailModal from '../components/feed/PublicationDetailModal';
 import { messageApi, type ConversationData, type MessageData } from '../services/messageService';
 import { usersApi } from '../services/userService';
 import { publicationsApi, type Publication, type UserSummary } from '../services/publicationService';
+import { searchApi } from '../services/searchService';
 import { API_SERVER_URL } from '../services/apiClient';
 import { useTranslation } from '../translations/translations';
 import '../styles/pages/MessagesPage.css';
@@ -32,8 +33,53 @@ const MessagesPage: React.FC = () => {
     // New chat modal
     const [showNewChat, setShowNewChat] = useState(false);
     const [contactSearch, setContactSearch] = useState('');
+    const [baseContacts, setBaseContacts] = useState<UserSummary[]>([]);
     const [contacts, setContacts] = useState<UserSummary[]>([]);
     const [loadingContacts, setLoadingContacts] = useState(false);
+
+    useEffect(() => {
+        if (!showNewChat) return;
+
+        const trimmed = contactSearch.trim();
+        if (!trimmed) {
+            setContacts(baseContacts);
+            return;
+        }
+
+        // Hemen lokal filtreleme yap (İlk harf girildiğinde "bulunamadı" dememesi için)
+        const localMatches = baseContacts.filter(u =>
+            u.fullName.toLowerCase().includes(trimmed.toLowerCase()) ||
+            (u.institution ?? '').toLowerCase().includes(trimmed.toLowerCase()) ||
+            (u.title ?? '').toLowerCase().includes(trimmed.toLowerCase())
+        );
+
+        // Kullanıcı yazarken hemen lokal sonuçları göster
+        setContacts(localMatches);
+
+        const timer = setTimeout(async () => {
+            setLoadingContacts(true);
+            try {
+                const res = await searchApi.searchUsers(trimmed, 1, 8); // 8 kişi limiti
+                
+                const apiResults = res.data.items;
+                // Lokal sonuçlar ile API'yi birleştir (Mükerrerleri engelle)
+                const seen = new Set<string>();
+                const merged = [...localMatches, ...apiResults].filter(u => {
+                    if (seen.has(u.id)) return false;
+                    seen.add(u.id);
+                    return true;
+                });
+                
+                setContacts(merged);
+            } catch (err) {
+                console.error('Failed to search users', err);
+            } finally {
+                setLoadingContacts(false);
+            }
+        }, 300);
+
+        return () => clearTimeout(timer);
+    }, [contactSearch, showNewChat, baseContacts]);
 
     // Publication attach picker
     const [showAttachPicker, setShowAttachPicker] = useState(false);
@@ -189,6 +235,7 @@ const MessagesPage: React.FC = () => {
                 seen.add(u.id);
                 return true;
             });
+            setBaseContacts(unique);
             setContacts(unique);
         } catch (err) {
             console.error('Failed to load contacts', err);
@@ -207,12 +254,6 @@ const MessagesPage: React.FC = () => {
         closeNewChat();
         setSelectedUserId(userId);
     };
-
-    const filteredContacts = contacts.filter(u =>
-        u.fullName.toLowerCase().includes(contactSearch.toLowerCase()) ||
-        (u.institution ?? '').toLowerCase().includes(contactSearch.toLowerCase()) ||
-        (u.title ?? '').toLowerCase().includes(contactSearch.toLowerCase())
-    );
 
     // Attach picker
     const openAttachPicker = async () => {
@@ -739,7 +780,7 @@ const MessagesPage: React.FC = () => {
                                 <div className="new-chat-spinner" />
                                 <span>{t.messages.loadingContacts}</span>
                             </div>
-                        ) : filteredContacts.length === 0 ? (
+                        ) : contacts.length === 0 ? (
                             <div className="new-chat-no-contacts">
                                 <span>🔍</span>
                                 <p>{contactSearch ? t.messages.noContactsFound : t.messages.noContacts}</p>
@@ -750,7 +791,7 @@ const MessagesPage: React.FC = () => {
                                 {!contactSearch && (
                                     <p className="new-chat-section-label">{t.messages.contactsSectionLabel}</p>
                                 )}
-                                {filteredContacts.map(user => (
+                                {contacts.map(user => (
                                     <div
                                         key={user.id}
                                         className="new-chat-contact-item"

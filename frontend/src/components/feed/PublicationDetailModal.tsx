@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import mammoth from 'mammoth';
-import type { Publication, CitationAnalysisEntry } from '../../services/publicationService';
-import { publicationsApi } from '../../services/publicationService';
+import type { Publication } from '../../services/publicationService';
 import { API_SERVER_URL } from '../../services/apiClient';
 import '../../styles/feed/PublicationDetailModal.css';
 import PublicationCitationGraph from './PublicationCitationGraph';
@@ -22,11 +21,6 @@ const PublicationDetailModal: React.FC<PublicationDetailModalProps> = ({ publica
     const [summaryExpanded, setSummaryExpanded] = useState(false);
     const [citationViewType, setCitationViewType] = useState<'list' | 'graph'>('list');
     const [citationPage, setCitationPage] = useState(1);
-    const [citations, setCitations] = useState<CitationAnalysisEntry[]>([]);
-    const [citationTotalCount, setCitationTotalCount] = useState(0);
-    const [citationTotalPages, setCitationTotalPages] = useState(0);
-    const [citationHasMore, setCitationHasMore] = useState(false);
-    const [loadingCitations, setLoadingCitations] = useState(false);
     
     const ABSTRACT_LIMIT = 250;
     const SUMMARY_LIMIT = 200;
@@ -96,25 +90,6 @@ const PublicationDetailModal: React.FC<PublicationDetailModalProps> = ({ publica
             controller.abort();
         };
     }, [isDocx, downloadUrl]);
-
-    const fetchCitations = useCallback(async (page: number) => {
-        setLoadingCitations(true);
-        try {
-            const res = await publicationsApi.getCitationAnalysis(publication.id, page, CITATIONS_PER_PAGE);
-            setCitations(res.data.items);
-            setCitationTotalCount(res.data.totalCount);
-            setCitationTotalPages(Math.ceil(res.data.totalCount / CITATIONS_PER_PAGE));
-            setCitationHasMore(res.data.hasMore);
-        } catch (err) {
-            console.error('Failed to fetch citations', err);
-        } finally {
-            setLoadingCitations(false);
-        }
-    }, [publication.id]);
-
-    useEffect(() => {
-        fetchCitations(citationPage);
-    }, [citationPage, fetchCitations]);
 
     const handleDownload = async (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -254,7 +229,7 @@ const PublicationDetailModal: React.FC<PublicationDetailModalProps> = ({ publica
                         )}
 
                         {/* Citation Analysis */}
-                        {citationTotalCount > 0 && (
+                        {publication.citationAnalysis && publication.citationAnalysis.length > 0 && (
                             <div className="pub-detail-citation-analysis">
                                 <div className="pub-detail-citation-header">
                                     <h5>
@@ -279,50 +254,46 @@ const PublicationDetailModal: React.FC<PublicationDetailModalProps> = ({ publica
                                 
                                 {citationViewType === 'list' ? (
                                     <>
-                                        {loadingCitations ? (
-                                            <div className="pub-detail-citation-loading">
-                                                <div className="pub-detail-preview-spinner" />
-                                            </div>
-                                        ) : (
-                                            <ul className="pub-detail-citation-list">
-                                                {citations.map((citation, idx) => {
-                                                    const lowerIntent = citation.intent.toLowerCase();
-                                                    let intentClass = 'intent-neutral';
-                                                    if (lowerIntent.includes('support')) intentClass = 'intent-support';
-                                                    else if (lowerIntent.includes('contradict') || lowerIntent.includes('dispute')) intentClass = 'intent-dispute';
-                                                    else if (lowerIntent.includes('method')) intentClass = 'intent-method';
-                                                    else if (lowerIntent.includes('extend')) intentClass = 'intent-extend';
+                                        <ul className="pub-detail-citation-list">
+                                            {publication.citationAnalysis
+                                                .slice((citationPage - 1) * CITATIONS_PER_PAGE, citationPage * CITATIONS_PER_PAGE)
+                                                .map((citation, idx) => {
+                                                const lowerIntent = citation.intent.toLowerCase();
+                                                let intentClass = 'intent-neutral';
+                                                if (lowerIntent.includes('support')) intentClass = 'intent-support';
+                                                else if (lowerIntent.includes('contradict') || lowerIntent.includes('dispute')) intentClass = 'intent-dispute';
+                                                else if (lowerIntent.includes('method')) intentClass = 'intent-method';
+                                                else if (lowerIntent.includes('extend')) intentClass = 'intent-extend';
 
-                                                    return (
-                                                        <li key={idx} className={`pub-detail-citation-item ${intentClass}`}>
-                                                            <span className="citation-intent-badge">{citation.intent}</span>
-                                                            <span className="citation-sentence">"{citation.sentence}"</span>
-                                                            {citation.citationNumbers && citation.citationNumbers.length > 0 && (
-                                                                <span className="citation-numbers">
-                                                                    [{citation.citationNumbers.join(', ')}]
-                                                                </span>
-                                                            )}
-                                                        </li>
-                                                    );
-                                                })}
-                                            </ul>
-                                        )}
+                                                return (
+                                                    <li key={idx} className={`pub-detail-citation-item ${intentClass}`}>
+                                                        <span className="citation-intent-badge">{citation.intent}</span>
+                                                        <span className="citation-sentence">"{citation.sentence}"</span>
+                                                        {citation.citationNumbers && citation.citationNumbers.length > 0 && (
+                                                            <span className="citation-numbers">
+                                                                [{citation.citationNumbers.join(', ')}]
+                                                            </span>
+                                                        )}
+                                                    </li>
+                                                );
+                                            })}
+                                        </ul>
 
-                                        {citationTotalPages > 1 && (
+                                        {publication.citationAnalysis.length > CITATIONS_PER_PAGE && (
                                             <div className="pub-detail-citation-pagination">
                                                 <button 
                                                     className="citation-pagination-btn"
-                                                    disabled={citationPage === 1 || loadingCitations}
+                                                    disabled={citationPage === 1}
                                                     onClick={() => setCitationPage(prev => Math.max(1, prev - 1))}
                                                 >
                                                     Previous
                                                 </button>
                                                 <span className="citation-pagination-info">
-                                                    Page {citationPage} of {citationTotalPages}
+                                                    Page {citationPage} of {Math.ceil(publication.citationAnalysis.length / CITATIONS_PER_PAGE)}
                                                 </span>
                                                 <button 
                                                     className="citation-pagination-btn"
-                                                    disabled={!citationHasMore || loadingCitations}
+                                                    disabled={citationPage === Math.ceil(publication.citationAnalysis.length / CITATIONS_PER_PAGE)}
                                                     onClick={() => setCitationPage(prev => prev + 1)}
                                                 >
                                                     Next
