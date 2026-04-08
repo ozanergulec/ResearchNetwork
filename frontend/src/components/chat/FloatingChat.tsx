@@ -12,6 +12,16 @@ import './FloatingChat.css';
 const FloatingChat: React.FC = () => {
     const location = useLocation();
 
+    // Hide when any modal overlay is open (e.g. PublicationDetailModal)
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    useEffect(() => {
+        const check = () => setIsModalOpen(!!document.querySelector('.pub-detail-overlay'));
+        check();
+        const observer = new MutationObserver(check);
+        observer.observe(document.body, { childList: true, subtree: true });
+        return () => observer.disconnect();
+    }, []);
+
     const [isMainExpanded, setIsMainExpanded] = useState(false);
     const [conversations, setConversations] = useState<ConversationData[]>([]);
     const [totalUnread, setTotalUnread] = useState(0);
@@ -38,23 +48,23 @@ const FloatingChat: React.FC = () => {
             return;
         }
 
-        // Hemen lokal filtreleme yap (İlk harf girildiğinde "bulunamadı" dememesi için)
+        // Apply local filtering immediately (to avoid showing "not found" while typing first chars)
         const localMatches = baseContacts.filter(u =>
             u.fullName.toLowerCase().includes(trimmed.toLowerCase()) ||
             (u.institution ?? '').toLowerCase().includes(trimmed.toLowerCase()) ||
             (u.title ?? '').toLowerCase().includes(trimmed.toLowerCase())
         );
 
-        // Kullanıcı yazarken hemen lokal sonuçları göster
+        // Show local results immediately while user is typing
         setContacts(localMatches);
 
         const timer = setTimeout(async () => {
             setLoadingContacts(true);
             try {
-                const res = await searchApi.searchUsers(trimmed, 1, 8); // 8 kişi limiti
+                const res = await searchApi.searchUsers(trimmed, 1, 8); // 8 contacts limit
                 
                 const apiResults = res.data.items;
-                // Lokal sonuçlar ile API'yi birleştir (Mükerrerleri engelle)
+                // Merge local results with API results (prevent duplicates)
                 const seen = new Set<string>();
                 const merged = [...localMatches, ...apiResults].filter(u => {
                     if (seen.has(u.id)) return false;
@@ -354,7 +364,7 @@ const FloatingChat: React.FC = () => {
         return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
     };
 
-    if (!token || isAuthPage || isMessagesPage) return null;
+    if (!token || isAuthPage || isMessagesPage || isModalOpen) return null;
 
     // Single pane logic:
     // If activeChatUser is set, we show the chat view.
@@ -387,7 +397,7 @@ const FloatingChat: React.FC = () => {
                                         // Once we go back, ensure the main list stays expanded
                                         setIsMainExpanded(true);
                                     }}
-                                    title="Geri Dön"
+                                    title="Go Back"
                                 >
                                     &#8592;
                                 </button>
@@ -415,7 +425,7 @@ const FloatingChat: React.FC = () => {
                                         setActiveChatUser(null);
                                         setIsMainExpanded(false);
                                     }}
-                                    title="Kapat"
+                                    title="Close"
                                 >
                                     ×
                                 </button>
@@ -475,7 +485,7 @@ const FloatingChat: React.FC = () => {
                                             <button 
                                                 className={`fc-attach-btn ${showAttachPicker ? 'active' : ''}`} 
                                                 onClick={() => showAttachPicker ? closeAttachPicker() : openAttachPicker()}
-                                                title="Makale Ekle"
+                                                title="Attach Publication"
                                             >
                                                 📎
                                             </button>
@@ -483,21 +493,21 @@ const FloatingChat: React.FC = () => {
                                             {showAttachPicker && (
                                                 <div className="fc-attach-picker-panel">
                                                     <div className="fc-attach-picker-header">
-                                                        <span className="fc-attach-picker-title">Makale Seç</span>
+                                                        <span className="fc-attach-picker-title">Select Publication</span>
                                                         <button className="fc-attach-picker-close" onClick={closeAttachPicker}>×</button>
                                                     </div>
                                                     <div className="fc-attach-picker-tabs">
-                                                        <button className={`fc-attach-tab ${attachTab === 'mine' ? 'active' : ''}`} onClick={() => setAttachTab('mine')}>Benim</button>
-                                                        <button className={`fc-attach-tab ${attachTab === 'theirs' ? 'active' : ''}`} onClick={() => setAttachTab('theirs')}>Onun</button>
+                                                        <button className={`fc-attach-tab ${attachTab === 'mine' ? 'active' : ''}`} onClick={() => setAttachTab('mine')}>Mine</button>
+                                                        <button className={`fc-attach-tab ${attachTab === 'theirs' ? 'active' : ''}`} onClick={() => setAttachTab('theirs')}>Theirs</button>
                                                     </div>
                                                     <div className="fc-attach-picker-search-wrap">
-                                                        <input type="text" className="fc-attach-picker-search" placeholder="Makalelerde ara..." value={attachSearch} onChange={e => setAttachSearch(e.target.value)} />
+                                                        <input type="text" className="fc-attach-picker-search" placeholder="Search publications..." value={attachSearch} onChange={e => setAttachSearch(e.target.value)} />
                                                     </div>
                                                     <div className="fc-attach-picker-list">
                                                         {loadingPubs ? (
                                                             <div className="fc-spinner" style={{ margin: '10px auto' }} />
                                                         ) : activePubs.length === 0 ? (
-                                                            <div className="fc-empty-state" style={{ padding: 10, fontSize: 13 }}>Makale bulunamadı.</div>
+                                                            <div className="fc-empty-state" style={{ padding: 10, fontSize: 13 }}>No publications found.</div>
                                                         ) : activePubs.map(pub => (
                                                             <div key={pub.id} className="fc-attach-pub-item" onClick={() => handleSelectPublication(pub)}>
                                                                 <span className="fc-attach-pub-title">📄 {pub.title}</span>
@@ -511,7 +521,7 @@ const FloatingChat: React.FC = () => {
                                         <textarea
                                             ref={textareaRef}
                                             className="fc-input"
-                                            placeholder={attachedPublication ? "Açıklama ekle..." : "Mesaj yazın..."}
+                                            placeholder={attachedPublication ? "Add a comment..." : "Type a message..."}
                                             value={newMessage}
                                             onChange={e => setNewMessage(e.target.value)}
                                             onKeyDown={handleKeyDown}
@@ -543,10 +553,10 @@ const FloatingChat: React.FC = () => {
                             <>
                                 <div className="fc-header" onClick={() => setIsMainExpanded(!isMainExpanded)}>
                                     <div className="fc-header-left">
-                                        <button className="fc-back-btn" onClick={closeNewChat} title="Geri">
+                                        <button className="fc-back-btn" onClick={closeNewChat} title="Back">
                                             &#8592;
                                         </button>
-                                        <span className="fc-header-name">Kişiler</span>
+                                        <span className="fc-header-name">Contacts</span>
                                     </div>
                                     <div className="fc-header-right">
                                         <span className="fc-header-icon">{isExpanded ? '▼' : '▲'}</span>
@@ -559,7 +569,7 @@ const FloatingChat: React.FC = () => {
                                                 ref={searchInputRef}
                                                 type="text"
                                                 className="fc-search-input"
-                                                placeholder="Kişi ara..."
+                                                placeholder="Search contacts..."
                                                 value={contactSearch}
                                                 onChange={e => setContactSearch(e.target.value)}
                                             />
@@ -568,7 +578,7 @@ const FloatingChat: React.FC = () => {
                                             {loadingContacts ? (
                                                 <div className="fc-spinner" />
                                             ) : contacts.length === 0 ? (
-                                                <div className="fc-empty-state">Kişi bulunamadı.</div>
+                                                <div className="fc-empty-state">No contacts found.</div>
                                             ) : (
                                                 contacts.map(user => (
                                                     <div key={user.id} className="fc-conv-item" onClick={() => handleStartChat(user)}>
@@ -611,13 +621,13 @@ const FloatingChat: React.FC = () => {
                                                 </div>
                                             )}
                                         </div>
-                                        <span className="fc-header-name">Mesajlaşma</span>
+                                        <span className="fc-header-name">Messaging</span>
                                         {totalUnread > 0 && !isExpanded && (
                                             <span className="fc-header-badge">{totalUnread}</span>
                                         )}
                                     </div>
                                     <div className="fc-header-right">
-                                        <button className="fc-icon-btn" onClick={openNewChat} title="Yeni Sohbet" style={{ width: 24, height: 24, marginRight: 4 }}>
+                                        <button className="fc-icon-btn" onClick={openNewChat} title="New Chat" style={{ width: 24, height: 24, marginRight: 4 }}>
                                             <svg viewBox="0 0 24 24" fill="none" stroke="var(--heading-color)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 14, height: 14 }}>
                                                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
                                                 <line x1="12" y1="8" x2="12" y2="14"/>
@@ -632,7 +642,7 @@ const FloatingChat: React.FC = () => {
                                     <div className="fc-content">
                                         {conversations.length === 0 ? (
                                             <div className="fc-empty-state">
-                                                Hiç mesajınız yok.
+                                                No messages yet.
                                             </div>
                                         ) : (
                                             conversations.map(conv => (
