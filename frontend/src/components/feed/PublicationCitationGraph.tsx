@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { publicationsApi } from '../../services/publicationService';
 import '../../styles/feed/PublicationCitationGraph.css';
 
@@ -94,6 +94,47 @@ const PublicationCitationGraph: React.FC<PublicationCitationGraphProps> = ({ pub
     const [fullscreen, setFullscreen] = useState(false);
     const [hoveredNode, setHoveredNode] = useState<string | null>(null);
     const [selectedNode, setSelectedNode] = useState<string | null>(null);
+
+    // Zoom & pan state for fullscreen
+    const [zoom, setZoom] = useState(1);
+    const [pan, setPan] = useState({ x: 0, y: 0 });
+    const [isPanning, setIsPanning] = useState(false);
+    const panStart = useRef({ x: 0, y: 0 });
+    const panOrigin = useRef({ x: 0, y: 0 });
+    const fsBodyRef = useRef<HTMLDivElement>(null);
+
+    // Reset zoom/pan when entering fullscreen
+    useEffect(() => {
+        if (fullscreen) { setZoom(1.4); setPan({ x: 0, y: 0 }); }
+    }, [fullscreen]);
+
+    const handleWheel = useCallback((e: React.WheelEvent) => {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? 0.9 : 1.1;
+        setZoom(prev => Math.min(Math.max(prev * delta, 0.3), 5));
+    }, []);
+
+    const handleMouseDown = useCallback((e: React.MouseEvent) => {
+        if (e.button !== 0) return;
+        setIsPanning(true);
+        panStart.current = { x: e.clientX, y: e.clientY };
+        panOrigin.current = { ...pan };
+    }, [pan]);
+
+    const handleMouseMove = useCallback((e: React.MouseEvent) => {
+        if (!isPanning) return;
+        setPan({
+            x: panOrigin.current.x + (e.clientX - panStart.current.x),
+            y: panOrigin.current.y + (e.clientY - panStart.current.y),
+        });
+    }, [isPanning]);
+
+    const handleMouseUp = useCallback(() => setIsPanning(false), []);
+
+    const resetView = useCallback(() => {
+        setZoom(1.4);
+        setPan({ x: 0, y: 0 });
+    }, []);
 
     useEffect(() => {
         const fetch = async () => {
@@ -366,10 +407,39 @@ const PublicationCitationGraph: React.FC<PublicationCitationGraphProps> = ({ pub
                     <div className="cg-fullscreen-content">
                         <div className="cg-fullscreen-header">
                             <h3>📊 Citation Relationship Graph</h3>
+                            <div className="cg-zoom-controls">
+                                <button className="cg-zoom-btn" onClick={() => setZoom(z => Math.min(z * 1.25, 5))} title="Zoom In">＋</button>
+                                <span className="cg-zoom-level">{Math.round(zoom * 100)}%</span>
+                                <button className="cg-zoom-btn" onClick={() => setZoom(z => Math.max(z * 0.8, 0.3))} title="Zoom Out">−</button>
+                                <button className="cg-zoom-btn cg-zoom-reset" onClick={resetView} title="Reset View">⟳</button>
+                            </div>
                             <button className="cg-fullscreen-close" onClick={() => setFullscreen(false)}>✕</button>
                         </div>
-                        <div className="cg-fullscreen-body">
-                            {renderGraph(true)}
+                        <div
+                            className="cg-fullscreen-body"
+                            ref={fsBodyRef}
+                            onWheel={handleWheel}
+                            onMouseDown={handleMouseDown}
+                            onMouseMove={handleMouseMove}
+                            onMouseUp={handleMouseUp}
+                            onMouseLeave={handleMouseUp}
+                            style={{ cursor: isPanning ? 'grabbing' : 'grab', overflow: 'hidden' }}
+                        >
+                            <div
+                                className="cg-zoom-wrapper"
+                                style={{
+                                    transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                                    transformOrigin: 'center center',
+                                    transition: isPanning ? 'none' : 'transform 0.15s ease',
+                                    width: '100%',
+                                    height: '100%',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                }}
+                            >
+                                {renderGraph(true)}
+                            </div>
                         </div>
                         <div className="cg-legend-bar">
                             <div className="cg-legend-item"><span style={{ background: '#22c55e' }}></span> Supports</div>
