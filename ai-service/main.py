@@ -4,10 +4,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from config import settings
 
-from routers import health, embedding, summarization, pdf, citation, tags
+from routers import health, embedding, summarization, pdf, citation, tags, rag
 from services.embedding_service import embedding_service
 from services.summarization_service import summarization_service
 from services.citation_service import citation_service
+from services.rag_service import rag_service
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -28,6 +29,10 @@ async def lifespan(app: FastAPI):
     logger.info(f"Loading classification model: {settings.CLASSIFICATION_MODEL}")
     citation_service.load_model()
     logger.info("Classification model loaded.")
+
+    logger.info("Initializing RAG service (ChromaDB + Gemini)...")
+    rag_service.initialize()
+    logger.info("RAG service ready.")
 
     logger.info("All models ready.")
     yield
@@ -56,6 +61,7 @@ app.include_router(summarization.router)
 app.include_router(pdf.router)
 app.include_router(citation.router)
 app.include_router(tags.router)
+app.include_router(rag.router)
 
 if __name__ == "__main__":
     import uvicorn

@@ -5,6 +5,7 @@ import type { Publication } from '../../services/publicationService';
 import { API_SERVER_URL } from '../../services/apiClient';
 import '../../styles/feed/PublicationDetailModal.css';
 import PublicationCitationGraph from './PublicationCitationGraph';
+import ArticleChat from '../publications/ArticleChat';
 
 interface PublicationDetailModalProps {
     publication: Publication;
@@ -20,11 +21,35 @@ const PublicationDetailModal: React.FC<PublicationDetailModalProps> = ({ publica
     const [abstractExpanded, setAbstractExpanded] = useState(false);
     const [summaryExpanded, setSummaryExpanded] = useState(false);
     const [citationViewType, setCitationViewType] = useState<'list' | 'graph'>('list');
-    const [citationPage, setCitationPage] = useState(1);
+    const [citationsExpanded, setCitationsExpanded] = useState(false);
+    const [chatOpen, setChatOpen] = useState(false);
     
+    // Add missing citations state back
+    const [citationsData, setCitationsData] = useState(publication.citationAnalysis || []);
+    const [loadingCitations, setLoadingCitations] = useState(!publication.citationAnalysis || publication.citationAnalysis.length === 0);
+
     const ABSTRACT_LIMIT = 250;
     const SUMMARY_LIMIT = 200;
-    const CITATIONS_PER_PAGE = 10;
+
+    useEffect(() => {
+        const loadCitations = async () => {
+            if (publication.citationAnalysis && publication.citationAnalysis.length > 0) {
+                setCitationsData(publication.citationAnalysis);
+                setLoadingCitations(false);
+                return;
+            }
+            try {
+                // Fetch up to 50 citations for See More capability
+                const res = await publicationsApi.getCitationAnalysis(publication.id, 1, 50);
+                setCitationsData(res.data.items || []);
+            } catch (err) {
+                console.error('Failed to fetch citations', err);
+            } finally {
+                setLoadingCitations(false);
+            }
+        };
+        loadCitations();
+    }, [publication.id, publication.citationAnalysis]);
 
     const fileUrl = publication.fileUrl ? `${API_SERVER_URL}${publication.fileUrl}` : null;
     const downloadUrl = publication.fileUrl
@@ -141,38 +166,52 @@ const PublicationDetailModal: React.FC<PublicationDetailModalProps> = ({ publica
                 <div className="pub-detail-body">
                     {/* Left side: Publication Info */}
                     <div className="pub-detail-info">
-                        {/* Author - clickable */}
-                        <div
-                            className="pub-detail-author pub-detail-author-clickable"
-                            onClick={handleAuthorClick}
-                            title="View profile"
-                        >
-                            <div className="pub-detail-avatar-wrapper">
-                                {authorImageUrl ? (
-                                    <img
-                                        src={authorImageUrl}
-                                        alt={publication.author.fullName}
-                                        className="pub-detail-avatar"
-                                    />
-                                ) : (
-                                    <div className="pub-detail-avatar-placeholder">
-                                        {publication.author.fullName.charAt(0).toUpperCase()}
-                                    </div>
-                                )}
-                            </div>
-                            <div>
-                                <h4 className="pub-detail-author-name">
-                                    {publication.author.fullName}
-                                    {publication.author.isVerified && (
-                                        <span className="pub-detail-verified">✓</span>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+                            {/* Author - clickable */}
+                            <div
+                                className="pub-detail-author pub-detail-author-clickable"
+                                onClick={handleAuthorClick}
+                                title="View profile"
+                                style={{ marginBottom: 0 }}
+                            >
+                                <div className="pub-detail-avatar-wrapper">
+                                    {authorImageUrl ? (
+                                        <img
+                                            src={authorImageUrl}
+                                            alt={publication.author.fullName}
+                                            className="pub-detail-avatar"
+                                        />
+                                    ) : (
+                                        <div className="pub-detail-avatar-placeholder">
+                                            {publication.author.fullName.charAt(0).toUpperCase()}
+                                        </div>
                                     )}
-                                </h4>
-                                <p className="pub-detail-author-meta">
-                                    {[publication.author.title, publication.author.institution]
-                                        .filter(Boolean)
-                                        .join(' · ')}
-                                </p>
+                                </div>
+                                <div>
+                                    <h4 className="pub-detail-author-name">
+                                        {publication.author.fullName}
+                                        {publication.author.isVerified && (
+                                            <span className="pub-detail-verified">✓</span>
+                                        )}
+                                    </h4>
+                                    <p className="pub-detail-author-meta">
+                                        {[publication.author.title, publication.author.institution]
+                                            .filter(Boolean)
+                                            .join(' · ')}
+                                    </p>
+                                </div>
                             </div>
+
+                            {/* AI Assistant Button at Top */}
+                            {(fileUrl || downloadUrl) && isPDF && (
+                                <button
+                                    className="pub-detail-download-btn pub-detail-chat-btn"
+                                    onClick={() => setChatOpen(true)}
+                                    style={{ padding: '8px 16px', fontSize: '0.85rem' }}
+                                >
+                                    🤖 AI Asistan
+                                </button>
+                            )}
                         </div>
 
                         {/* Title */}
@@ -229,7 +268,7 @@ const PublicationDetailModal: React.FC<PublicationDetailModalProps> = ({ publica
                         )}
 
                         {/* Citation Analysis */}
-                        {publication.citationAnalysis && publication.citationAnalysis.length > 0 && (
+                        {(citationsData.length > 0 || loadingCitations) && (
                             <div className="pub-detail-citation-analysis">
                                 <div className="pub-detail-citation-header">
                                     <h5>
@@ -254,51 +293,48 @@ const PublicationDetailModal: React.FC<PublicationDetailModalProps> = ({ publica
                                 
                                 {citationViewType === 'list' ? (
                                     <>
-                                        <ul className="pub-detail-citation-list">
-                                            {publication.citationAnalysis
-                                                .slice((citationPage - 1) * CITATIONS_PER_PAGE, citationPage * CITATIONS_PER_PAGE)
-                                                .map((citation, idx) => {
-                                                const lowerIntent = citation.intent.toLowerCase();
-                                                let intentClass = 'intent-neutral';
-                                                if (lowerIntent.includes('support')) intentClass = 'intent-support';
-                                                else if (lowerIntent.includes('contradict') || lowerIntent.includes('dispute')) intentClass = 'intent-dispute';
-                                                else if (lowerIntent.includes('method')) intentClass = 'intent-method';
-                                                else if (lowerIntent.includes('extend')) intentClass = 'intent-extend';
-
-                                                return (
-                                                    <li key={idx} className={`pub-detail-citation-item ${intentClass}`}>
-                                                        <span className="citation-intent-badge">{citation.intent}</span>
-                                                        <span className="citation-sentence">"{citation.sentence}"</span>
-                                                        {citation.citationNumbers && citation.citationNumbers.length > 0 && (
-                                                            <span className="citation-numbers">
-                                                                [{citation.citationNumbers.join(', ')}]
-                                                            </span>
-                                                        )}
-                                                    </li>
-                                                );
-                                            })}
-                                        </ul>
-
-                                        {publication.citationAnalysis.length > CITATIONS_PER_PAGE && (
-                                            <div className="pub-detail-citation-pagination">
-                                                <button 
-                                                    className="citation-pagination-btn"
-                                                    disabled={citationPage === 1}
-                                                    onClick={() => setCitationPage(prev => Math.max(1, prev - 1))}
-                                                >
-                                                    Previous
-                                                </button>
-                                                <span className="citation-pagination-info">
-                                                    Page {citationPage} of {Math.ceil(publication.citationAnalysis.length / CITATIONS_PER_PAGE)}
-                                                </span>
-                                                <button 
-                                                    className="citation-pagination-btn"
-                                                    disabled={citationPage === Math.ceil(publication.citationAnalysis.length / CITATIONS_PER_PAGE)}
-                                                    onClick={() => setCitationPage(prev => prev + 1)}
-                                                >
-                                                    Next
-                                                </button>
+                                        {loadingCitations ? (
+                                            <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-secondary)' }}>
+                                                Loading citations...
                                             </div>
+                                        ) : (
+                                            <>
+                                                <ul className="pub-detail-citation-list">
+                                                    {citationsData
+                                                        .slice(0, citationsExpanded ? citationsData.length : 5)
+                                                        .map((citation, idx) => {
+                                                        const lowerIntent = citation.intent.toLowerCase();
+                                                        let intentClass = 'intent-neutral';
+                                                        if (lowerIntent.includes('support')) intentClass = 'intent-support';
+                                                        else if (lowerIntent.includes('contradict') || lowerIntent.includes('dispute')) intentClass = 'intent-dispute';
+                                                        else if (lowerIntent.includes('method')) intentClass = 'intent-method';
+                                                        else if (lowerIntent.includes('extend')) intentClass = 'intent-extend';
+
+                                                        return (
+                                                            <li key={idx} className={`pub-detail-citation-item ${intentClass}`}>
+                                                                <span className="citation-intent-badge">{citation.intent}</span>
+                                                                <span className="citation-sentence">"{citation.sentence}"</span>
+                                                                {citation.citationNumbers && citation.citationNumbers.length > 0 && (
+                                                                    <span className="citation-numbers">
+                                                                        [{citation.citationNumbers.join(', ')}]
+                                                                    </span>
+                                                                )}
+                                                            </li>
+                                                        );
+                                                    })}
+                                                </ul>
+
+                                                {citationsData.length > 5 && (
+                                                    <div style={{ textAlign: 'center', marginTop: '12px' }}>
+                                                        <button 
+                                                            className="pub-detail-toggle-btn"
+                                                            onClick={() => setCitationsExpanded(!citationsExpanded)}
+                                                        >
+                                                            {citationsExpanded ? 'Show less' : 'See more'}
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </>
                                         )}
                                     </>
                                 ) : (
@@ -399,6 +435,14 @@ const PublicationDetailModal: React.FC<PublicationDetailModalProps> = ({ publica
                     )}
                 </div>
             </div>
+
+            {/* Article Chat Panel */}
+            <ArticleChat
+                publicationId={publication.id}
+                publicationTitle={publication.title}
+                isOpen={chatOpen}
+                onClose={() => setChatOpen(false)}
+            />
         </div>
     );
 };

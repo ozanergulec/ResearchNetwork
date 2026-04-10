@@ -111,4 +111,23 @@ export const aiApi = {
             headers: { 'Content-Type': 'multipart/form-data' },
         });
     },
+
+    // ==================== RAG — Article Chat ====================
+
+    indexArticleForRag: (publicationId: string) =>
+        api.post<{ chunkCount: number; status: string }>(
+            `/ai/publications/${publicationId}/rag/index`
+        ),
+
+    askArticleQuestion: (publicationId: string, question: string) =>
+        api.post<{
+            answer: string;
+            sources: Array<{ chunkIndex: number; text: string; score: number }>;
+            fromCache: boolean;
+        }>(`/ai/publications/${publicationId}/rag/ask`, { question }),
+
+    getRagIndexStatus: (publicationId: string) =>
+        api.get<{ isIndexed: boolean }>(
+            `/ai/publications/${publicationId}/rag/status`
+        ),
 };

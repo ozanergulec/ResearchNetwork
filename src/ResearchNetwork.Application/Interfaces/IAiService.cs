@@ -13,4 +13,9 @@ public interface IAiService
     Task<List<AiParsedReference>> ParseReferencesAsync(List<string> rawReferences);
     Task<List<string>> SuggestTagsAsync(string text, List<string> existingTags, int maxSuggestions = 6);
     Task<List<string>> SuggestTagsFromFileAsync(byte[] fileBytes, string fileName, List<string> existingTags, int maxSuggestions = 6);
+
+    // RAG
+    Task<RagIndexResponse> IndexArticleForRagAsync(string publicationId, string pdfText);
+    Task<RagAskResponse> AskArticleQuestionAsync(string publicationId, string question);
+    Task<RagStatusResponse> GetRagIndexStatusAsync(string publicationId);
 }

@@ -64,6 +64,7 @@ services:
       - "8000:8000"
     volumes:
       - model_cache:/root/.cache/huggingface
+      - chroma_data:/app/chroma_data
     networks:
       - research-net
 
@@ -75,3 +76,4 @@ volumes:
   postgres_data:
   uploads_data:
   model_cache:
+  chroma_data:

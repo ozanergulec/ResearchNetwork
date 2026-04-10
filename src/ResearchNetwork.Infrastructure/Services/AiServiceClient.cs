@@ -116,4 +116,35 @@ public class AiServiceClient : IAiService
         var result = await response.Content.ReadFromJsonAsync<AiTagSuggestResponse>(JsonOptions);
         return result?.Suggested_tags ?? new List<string>();
     }
+
+    // ==================== RAG ====================
+
+    public async Task<RagIndexResponse> IndexArticleForRagAsync(string publicationId, string pdfText)
+    {
+        var request = new RagIndexRequest(publicationId, pdfText);
+        var response = await _httpClient.PostAsJsonAsync("/api/rag/index", request, JsonOptions);
+        response.EnsureSuccessStatusCode();
+
+        var result = await response.Content.ReadFromJsonAsync<RagIndexResponse>(JsonOptions);
+        return result!;
+    }
+
+    public async Task<RagAskResponse> AskArticleQuestionAsync(string publicationId, string question)
+    {
+        var request = new RagAskRequest(publicationId, question);
+        var response = await _httpClient.PostAsJsonAsync("/api/rag/ask", request, JsonOptions);
+        response.EnsureSuccessStatusCode();
+
+        var result = await response.Content.ReadFromJsonAsync<RagAskResponse>(JsonOptions);
+        return result!;
+    }
+
+    public async Task<RagStatusResponse> GetRagIndexStatusAsync(string publicationId)
+    {
+        var response = await _httpClient.GetAsync($"/api/rag/status/{publicationId}");
+        response.EnsureSuccessStatusCode();
+
+        var result = await response.Content.ReadFromJsonAsync<RagStatusResponse>(JsonOptions);
+        return result!;
+    }
 }

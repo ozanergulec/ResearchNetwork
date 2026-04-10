@@ -556,6 +556,61 @@ public class AiController : ControllerBase
         ));
     }
 
+    // ==================== RAG — Article Chat ====================
+
+    [Authorize]
+    [HttpPost("publications/{id:guid}/rag/index")]
+    public async Task<ActionResult<ArticleIndexResponse>> IndexArticleForRag(Guid id)
+    {
+        var publication = await _publicationRepository.GetByIdAsync(id);
+        if (publication == null) return NotFound();
+
+        if (string.IsNullOrEmpty(publication.FileUrl))
+            return BadRequest(new { message = "This publication has no uploaded file." });
+
+        var fileName = Path.GetFileName(publication.FileUrl);
+        var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "publications", fileName);
+
+        if (!System.IO.File.Exists(filePath))
+            return NotFound(new { message = "File not found on server." });
+
+        var pdfBytes = await System.IO.File.ReadAllBytesAsync(filePath);
+        var pdfResult = await _aiService.ProcessPdfAsync(pdfBytes, fileName);
+
+        var ragResult = await _aiService.IndexArticleForRagAsync(
+            id.ToString(), pdfResult.Full_text);
+
+        return Ok(new ArticleIndexResponse(ragResult.Chunk_count, ragResult.Status));
+    }
+
+    [Authorize]
+    [HttpPost("publications/{id:guid}/rag/ask")]
+    public async Task<ActionResult<ArticleChatResponse>> AskArticleQuestion(
+        Guid id, [FromBody] ArticleChatRequest request)
+    {
+        var publication = await _publicationRepository.GetByIdAsync(id);
+        if (publication == null) return NotFound();
+
+        if (string.IsNullOrWhiteSpace(request.Question))
+            return BadRequest(new { message = "Question is required." });
+
+        var ragResult = await _aiService.AskArticleQuestionAsync(
+            id.ToString(), request.Question);
+
+        var sources = ragResult.Sources.Select(s => new ArticleChatSource(
+            s.Chunk_index, s.Text, s.Score
+        )).ToList();
+
+        return Ok(new ArticleChatResponse(ragResult.Answer, sources, ragResult.From_cache));
+    }
+
+    [HttpGet("publications/{id:guid}/rag/status")]
+    public async Task<ActionResult<ArticleIndexStatusResponse>> GetRagIndexStatus(Guid id)
+    {
+        var result = await _aiService.GetRagIndexStatusAsync(id.ToString());
+        return Ok(new ArticleIndexStatusResponse(result.Is_indexed));
+    }
+
     // ==================== HELPERS ====================
 
     private static double JaccardSimilarity(HashSet<string> setA, HashSet<string> setB)
