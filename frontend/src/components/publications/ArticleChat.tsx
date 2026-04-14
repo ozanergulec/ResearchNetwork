@@ -19,10 +19,10 @@ interface ArticleChatProps {
 }
 
 const SUGGESTION_QUESTIONS = [
-    "Bu makalenin ana araştırma sorusu nedir?",
-    "Kullanılan metodoloji nedir ve sınırlamaları nelerdir?",
-    "Makalenin temel bulguları ve sonuçları nelerdir?",
-    "Bu çalışmanın literatüre katkısı nedir?",
+    "What is the main research question of this article?",
+    "What methodology was used and what are its limitations?",
+    "What are the key findings and conclusions?",
+    "What is this study's contribution to the literature?",
 ];
 
 export default function ArticleChat({
@@ -51,7 +51,7 @@ export default function ArticleChat({
                 await indexArticle();
             }
         } catch {
-            setError('Makale durumu kontrol edilemedi.');
+            setError('Could not check article status.');
         }
     }, [publicationId]);
 
@@ -63,7 +63,7 @@ export default function ArticleChat({
             await aiApi.indexArticleForRag(publicationId);
             setIsIndexed(true);
         } catch (err: any) {
-            const msg = err.response?.data?.message || 'Makale indekslenemedi.';
+            const msg = err.response?.data?.message || 'Could not index the article.';
             setError(msg);
         } finally {
             setIsIndexing(false);
@@ -128,7 +128,7 @@ export default function ArticleChat({
             const errMsg: ChatMessage = {
                 id: (Date.now() + 1).toString(),
                 role: 'assistant',
-                content: 'Cevap üretilirken bir hata oluştu. Lütfen tekrar deneyin.',
+                content: 'An error occurred while generating the answer. Please try again.',
                 timestamp: new Date(),
             };
             setMessages(prev => [...prev, errMsg]);
@@ -157,7 +157,7 @@ export default function ArticleChat({
 
     // Zaman formatı
     const formatTime = (date: Date) => {
-        return date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+        return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
     };
 
     if (!isOpen) return null;
@@ -170,30 +170,30 @@ export default function ArticleChat({
                     <div className="article-chat-header-info">
                         <div className="article-chat-icon">🤖</div>
                         <div className="article-chat-header-text">
-                            <h3>Makale Asistanı</h3>
+                            <h3>Article Assistant</h3>
                             <p title={publicationTitle}>{publicationTitle}</p>
                         </div>
                     </div>
                     <button className="article-chat-close" onClick={onClose}>✕</button>
                 </div>
 
-                {/* İndeksleniyor */}
+                {/* Indexing */}
                 {isIndexing && (
                     <div className="article-chat-indexing">
                         <div className="article-chat-indexing-spinner" />
-                        <h4>Makale analiz ediliyor...</h4>
-                        <p>PDF içeriği parçalanıp vektör veritabanına indeksleniyor. Bu işlem birkaç saniye sürebilir.</p>
+                        <h4>Analyzing article...</h4>
+                        <p>The PDF content is being processed and indexed. This may take a few seconds.</p>
                     </div>
                 )}
 
-                {/* Hata */}
+                {/* Error */}
                 {error && !isIndexing && (
                     <div className="article-chat-error">
                         <div className="article-chat-error-icon">⚠️</div>
-                        <h4>Bir sorun oluştu</h4>
+                        <h4>Something went wrong</h4>
                         <p>{error}</p>
                         <button onClick={() => { setError(null); checkIndexStatus(); }}>
-                            Tekrar Dene
+                            Try Again
                         </button>
                     </div>
                 )}
@@ -205,10 +205,10 @@ export default function ArticleChat({
                             {messages.length === 0 ? (
                                 <div className="article-chat-welcome">
                                     <div className="article-chat-welcome-icon">📄</div>
-                                    <h4>Makale hakkında sorular sorun</h4>
+                                    <h4>Ask questions about this article</h4>
                                     <p>
-                                        Bu asistan yalnızca makalenin içeriğini kullanarak
-                                        sorularınıza cevap verir. Dış kaynaklardan bilgi eklemez.
+                                        This assistant answers your questions using only the
+                                        article's content. It does not use external sources.
                                     </p>
                                     <div className="article-chat-suggestions">
                                         {SUGGESTION_QUESTIONS.map((q, i) => (
@@ -240,11 +240,6 @@ export default function ArticleChat({
                                                     <span className="article-chat-message-time">
                                                         {formatTime(msg.timestamp)}
                                                     </span>
-                                                    {msg.fromCache && (
-                                                        <span className="article-chat-cache-badge">
-                                                            ⚡ Önbellek
-                                                        </span>
-                                                    )}
                                                 </div>
                                                 {msg.sources && msg.sources.length > 0 && (
                                                     <div className="article-chat-sources">
@@ -252,7 +247,7 @@ export default function ArticleChat({
                                                             className="article-chat-sources-toggle"
                                                             onClick={() => toggleSources(msg.id)}
                                                         >
-                                                            📑 {msg.sources.length} kaynak
+                                                            📑 {msg.sources.length} source{msg.sources.length > 1 ? 's' : ''}
                                                             {expandedSources.has(msg.id) ? ' ▲' : ' ▼'}
                                                         </button>
                                                         {expandedSources.has(msg.id) && (
@@ -261,10 +256,10 @@ export default function ArticleChat({
                                                                     <div key={i} className="article-chat-source-item">
                                                                         <div className="source-header">
                                                                             <span className="source-label">
-                                                                                Parça #{src.chunkIndex + 1}
+                                                                                Chunk #{src.chunkIndex + 1}
                                                                             </span>
                                                                             <span className="source-score">
-                                                                                Benzerlik: {(src.score * 100).toFixed(1)}%
+                                                                                Similarity: {(src.score * 100).toFixed(1)}%
                                                                             </span>
                                                                         </div>
                                                                         {src.text}
@@ -302,7 +297,7 @@ export default function ArticleChat({
                                     value={input}
                                     onChange={handleInputChange}
                                     onKeyDown={handleKeyDown}
-                                    placeholder="Makale hakkında bir soru sorun..."
+                                    placeholder="Ask a question about this article..."
                                     rows={1}
                                     disabled={isLoading}
                                 />
@@ -310,7 +305,7 @@ export default function ArticleChat({
                                     className="article-chat-send-btn"
                                     onClick={() => sendQuestion()}
                                     disabled={!input.trim() || isLoading}
-                                    title="Gönder"
+                                    title="Send"
                                 >
                                     ➤
                                 </button>

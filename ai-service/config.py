@@ -9,11 +9,11 @@ class Settings(BaseSettings):
     GROQ_API_KEY: str = ""
     GROQ_MODEL: str = "llama-3.3-70b-versatile"
 
-    # Google Gemini (RAG cevap üretimi için)
+    # Google Gemini (for RAG answer generation)
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-1.5-flash"
 
-    # RAG ayarları
+    # RAG settings
     CHROMA_PERSIST_DIR: str = "./chroma_data"
     RAG_CHUNK_SIZE: int = 500
     RAG_CHUNK_OVERLAP: int = 100

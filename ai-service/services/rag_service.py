@@ -7,27 +7,27 @@ from services.embedding_service import embedding_service
 
 logger = logging.getLogger(__name__)
 
-# ─── Gemini ile cevap üretimi için system prompt ───
-RAG_SYSTEM_PROMPT = """Sen uzman bir akademik araştırmacı ve makale analiz asistanısın. Görevin, sana sağlanan bilimsel makale parçalarını okuyarak kullanıcının sorularına en doğru, net ve derinlemesine yanıtları vermektir.
+# ─── System prompt for RAG answer generation ───
+RAG_SYSTEM_PROMPT = """You are an expert academic researcher and article analysis assistant. Your task is to read the provided scientific article excerpts and deliver the most accurate, clear, and in-depth answers to the user's questions.
 
-KESİN KURALLAR VE DAVRANIŞ BİÇİMİ:
-1. DIŞ BİLGİ KULLANIMI YASAKTIR: SADECE ve SADECE sana verilen bağlam (context) metinlerine dayanarak cevap üret. Asla kendi genel kültür veya akademik bilgini (bağlamda geçmiyorsa) cevaba katma.
-2. BİLGİ EKSİKLİĞİ: Eğer sana verilen bağlam parçalarında sorunun net bir cevabı yoksa, bunu uydurmak veya tahmin etmek yerine "Sana sağlanan makale parçalarında bu sorunun cevabı bulunmamaktadır." şeklinde dürüstçe belirt.
-3. ALINTI YAPMA: Bağlamdaki cümleleri birebir kopyalamak yerine onları anlayıp kendi entelektüel ifadelerinle (paraphrase ederek) açıkla. Eğer makaleden çok kritik bir tanım veriyorsan tırnak içinde gösterebilirsin.
-4. YAPI VE FORMAT: Kullanıcı aksi bir şey istemedikçe; cevaplarını okunması kolay, iyi yapılandırılmış pürüzsüz paragraflar halinde yaz. Gerekirse vurgu yapmak için **kalın yazılar** veya madde imleri kullan. Asla Markdown tablo veya çok karmaşık formatlar kullanma.
-5. AKADEMİK DİL: Daima objektif, analitik ve üçüncü tekil şahıs diliyle profesyonel bir üslup takın.
-6. DİL DUYARLILIĞI: Kullanıcı sana hangi dilde soru soruyorsa, sen de o dilde yanıt ver."""
+STRICT RULES AND BEHAVIOR:
+1. NO EXTERNAL KNOWLEDGE: Base your answers SOLELY on the provided context passages. Never incorporate your own general knowledge or academic expertise unless it appears in the context.
+2. KNOWLEDGE GAPS: If the provided context does not contain a clear answer to the question, honestly state: "The answer to this question was not found in the provided article excerpts." rather than fabricating or guessing.
+3. PARAPHRASING: Instead of copying sentences verbatim from the context, understand and explain them in your own words. You may quote critical definitions in quotation marks.
+4. STRUCTURE AND FORMAT: Unless the user requests otherwise, write your answers as well-structured, easy-to-read, smooth paragraphs. Use **bold text** or bullet points for emphasis when needed. Never use Markdown tables or overly complex formatting.
+5. ACADEMIC TONE: Always maintain an objective, analytical, and professional tone in the third person.
+6. LANGUAGE SENSITIVITY: Respond in the same language the user asks the question in."""
 
-RAG_USER_PROMPT = """Aşağıdaki makale bağlam parçalarını dikkatlice incele ve ardından soruyu yanıtla. 
+RAG_USER_PROMPT = """Carefully examine the following article context passages and then answer the question.
 
-BAĞLAM (Makaleden alınan ilgili kısımlar):
+CONTEXT (Relevant excerpts from the article):
 --------------------------------------------------
 {context}
 --------------------------------------------------
 
-KULLANICININ SORUSU: {question}
+USER'S QUESTION: {question}
 
-LÜTFEN YANITINI ŞİMDİ OLUŞTUR (Sadece yukarıdaki bağlamı kullanarak):"""
+PLEASE GENERATE YOUR ANSWER NOW (Using only the context above):"""
 
 
 class RagService:
@@ -64,8 +64,8 @@ class RagService:
     # ─────────────────────────── CHUNKING ───────────────────────────
 
     def _chunk_text(self, text: str) -> list[str]:
-        """Metni kelime bazlı parçalara böl (overlap ile)."""
-        # Gereksiz boşlukları temizle
+        """Split text into word-based chunks with overlap."""
+        # Clean up unnecessary whitespace
         text = re.sub(r"\s+", " ", text).strip()
         words = text.split()
 
@@ -88,8 +88,8 @@ class RagService:
     # ─────────────────────────── INDEX ───────────────────────────
 
     def index_article(self, publication_id: str, pdf_text: str) -> int:
-        """Makale metnini parçalayıp ChromaDB'ye indeksle."""
-        # Önceki parçaları sil
+        """Chunk article text and index it in ChromaDB."""
+        # Delete previous chunks
         self.delete_article(publication_id)
 
         chunks = self._chunk_text(pdf_text)
@@ -97,10 +97,10 @@ class RagService:
             logger.warning(f"No chunks generated for publication {publication_id}")
             return 0
 
-        # Embedding'leri oluştur
+        # Generate embeddings
         embeddings = embedding_service.encode_batch(chunks)
 
-        # ChromaDB'ye ekle
+        # Add to ChromaDB
         ids = [f"{publication_id}_chunk_{i}" for i in range(len(chunks))]
         metadatas = [
             {
@@ -126,10 +126,10 @@ class RagService:
     # ─────────────────────────── DELETE ───────────────────────────
 
     def delete_article(self, publication_id: str) -> int:
-        """Bir makalenin tüm parçalarını ve cache'ini sil."""
+        """Delete all chunks and cache entries for an article."""
         deleted = 0
 
-        # Chunk'ları sil
+        # Delete chunks
         try:
             existing = self.chunks_collection.get(
                 where={"publication_id": publication_id}
@@ -140,7 +140,7 @@ class RagService:
         except Exception as e:
             logger.error(f"Error deleting chunks for {publication_id}: {e}")
 
-        # Cache'i sil
+        # Delete cache
         try:
             cached = self.cache_collection.get(
                 where={"publication_id": publication_id}
@@ -158,7 +158,7 @@ class RagService:
     def _check_cache(
         self, publication_id: str, question_embedding: list[float]
     ) -> str | None:
-        """Semantic cache kontrolü. Benzer soru varsa cevabı döndür."""
+        """Semantic cache check. Returns cached answer if a similar question exists."""
         try:
             cache_count = self.cache_collection.count()
             if cache_count == 0:
@@ -199,7 +199,7 @@ class RagService:
         question_embedding: list[float],
         answer: str,
     ):
-        """Soru-cevap çiftini cache'e kaydet."""
+        """Save question-answer pair to cache."""
         import uuid
 
         try:
@@ -225,7 +225,7 @@ class RagService:
     def _search_chunks(
         self, publication_id: str, query_embedding: list[float]
     ) -> list[dict]:
-        """Vektör veritabanında en ilgili parçaları bul."""
+        """Find the most relevant chunks in the vector database."""
         try:
             results = self.chunks_collection.query(
                 query_embeddings=[query_embedding],
@@ -257,14 +257,14 @@ class RagService:
     # ─────────────────────────── LLM ANSWER ───────────────────────────
 
     def _generate_answer(self, question: str, context_chunks: list[dict]) -> str:
-        """Groq Llama ile cevap üret."""
+        """Generate answer using Groq Llama."""
         if not self.llm_client:
-            return "API anahtarı yapılandırılmamış. Lütfen GROQ_API_KEY ayarını kontrol edin."
+            return "API key not configured. Please check the GROQ_API_KEY setting."
 
-        # Bağlam metnini oluştur
+        # Build context text
         context_parts = []
         for i, chunk in enumerate(context_chunks, 1):
-            context_parts.append(f"[Parça {i}]:\n{chunk['text']}")
+            context_parts.append(f"[Chunk {i}]:\n{chunk['text']}")
         context = "\n\n".join(context_parts)
 
         prompt = RAG_USER_PROMPT.format(context=context, question=question)
@@ -287,19 +287,19 @@ class RagService:
             return answer
         except Exception as e:
             logger.error(f"Groq API error: {e}")
-            return f"Cevap üretilirken bir hata oluştu: {str(e)}"
+            return f"An error occurred while generating the answer: {str(e)}"
 
     # ─────────────────────────── ASK (Ana Pipeline) ───────────────────────────
 
     def ask_question(
         self, publication_id: str, question: str
     ) -> dict:
-        """RAG pipeline: cache → search → generate → cache save."""
+        """RAG pipeline: cache check → search → generate → cache save."""
 
-        # 1. Soru embedding'i oluştur
+        # 1. Generate question embedding
         question_embedding = embedding_service.encode(question)
 
-        # 2. Cache kontrolü
+        # 2. Check cache
         cached_answer = self._check_cache(publication_id, question_embedding)
         if cached_answer:
             return {
@@ -308,22 +308,22 @@ class RagService:
                 "from_cache": True,
             }
 
-        # 3. İlgili parçaları bul
+        # 3. Find relevant chunks
         chunks = self._search_chunks(publication_id, question_embedding)
         if not chunks:
             return {
-                "answer": "Bu makale henüz indekslenmemiş veya sorunuzla ilgili bir bölüm bulunamadı. Lütfen makaleyi önce indeksleyin.",
+                "answer": "This article has not been indexed yet or no relevant section was found for your question. Please index the article first.",
                 "sources": [],
                 "from_cache": False,
             }
 
-        # 4. LLM ile cevap üret
+        # 4. Generate answer with LLM
         answer = self._generate_answer(question, chunks)
 
-        # 5. Cache'e kaydet
+        # 5. Save to cache
         self._save_to_cache(publication_id, question, question_embedding, answer)
 
-        # 6. Sonuçları döndür
+        # 6. Return results
         sources = [
             {
                 "chunk_index": c["chunk_index"],
@@ -340,7 +340,7 @@ class RagService:
         }
 
     def is_article_indexed(self, publication_id: str) -> bool:
-        """Makalenin indekslenip indekslenmediğini kontrol et."""
+        """Check whether the article has been indexed."""
         try:
             results = self.chunks_collection.get(
                 where={"publication_id": publication_id},
