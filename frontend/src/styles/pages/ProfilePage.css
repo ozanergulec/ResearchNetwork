@@ -176,6 +176,23 @@
 
 .profile-tabs .add-publication-button {
     margin-left: auto;
+    padding: 8px 18px;
+    background: var(--heading-color, #7A1F2B);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.profile-tabs .add-publication-button:hover {
+    background: var(--link-color, #E5533D);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(122, 31, 43, 0.3);
 }
 
 /* Responsive: collapse to single column */
