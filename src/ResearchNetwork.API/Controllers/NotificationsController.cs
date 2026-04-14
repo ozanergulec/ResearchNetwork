@@ -1,8 +1,10 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using ResearchNetwork.Application.DTOs;
 using ResearchNetwork.Application.Interfaces;
+using ResearchNetwork.API.Hubs;
 
 namespace ResearchNetwork.API.Controllers;
 
@@ -12,10 +14,14 @@ namespace ResearchNetwork.API.Controllers;
 public class NotificationsController : ControllerBase
 {
     private readonly INotificationRepository _notificationRepository;
+    private readonly IHubContext<NotificationHub> _hubContext;
 
-    public NotificationsController(INotificationRepository notificationRepository)
+    public NotificationsController(
+        INotificationRepository notificationRepository,
+        IHubContext<NotificationHub> hubContext)
     {
         _notificationRepository = notificationRepository;
+        _hubContext = hubContext;
     }
 
     private Guid? GetCurrentUserId()
@@ -66,6 +72,11 @@ public class NotificationsController : ControllerBase
         if (userId == null) return Unauthorized();
 
         await _notificationRepository.MarkAsReadAsync(id);
+
+        var unreadCount = await _notificationRepository.GetUnreadCountAsync(userId.Value);
+        await _hubContext.Clients.Group(userId.Value.ToString())
+            .SendAsync("UpdateUnreadCount", unreadCount);
+
         return Ok();
     }
 
@@ -76,6 +87,11 @@ public class NotificationsController : ControllerBase
         if (userId == null) return Unauthorized();
 
         await _notificationRepository.MarkAllAsReadAsync(userId.Value);
+
+        var unreadCount = await _notificationRepository.GetUnreadCountAsync(userId.Value);
+        await _hubContext.Clients.Group(userId.Value.ToString())
+            .SendAsync("UpdateUnreadCount", unreadCount);
+
         return Ok();
     }
 
