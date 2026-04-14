@@ -10,29 +10,11 @@ interface AddPublicationModalProps {
     onPublicationAdded: () => void;
 }
 
-type TabType = 'manual' | 'file';
-
 const MAX_TAGS = 6;
 
 const AddPublicationModal: React.FC<AddPublicationModalProps> = ({ onClose, onPublicationAdded }) => {
-    const [activeTab, setActiveTab] = useState<TabType>('manual');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-
-    // Manual Entry State
-    const [formData, setFormData] = useState({
-        title: '',
-        abstract: '',
-        doi: '',
-        publishedDate: '',
-    });
-    const [manualTags, setManualTags] = useState<string[]>([]);
-    const [manualTagQuery, setManualTagQuery] = useState('');
-    const [manualTagFiltered, setManualTagFiltered] = useState<string[]>([]);
-    const [manualTagOpen, setManualTagOpen] = useState(false);
-    const [manualTagActiveIdx, setManualTagActiveIdx] = useState(-1);
-    const manualTagRef = useRef<HTMLDivElement>(null);
-    const manualTagListRef = useRef<HTMLUListElement>(null);
 
     // File Upload State
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -53,12 +35,9 @@ const AddPublicationModal: React.FC<AddPublicationModalProps> = ({ onClose, onPu
     const [suggestedTags, setSuggestedTags] = useState<string[]>([]);
     const [loadingSuggestions, setLoadingSuggestions] = useState(false);
 
-    // Click outside handlers for autocomplete dropdowns
+    // Click outside handler for autocomplete dropdown
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
-            if (manualTagRef.current && !manualTagRef.current.contains(e.target as Node)) {
-                setManualTagOpen(false);
-            }
             if (fileTagRef.current && !fileTagRef.current.contains(e.target as Node)) {
                 setFileTagOpen(false);
             }
@@ -69,24 +48,11 @@ const AddPublicationModal: React.FC<AddPublicationModalProps> = ({ onClose, onPu
 
     // Scroll active item into view
     useEffect(() => {
-        if (manualTagActiveIdx >= 0 && manualTagListRef.current) {
-            const el = manualTagListRef.current.children[manualTagActiveIdx] as HTMLElement;
-            if (el) el.scrollIntoView({ block: 'nearest' });
-        }
-    }, [manualTagActiveIdx]);
-
-    useEffect(() => {
         if (fileTagActiveIdx >= 0 && fileTagListRef.current) {
             const el = fileTagListRef.current.children[fileTagActiveIdx] as HTMLElement;
             if (el) el.scrollIntoView({ block: 'nearest' });
         }
     }, [fileTagActiveIdx]);
-
-    const handleManualInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
-        setError(null);
-    };
 
     const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -101,45 +67,6 @@ const AddPublicationModal: React.FC<AddPublicationModalProps> = ({ onClose, onPu
         return RESEARCH_TOPICS.filter(t =>
             t.toLowerCase().includes(query.toLowerCase()) && !tagSet.has(t.toLowerCase())
         ).slice(0, 15);
-    };
-
-    const handleManualTagSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (manualTags.length >= MAX_TAGS) return;
-        const q = e.target.value;
-        setManualTagQuery(q);
-        const matches = filterTopics(q, manualTags);
-        setManualTagFiltered(matches);
-        setManualTagOpen(matches.length > 0);
-        setManualTagActiveIdx(-1);
-    };
-
-    const handleManualTagSelect = (topic: string) => {
-        if (manualTags.length >= MAX_TAGS) return;
-        setManualTags(prev => [...prev, topic]);
-        setManualTagQuery('');
-        setManualTagFiltered([]);
-        setManualTagOpen(false);
-        setManualTagActiveIdx(-1);
-    };
-
-    const handleManualTagRemove = (topic: string) => {
-        setManualTags(prev => prev.filter(t => t !== topic));
-    };
-
-    const handleManualTagKeyDown = (e: React.KeyboardEvent) => {
-        if (!manualTagOpen) return;
-        if (e.key === 'ArrowDown') {
-            e.preventDefault();
-            setManualTagActiveIdx(prev => (prev < manualTagFiltered.length - 1 ? prev + 1 : prev));
-        } else if (e.key === 'ArrowUp') {
-            e.preventDefault();
-            setManualTagActiveIdx(prev => (prev > 0 ? prev - 1 : 0));
-        } else if (e.key === 'Enter' && manualTagActiveIdx >= 0) {
-            e.preventDefault();
-            handleManualTagSelect(manualTagFiltered[manualTagActiveIdx]);
-        } else if (e.key === 'Escape') {
-            setManualTagOpen(false);
-        }
     };
 
     const handleFileTagSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -228,26 +155,21 @@ const AddPublicationModal: React.FC<AddPublicationModalProps> = ({ onClose, onPu
     };
 
     const handleSuggestTags = async () => {
-        const isFile = activeTab === 'file';
-        const currentTags = isFile ? fileTags : manualTags;
-
         setLoadingSuggestions(true);
         setSuggestedTags([]);
         try {
             let res;
-            if (isFile && selectedFile) {
-                res = await aiApi.suggestTagsFromFile(selectedFile, currentTags, 6);
+            if (selectedFile) {
+                res = await aiApi.suggestTagsFromFile(selectedFile, fileTags, 6);
             } else {
-                const title = isFile ? fileUploadData.title : formData.title;
-                const abstract = isFile ? fileUploadData.abstract : formData.abstract;
-                const text = [title, abstract].filter(Boolean).join('. ');
+                const text = [fileUploadData.title, fileUploadData.abstract].filter(Boolean).join('. ');
                 if (text.trim().length < 10) {
                     setLoadingSuggestions(false);
                     return;
                 }
-                res = await aiApi.suggestTags(text, currentTags, 6);
+                res = await aiApi.suggestTags(text, fileTags, 6);
             }
-            const currentLower = new Set(currentTags.map(t => t.toLowerCase()));
+            const currentLower = new Set(fileTags.map(t => t.toLowerCase()));
             const filtered = res.data.filter(t => !currentLower.has(t.toLowerCase()));
             setSuggestedTags(filtered);
         } catch (err) {
@@ -258,47 +180,9 @@ const AddPublicationModal: React.FC<AddPublicationModalProps> = ({ onClose, onPu
     };
 
     const handleAcceptSuggestedTag = (tag: string) => {
-        const isFile = activeTab === 'file';
-        const currentTags = isFile ? fileTags : manualTags;
-        if (currentTags.length >= MAX_TAGS) return;
-
-        if (isFile) {
-            setFileTags(prev => [...prev, tag]);
-        } else {
-            setManualTags(prev => [...prev, tag]);
-        }
+        if (fileTags.length >= MAX_TAGS) return;
+        setFileTags(prev => [...prev, tag]);
         setSuggestedTags(prev => prev.filter(t => t !== tag));
-    };
-
-    const handleManualSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-
-        if (!formData.title.trim()) {
-            setError('Title is required.');
-            return;
-        }
-
-        setLoading(true);
-        setError(null);
-
-        try {
-            const publicationData: CreatePublicationDto = {
-                title: formData.title,
-                abstract: formData.abstract || undefined,
-                doi: formData.doi || undefined,
-                publishedDate: formData.publishedDate || undefined,
-                tags: manualTags.length > 0 ? manualTags : undefined
-            };
-
-            await publicationsApi.create(publicationData);
-            onPublicationAdded();
-            onClose();
-        } catch (err: any) {
-            console.error('Failed to create publication', err);
-            setError(err.response?.data?.message || 'An error occurred while adding the publication.');
-        } finally {
-            setLoading(false);
-        }
     };
 
     const handleFileSubmit = async (e: React.FormEvent) => {
@@ -343,21 +227,6 @@ const AddPublicationModal: React.FC<AddPublicationModalProps> = ({ onClose, onPu
                     <button className="modal-close" onClick={onClose}>×</button>
                 </div>
 
-                <div className="modal-tabs">
-                    <button
-                        className={`tab-button ${activeTab === 'manual' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('manual')}
-                    >
-                        Manual Entry
-                    </button>
-                    <button
-                        className={`tab-button ${activeTab === 'file' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('file')}
-                    >
-                        File Upload
-                    </button>
-                </div>
-
                 {error && (
                     <div className="modal-error">
                         {error}
@@ -365,299 +234,158 @@ const AddPublicationModal: React.FC<AddPublicationModalProps> = ({ onClose, onPu
                 )}
 
                 <div className="modal-body">
-                    {activeTab === 'manual' ? (
-                        <form onSubmit={handleManualSubmit}>
-                            <div className="form-group">
-                                <label htmlFor="title">Title *</label>
-                                <input
-                                    type="text"
-                                    id="title"
-                                    name="title"
-                                    value={formData.title}
-                                    onChange={handleManualInputChange}
-                                    required
-                                    placeholder="Enter publication title"
-                                />
-                            </div>
-
-                            <div className="form-group">
-                                <label htmlFor="abstract">Abstract</label>
-                                <textarea
-                                    id="abstract"
-                                    name="abstract"
-                                    value={formData.abstract}
-                                    onChange={handleManualInputChange}
-                                    rows={4}
-                                    placeholder="Enter the abstract (optional)"
-                                />
-                            </div>
-
-                            <div className="form-group">
-                                <label htmlFor="doi">DOI Number</label>
-                                <input
-                                    type="text"
-                                    id="doi"
-                                    name="doi"
-                                    value={formData.doi}
-                                    onChange={handleManualInputChange}
-                                    placeholder="10.1234/example.2024.001"
-                                />
-                            </div>
-
-                            <div className="form-group">
-                                <label htmlFor="publishedDate">Publication Date</label>
-                                <input
-                                    type="date"
-                                    id="publishedDate"
-                                    name="publishedDate"
-                                    value={formData.publishedDate}
-                                    onChange={handleManualInputChange}
-                                />
-                            </div>
-
-                            <div className="form-group">
-                                <label>Tags ({manualTags.length}/{MAX_TAGS})</label>
-                                {manualTags.length > 0 && (
-                                    <div className="pub-tags-chips">
-                                        {manualTags.map(tag => (
-                                            <span key={tag} className="pub-tag-chip">
-                                                {tag}
-                                                <button type="button" className="pub-tag-chip-remove" onClick={() => handleManualTagRemove(tag)}>×</button>
-                                            </span>
-                                        ))}
-                                    </div>
-                                )}
-                                <div className="pub-tag-autocomplete-wrapper" ref={manualTagRef}>
-                                    <input
-                                        type="text"
-                                        value={manualTagQuery}
-                                        onChange={handleManualTagSearch}
-                                        onKeyDown={handleManualTagKeyDown}
-                                        placeholder={manualTags.length >= MAX_TAGS ? `Maximum ${MAX_TAGS} tags reached` : 'Search topics (e.g., Machine Learning...)'}
-                                        autoComplete="off"
-                                        disabled={manualTags.length >= MAX_TAGS}
-                                    />
-                                    {manualTagOpen && manualTagFiltered.length > 0 && (
-                                        <ul className="pub-tag-autocomplete-list" ref={manualTagListRef}>
-                                            {manualTagFiltered.map((topic, idx) => (
-                                                <li
-                                                    key={topic}
-                                                    className={`pub-tag-autocomplete-item ${idx === manualTagActiveIdx ? 'pub-tag-autocomplete-item-active' : ''}`}
-                                                    onMouseDown={(e) => { e.preventDefault(); handleManualTagSelect(topic); }}
-                                                    onMouseEnter={() => setManualTagActiveIdx(idx)}
-                                                >
-                                                    {topic}
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    )}
+                    <form onSubmit={handleFileSubmit}>
+                        <div
+                            className={`file-drop-zone ${dragActive ? 'active' : ''}`}
+                            onDragEnter={handleDrag}
+                            onDragLeave={handleDrag}
+                            onDragOver={handleDrag}
+                            onDrop={handleDrop}
+                        >
+                            {selectedFile ? (
+                                <div className="file-selected">
+                                    <span className="file-icon"></span>
+                                    <span className="file-name">{selectedFile.name}</span>
+                                    <button
+                                        type="button"
+                                        className="file-remove"
+                                        onClick={() => setSelectedFile(null)}
+                                    >
+                                        ✕
+                                    </button>
                                 </div>
+                            ) : (
+                                <>
+                                    <p>📁 Drag file here or click to select</p>
+                                    <input
+                                        type="file"
+                                        accept=".pdf,.doc,.docx"
+                                        onChange={handleFileSelect}
+                                        style={{ display: 'none' }}
+                                        id="file-input"
+                                    />
+                                    <label htmlFor="file-input" className="file-select-button">
+                                        Select File
+                                    </label>
+                                    <p className="file-help">PDF or Word (max 10MB)</p>
+                                </>
+                            )}
+                        </div>
 
-                                <button
-                                    type="button"
-                                    className="ai-suggest-btn"
-                                    onClick={handleSuggestTags}
-                                    disabled={loadingSuggestions || (!formData.title.trim() && !formData.abstract.trim()) || manualTags.length >= MAX_TAGS}
-                                >
-                                    {loadingSuggestions ? (
-                                        <><span className="ai-suggest-spinner" /> Analyzing...</>
-                                    ) : (
-                                        <><span className="ai-suggest-icon">✨</span> AI Suggest Tags</>
-                                    )}
-                                </button>
+                        <div className="form-group">
+                            <label htmlFor="file-title">Title *</label>
+                            <input
+                                type="text"
+                                id="file-title"
+                                name="title"
+                                value={fileUploadData.title}
+                                onChange={handleFileInputChange}
+                                required
+                                placeholder="Enter publication title"
+                            />
+                        </div>
 
-                                {suggestedTags.length > 0 && activeTab === 'manual' && (
-                                    <div className="ai-suggested-tags">
-                                        <span className="ai-suggested-label">AI Suggestions:</span>
-                                        <div className="ai-suggested-chips">
-                                            {suggestedTags.map(tag => (
-                                                <button
-                                                    key={tag}
-                                                    type="button"
-                                                    className="ai-suggested-chip"
-                                                    onClick={() => handleAcceptSuggestedTag(tag)}
-                                                    disabled={manualTags.length >= MAX_TAGS}
-                                                >
-                                                    + {tag}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
+                        <div className="form-group">
+                            <label htmlFor="file-abstract">Abstract</label>
+                            <textarea
+                                id="file-abstract"
+                                name="abstract"
+                                value={fileUploadData.abstract}
+                                onChange={handleFileInputChange}
+                                rows={4}
+                                placeholder="Enter the abstract (optional)"
+                            />
+                        </div>
+
+                        <div className="form-group">
+                            <label>Tags ({fileTags.length}/{MAX_TAGS})</label>
+                            {fileTags.length > 0 && (
+                                <div className="pub-tags-chips">
+                                    {fileTags.map(tag => (
+                                        <span key={tag} className="pub-tag-chip">
+                                            {tag}
+                                            <button type="button" className="pub-tag-chip-remove" onClick={() => handleFileTagRemove(tag)}>×</button>
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                            <div className="pub-tag-autocomplete-wrapper" ref={fileTagRef}>
+                                <input
+                                    type="text"
+                                    value={fileTagQuery}
+                                    onChange={handleFileTagSearch}
+                                    onKeyDown={handleFileTagKeyDown}
+                                    placeholder={fileTags.length >= MAX_TAGS ? `Maximum ${MAX_TAGS} tags reached` : 'Search topics (e.g., Machine Learning...)'}
+                                    autoComplete="off"
+                                    disabled={fileTags.length >= MAX_TAGS}
+                                />
+                                {fileTagOpen && fileTagFiltered.length > 0 && (
+                                    <ul className="pub-tag-autocomplete-list" ref={fileTagListRef}>
+                                        {fileTagFiltered.map((topic, idx) => (
+                                            <li
+                                                key={topic}
+                                                className={`pub-tag-autocomplete-item ${idx === fileTagActiveIdx ? 'pub-tag-autocomplete-item-active' : ''}`}
+                                                onMouseDown={(e) => { e.preventDefault(); handleFileTagSelect(topic); }}
+                                                onMouseEnter={() => setFileTagActiveIdx(idx)}
+                                            >
+                                                {topic}
+                                            </li>
+                                        ))}
+                                    </ul>
                                 )}
                             </div>
 
-                            <div className="modal-actions">
-                                <button
-                                    type="button"
-                                    className="btn-secondary"
-                                    onClick={onClose}
-                                    disabled={loading}
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="btn-primary"
-                                    disabled={loading}
-                                >
-                                    {loading ? 'Adding...' : 'Add Publication'}
-                                </button>
-                            </div>
-                        </form>
-                    ) : (
-                        <form onSubmit={handleFileSubmit}>
-                            <div
-                                className={`file-drop-zone ${dragActive ? 'active' : ''}`}
-                                onDragEnter={handleDrag}
-                                onDragLeave={handleDrag}
-                                onDragOver={handleDrag}
-                                onDrop={handleDrop}
+                            <button
+                                type="button"
+                                className="ai-suggest-btn"
+                                onClick={handleSuggestTags}
+                                disabled={loadingSuggestions || (!selectedFile && !fileUploadData.title.trim() && !fileUploadData.abstract.trim()) || fileTags.length >= MAX_TAGS}
                             >
-                                {selectedFile ? (
-                                    <div className="file-selected">
-                                        <span className="file-icon"></span>
-                                        <span className="file-name">{selectedFile.name}</span>
-                                        <button
-                                            type="button"
-                                            className="file-remove"
-                                            onClick={() => setSelectedFile(null)}
-                                        >
-                                            ✕
-                                        </button>
-                                    </div>
+                                {loadingSuggestions ? (
+                                    <><span className="ai-suggest-spinner" /> Analyzing...</>
                                 ) : (
-                                    <>
-                                        <p>📁 Drag file here or click to select</p>
-                                        <input
-                                            type="file"
-                                            accept=".pdf,.doc,.docx"
-                                            onChange={handleFileSelect}
-                                            style={{ display: 'none' }}
-                                            id="file-input"
-                                        />
-                                        <label htmlFor="file-input" className="file-select-button">
-                                            Select File
-                                        </label>
-                                        <p className="file-help">PDF or Word (max 10MB)</p>
-                                    </>
+                                    <><span className="ai-suggest-icon">✨</span> AI Suggest Tags</>
                                 )}
-                            </div>
+                            </button>
 
-                            <div className="form-group">
-                                <label htmlFor="file-title">Title *</label>
-                                <input
-                                    type="text"
-                                    id="file-title"
-                                    name="title"
-                                    value={fileUploadData.title}
-                                    onChange={handleFileInputChange}
-                                    required
-                                    placeholder="Enter publication title"
-                                />
-                            </div>
-
-                            <div className="form-group">
-                                <label htmlFor="file-abstract">Abstract</label>
-                                <textarea
-                                    id="file-abstract"
-                                    name="abstract"
-                                    value={fileUploadData.abstract}
-                                    onChange={handleFileInputChange}
-                                    rows={4}
-                                    placeholder="Enter the abstract (optional)"
-                                />
-                            </div>
-
-                            <div className="form-group">
-                                <label>Tags ({fileTags.length}/{MAX_TAGS})</label>
-                                {fileTags.length > 0 && (
-                                    <div className="pub-tags-chips">
-                                        {fileTags.map(tag => (
-                                            <span key={tag} className="pub-tag-chip">
-                                                {tag}
-                                                <button type="button" className="pub-tag-chip-remove" onClick={() => handleFileTagRemove(tag)}>×</button>
-                                            </span>
+                            {suggestedTags.length > 0 && (
+                                <div className="ai-suggested-tags">
+                                    <span className="ai-suggested-label">AI Suggestions:</span>
+                                    <div className="ai-suggested-chips">
+                                        {suggestedTags.map(tag => (
+                                            <button
+                                                key={tag}
+                                                type="button"
+                                                className="ai-suggested-chip"
+                                                onClick={() => handleAcceptSuggestedTag(tag)}
+                                                disabled={fileTags.length >= MAX_TAGS}
+                                            >
+                                                + {tag}
+                                            </button>
                                         ))}
                                     </div>
-                                )}
-                                <div className="pub-tag-autocomplete-wrapper" ref={fileTagRef}>
-                                    <input
-                                        type="text"
-                                        value={fileTagQuery}
-                                        onChange={handleFileTagSearch}
-                                        onKeyDown={handleFileTagKeyDown}
-                                        placeholder={fileTags.length >= MAX_TAGS ? `Maximum ${MAX_TAGS} tags reached` : 'Search topics (e.g., Machine Learning...)'}
-                                        autoComplete="off"
-                                        disabled={fileTags.length >= MAX_TAGS}
-                                    />
-                                    {fileTagOpen && fileTagFiltered.length > 0 && (
-                                        <ul className="pub-tag-autocomplete-list" ref={fileTagListRef}>
-                                            {fileTagFiltered.map((topic, idx) => (
-                                                <li
-                                                    key={topic}
-                                                    className={`pub-tag-autocomplete-item ${idx === fileTagActiveIdx ? 'pub-tag-autocomplete-item-active' : ''}`}
-                                                    onMouseDown={(e) => { e.preventDefault(); handleFileTagSelect(topic); }}
-                                                    onMouseEnter={() => setFileTagActiveIdx(idx)}
-                                                >
-                                                    {topic}
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    )}
                                 </div>
+                            )}
+                        </div>
 
-                                <button
-                                    type="button"
-                                    className="ai-suggest-btn"
-                                    onClick={handleSuggestTags}
-                                    disabled={loadingSuggestions || (!selectedFile && !fileUploadData.title.trim() && !fileUploadData.abstract.trim()) || fileTags.length >= MAX_TAGS}
-                                >
-                                    {loadingSuggestions ? (
-                                        <><span className="ai-suggest-spinner" /> Analyzing...</>
-                                    ) : (
-                                        <><span className="ai-suggest-icon">✨</span> AI Suggest Tags</>
-                                    )}
-                                </button>
-
-                                {suggestedTags.length > 0 && activeTab === 'file' && (
-                                    <div className="ai-suggested-tags">
-                                        <span className="ai-suggested-label">AI Suggestions:</span>
-                                        <div className="ai-suggested-chips">
-                                            {suggestedTags.map(tag => (
-                                                <button
-                                                    key={tag}
-                                                    type="button"
-                                                    className="ai-suggested-chip"
-                                                    onClick={() => handleAcceptSuggestedTag(tag)}
-                                                    disabled={fileTags.length >= MAX_TAGS}
-                                                >
-                                                    + {tag}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="modal-actions">
-                                <button
-                                    type="button"
-                                    className="btn-secondary"
-                                    onClick={onClose}
-                                    disabled={loading}
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="btn-primary"
-                                    disabled={loading}
-                                >
-                                    {loading ? 'Uploading...' : 'Upload & Add'}
-                                </button>
-                            </div>
-                        </form>
-                    )}
+                        <div className="modal-actions">
+                            <button
+                                type="button"
+                                className="btn-secondary"
+                                onClick={onClose}
+                                disabled={loading}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                className="btn-primary"
+                                disabled={loading}
+                            >
+                                {loading ? 'Uploading...' : 'Upload & Add'}
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
