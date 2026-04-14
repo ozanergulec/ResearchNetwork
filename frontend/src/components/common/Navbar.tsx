@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { searchApi } from '../../services/searchService';
 import { notificationApi } from '../../services/notificationService';
 import { messageApi } from '../../services/messageService';
+import signalRService from '../../services/signalRService';
 import { API_SERVER_URL } from '../../services/apiClient';
 import type { UserSummary, Publication } from '../../services/publicationService';
 import PublicationDetailModal from '../feed/PublicationDetailModal';
@@ -95,42 +96,39 @@ const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    // Fetch unread notification count
+    // Fetch initial unread counts & setup SignalR listeners
     useEffect(() => {
         const token = localStorage.getItem('token');
         if (!token) return;
 
-        const fetchUnreadCount = async () => {
+        // Fetch initial counts via REST (one-time)
+        const fetchInitialCounts = async () => {
             try {
-                const res = await notificationApi.getUnreadCount();
-                setUnreadCount(res.data.count);
-            } catch (err) {
-                // Silently fail
-            }
-        };
-
-        fetchUnreadCount();
-        const interval = setInterval(fetchUnreadCount, 30000);
-        return () => clearInterval(interval);
-    }, []);
-
-    // Fetch unread message count
-    useEffect(() => {
-        const token = localStorage.getItem('token');
-        if (!token) return;
-
-        const fetchUnreadMessages = async () => {
-            try {
-                const res = await messageApi.getUnreadCount();
-                setUnreadMessages(res.data.count);
+                const [notifRes, msgRes] = await Promise.all([
+                    notificationApi.getUnreadCount(),
+                    messageApi.getUnreadCount(),
+                ]);
+                setUnreadCount(notifRes.data.count);
+                setUnreadMessages(msgRes.data.count);
             } catch {
                 // Silently fail
             }
         };
+        fetchInitialCounts();
 
-        fetchUnreadMessages();
-        const interval = setInterval(fetchUnreadMessages, 30000);
-        return () => clearInterval(interval);
+        // Start SignalR connection & register live push listeners
+        signalRService.start();
+
+        const handleUnreadCount = (count: number) => setUnreadCount(count);
+        const handleMessageUnreadCount = (count: number) => setUnreadMessages(count);
+
+        signalRService.on('UpdateUnreadCount', handleUnreadCount);
+        signalRService.on('UpdateMessageUnreadCount', handleMessageUnreadCount);
+
+        return () => {
+            signalRService.off('UpdateUnreadCount', handleUnreadCount);
+            signalRService.off('UpdateMessageUnreadCount', handleMessageUnreadCount);
+        };
     }, []);
 
     const getInitials = (name: string) =>

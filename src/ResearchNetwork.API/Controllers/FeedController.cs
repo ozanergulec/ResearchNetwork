@@ -1,11 +1,13 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using ResearchNetwork.Application.DTOs;
 using ResearchNetwork.Application.Interfaces;
 using ResearchNetwork.Domain.Entities;
 using ResearchNetwork.Domain.Enums;
 using ResearchNetwork.API.Helpers;
+using ResearchNetwork.API.Hubs;
 
 namespace ResearchNetwork.API.Controllers;
 
@@ -16,15 +18,18 @@ public class FeedController : ControllerBase
     private readonly IPublicationRepository _publicationRepository;
     private readonly IUserRepository _userRepository;
     private readonly INotificationRepository _notificationRepository;
+    private readonly IHubContext<NotificationHub> _hubContext;
 
     public FeedController(
         IPublicationRepository publicationRepository,
         IUserRepository userRepository,
-        INotificationRepository notificationRepository)
+        INotificationRepository notificationRepository,
+        IHubContext<NotificationHub> hubContext)
     {
         _publicationRepository = publicationRepository;
         _userRepository = userRepository;
         _notificationRepository = notificationRepository;
+        _hubContext = hubContext;
     }
 
     private Guid? GetCurrentUserId()
@@ -161,6 +166,9 @@ public class FeedController : ControllerBase
                     actorProfileImageUrl: rater.ProfileImageUrl
                 );
                 await _notificationRepository.AddAsync(notification);
+
+                // Push real-time notification via SignalR
+                await PushNotificationAsync(publication.AuthorId, notification);
             }
         }
 
@@ -268,6 +276,9 @@ public class FeedController : ControllerBase
                     actorProfileImageUrl: sharer.ProfileImageUrl
                 );
                 await _notificationRepository.AddAsync(notification);
+
+                // Push real-time notification via SignalR
+                await PushNotificationAsync(publication.AuthorId, notification);
             }
         }
 
@@ -371,5 +382,34 @@ public class FeedController : ControllerBase
             pageSize,
             page * pageSize < totalCount
         ));
+    }
+
+    private async Task PushNotificationAsync(Guid targetUserId, Notification notification)
+    {
+        try
+        {
+            var dto = new NotificationDto(
+                notification.Id,
+                notification.Title,
+                notification.Message,
+                notification.TargetUrl,
+                notification.Type,
+                notification.IsRead,
+                notification.CreatedAt,
+                notification.ActorId,
+                notification.ActorName,
+                notification.ActorProfileImageUrl
+            );
+            await _hubContext.Clients.Group(targetUserId.ToString())
+                .SendAsync("ReceiveNotification", dto);
+
+            var unreadCount = await _notificationRepository.GetUnreadCountAsync(targetUserId);
+            await _hubContext.Clients.Group(targetUserId.ToString())
+                .SendAsync("UpdateUnreadCount", unreadCount);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[SignalR] Failed to push notification to {targetUserId}: {ex.Message}");
+        }
     }
 }

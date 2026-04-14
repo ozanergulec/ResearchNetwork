@@ -1,9 +1,11 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using ResearchNetwork.Application.DTOs;
 using ResearchNetwork.Application.Interfaces;
 using ResearchNetwork.Domain.Entities;
+using ResearchNetwork.API.Hubs;
 
 namespace ResearchNetwork.API.Controllers;
 
@@ -15,15 +17,18 @@ public class MessagesController : ControllerBase
     private readonly IMessageRepository _messageRepository;
     private readonly IUserRepository _userRepository;
     private readonly IPublicationRepository _publicationRepository;
+    private readonly IHubContext<NotificationHub> _hubContext;
 
     public MessagesController(
         IMessageRepository messageRepository,
         IUserRepository userRepository,
-        IPublicationRepository publicationRepository)
+        IPublicationRepository publicationRepository,
+        IHubContext<NotificationHub> hubContext)
     {
         _messageRepository = messageRepository;
         _userRepository = userRepository;
         _publicationRepository = publicationRepository;
+        _hubContext = hubContext;
     }
 
     private Guid? GetCurrentUserId()
@@ -165,6 +170,9 @@ public class MessagesController : ControllerBase
             MapPublication(attachedPub)
         );
 
+        // Push real-time notification to receiver via SignalR
+        await PushMessageToReceiver(dto.ReceiverId, result, userId.Value, sender.FullName);
+
         return Ok(result);
     }
 
@@ -187,4 +195,27 @@ public class MessagesController : ControllerBase
         await _messageRepository.MarkConversationAsReadAsync(userId.Value, otherUserId);
         return Ok();
     }
+
+    /// <summary>
+    /// Pushes a real-time message notification to the receiver via SignalR.
+    /// </summary>
+    private async Task PushMessageToReceiver(Guid receiverId, MessageDto messageDto, Guid senderId, string senderName)
+    {
+        try
+        {
+            // Push the message itself
+            await _hubContext.Clients.Group(receiverId.ToString())
+                .SendAsync("ReceiveMessage", messageDto);
+
+            // Push updated unread count
+            var unreadCount = await _messageRepository.GetTotalUnreadCountAsync(receiverId);
+            await _hubContext.Clients.Group(receiverId.ToString())
+                .SendAsync("UpdateMessageUnreadCount", unreadCount);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[SignalR] Failed to push message to {receiverId}: {ex.Message}");
+        }
+    }
 }
+

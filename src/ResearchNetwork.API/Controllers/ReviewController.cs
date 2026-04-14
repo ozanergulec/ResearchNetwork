@@ -1,10 +1,12 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using ResearchNetwork.Application.DTOs;
 using ResearchNetwork.Application.Interfaces;
 using ResearchNetwork.Domain.Entities;
 using ResearchNetwork.Domain.Enums;
+using ResearchNetwork.API.Hubs;
 
 namespace ResearchNetwork.API.Controllers;
 
@@ -20,17 +22,20 @@ public class ReviewController : ControllerBase
     private readonly IPublicationRepository _publicationRepository;
     private readonly INotificationRepository _notificationRepository;
     private readonly IUserRepository _userRepository;
+    private readonly IHubContext<NotificationHub> _hubContext;
 
     public ReviewController(
         IReviewRepository reviewRepository,
         IPublicationRepository publicationRepository,
         INotificationRepository notificationRepository,
-        IUserRepository userRepository)
+        IUserRepository userRepository,
+        IHubContext<NotificationHub> hubContext)
     {
         _reviewRepository = reviewRepository;
         _publicationRepository = publicationRepository;
         _notificationRepository = notificationRepository;
         _userRepository = userRepository;
+        _hubContext = hubContext;
     }
 
     private Guid? GetCurrentUserId()
@@ -192,6 +197,9 @@ public class ReviewController : ControllerBase
                 reviewer.ProfileImageUrl
             );
             await _notificationRepository.AddAsync(notification);
+
+            // Push real-time notification via SignalR
+            await PushNotificationAsync(publication.AuthorId, notification);
         }
 
         return Ok(new { message = "Application submitted successfully." });
@@ -232,6 +240,9 @@ public class ReviewController : ControllerBase
             author?.ProfileImageUrl
         );
         await _notificationRepository.AddAsync(notification);
+
+        // Push real-time notification via SignalR
+        await PushNotificationAsync(request.ReviewerId, notification);
 
         return Ok(new { message = "Reviewer accepted." });
     }
@@ -303,6 +314,9 @@ public class ReviewController : ControllerBase
             reviewer?.ProfileImageUrl
         );
         await _notificationRepository.AddAsync(notification);
+
+        // Push real-time notification via SignalR
+        await PushNotificationAsync(request.Publication.AuthorId, notification);
 
         return Ok(new { message = "Review submitted successfully." });
     }
@@ -480,5 +494,34 @@ public class ReviewController : ControllerBase
         var avgScore = await _reviewRepository.CalculateReviewerAverageScoreAsync(reviewerId);
         reviewer.UpdateReviewerScore(avgScore);
         await _userRepository.UpdateAsync(reviewer);
+    }
+
+    private async Task PushNotificationAsync(Guid targetUserId, Notification notification)
+    {
+        try
+        {
+            var dto = new NotificationDto(
+                notification.Id,
+                notification.Title,
+                notification.Message,
+                notification.TargetUrl,
+                notification.Type,
+                notification.IsRead,
+                notification.CreatedAt,
+                notification.ActorId,
+                notification.ActorName,
+                notification.ActorProfileImageUrl
+            );
+            await _hubContext.Clients.Group(targetUserId.ToString())
+                .SendAsync("ReceiveNotification", dto);
+
+            var unreadCount = await _notificationRepository.GetUnreadCountAsync(targetUserId);
+            await _hubContext.Clients.Group(targetUserId.ToString())
+                .SendAsync("UpdateUnreadCount", unreadCount);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[SignalR] Failed to push notification to {targetUserId}: {ex.Message}");
+        }
     }
 }

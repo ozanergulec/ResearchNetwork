@@ -8,12 +8,14 @@ using ResearchNetwork.Infrastructure.Data;
 using ResearchNetwork.Infrastructure.Repositories;
 using ResearchNetwork.Infrastructure.Services;
 using ResearchNetwork.Application.Services;
+using ResearchNetwork.API.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSignalR();
 
 // Swagger with JWT support
 builder.Services.AddSwaggerGen(c =>
@@ -85,6 +87,21 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidAudience = jwtIssuer,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
         };
+
+        // Allow SignalR to receive JWT token from query string (WebSocket can't send headers)
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+                {
+                    context.Token = accessToken;
+                }
+                return Task.CompletedTask;
+            }
+        };
     });
 
 builder.Services.AddAuthorization();
@@ -133,6 +150,7 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHub<NotificationHub>("/hubs/notifications");
 
 // Health check endpoint
 app.MapGet("/api/health", () => new { Status = "Healthy", Timestamp = DateTime.UtcNow })

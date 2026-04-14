@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation } from 'react-router-dom';
 import { messageApi, type ConversationData, type MessageData } from '../../services/messageService';
 import { publicationsApi, type Publication, type UserSummary } from '../../services/publicationService';
 import { usersApi } from '../../services/userService';
 import { searchApi } from '../../services/searchService';
+import signalRService from '../../services/signalRService';
 import PublicationDetailModal from '../feed/PublicationDetailModal';
 import ChatView from './ChatView';
 import ConversationList from './ConversationList';
@@ -99,7 +100,6 @@ const FloatingChat: React.FC = () => {
     const [loadingModal, setLoadingModal] = useState(false);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
-    const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const searchInputRef = useRef<HTMLInputElement>(null);
     const attachPickerRef = useRef<HTMLDivElement>(null);
@@ -118,15 +118,35 @@ const FloatingChat: React.FC = () => {
     const isAuthPage = ['/login', '/register', '/forgot-password', '/verify-email'].some(path => location.pathname.startsWith(path));
     const isMessagesPage = location.pathname.startsWith('/messages');
 
-    // --- Polling & fetching ---
+    // --- SignalR & initial fetch ---
     useEffect(() => {
         if (!token || isAuthPage || isMessagesPage) {
-            stopPolling();
             return;
         }
         fetchConversations();
-        startPolling();
-        return () => stopPolling();
+
+        // Listen for incoming messages via SignalR
+        const handleReceiveMessage = (msg: MessageData) => {
+            // If this message is for the active chat, add it to messages
+            const currentActive = activeChatUserRef.current;
+            if (currentActive && msg.senderId === currentActive.userId && isActiveExpandedRef.current) {
+                setMessages(prev => {
+                    const exists = prev.some(m => m.id === msg.id);
+                    if (exists) return prev;
+                    return [...prev, msg];
+                });
+                // Mark as read since the chat window is open
+                messageApi.markAsRead(msg.senderId).catch(() => {});
+            }
+            // Refresh conversations list to update last message & unread counts
+            fetchConversations();
+        };
+
+        signalRService.on('ReceiveMessage', handleReceiveMessage);
+
+        return () => {
+            signalRService.off('ReceiveMessage', handleReceiveMessage);
+        };
     }, [token, isAuthPage, isMessagesPage]);
 
     useEffect(() => {
@@ -140,23 +160,6 @@ const FloatingChat: React.FC = () => {
         if (isActiveExpanded) scrollToBottom();
     }, [messages, isActiveExpanded]);
 
-    const startPolling = () => {
-        stopPolling();
-        pollingRef.current = setInterval(() => {
-            fetchConversations();
-            if (activeChatUserRef.current && isActiveExpandedRef.current) {
-                pollActiveMessages(activeChatUserRef.current.userId);
-            }
-        }, 5000);
-    };
-
-    const stopPolling = () => {
-        if (pollingRef.current) {
-            clearInterval(pollingRef.current);
-            pollingRef.current = null;
-        }
-    };
-
     const fetchConversations = async () => {
         try {
             const res = await messageApi.getConversations();
@@ -169,7 +172,7 @@ const FloatingChat: React.FC = () => {
                 if (updatedActive) setActiveChatUser(updatedActive);
             }
         } catch {
-            // silent fail for polling
+            // silent fail
         }
     };
 
@@ -182,21 +185,6 @@ const FloatingChat: React.FC = () => {
             );
         } catch (err) {
             console.error('Failed to fetch messages', err);
-        }
-    };
-
-    const pollActiveMessages = async (userId: string) => {
-        try {
-            const res = await messageApi.getConversation(userId, 1, 30);
-            const latestItems = res.data.items;
-            setMessages(prev => {
-                const existingIds = new Set(prev.map(m => m.id));
-                const newMsgs = latestItems.filter(m => !existingIds.has(m.id));
-                if (newMsgs.length === 0) return prev;
-                return [...prev, ...newMsgs];
-            });
-        } catch {
-            // silent fail
         }
     };
 

@@ -1,10 +1,12 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using ResearchNetwork.Application.DTOs;
 using ResearchNetwork.Application.Interfaces;
 using ResearchNetwork.Domain.Entities;
 using ResearchNetwork.Domain.Enums;
+using ResearchNetwork.API.Hubs;
 
 namespace ResearchNetwork.API.Controllers;
 
@@ -16,13 +18,15 @@ public class UsersController : ControllerBase
     private readonly ITagRepository _tagRepository;
     private readonly IPublicationRepository _publicationRepository;
     private readonly INotificationRepository _notificationRepository;
+    private readonly IHubContext<NotificationHub> _hubContext;
 
-    public UsersController(IUserRepository userRepository, ITagRepository tagRepository, IPublicationRepository publicationRepository, INotificationRepository notificationRepository)
+    public UsersController(IUserRepository userRepository, ITagRepository tagRepository, IPublicationRepository publicationRepository, INotificationRepository notificationRepository, IHubContext<NotificationHub> hubContext)
     {
         _userRepository = userRepository;
         _tagRepository = tagRepository;
         _publicationRepository = publicationRepository;
         _notificationRepository = notificationRepository;
+        _hubContext = hubContext;
     }
 
     [HttpGet]
@@ -362,6 +366,9 @@ public class UsersController : ControllerBase
                 actorProfileImageUrl: currentUser.ProfileImageUrl
             );
             await _notificationRepository.AddAsync(notification);
+
+            // Push real-time notification via SignalR
+            await PushNotificationAsync(id, notification);
         }
 
         return Ok(new { following = true, followerCount = targetUser.FollowerCount });
@@ -458,6 +465,35 @@ public class UsersController : ControllerBase
             user.CreatedAt,
             tags
         );
+    }
+
+    private async Task PushNotificationAsync(Guid targetUserId, Notification notification)
+    {
+        try
+        {
+            var dto = new NotificationDto(
+                notification.Id,
+                notification.Title,
+                notification.Message,
+                notification.TargetUrl,
+                notification.Type,
+                notification.IsRead,
+                notification.CreatedAt,
+                notification.ActorId,
+                notification.ActorName,
+                notification.ActorProfileImageUrl
+            );
+            await _hubContext.Clients.Group(targetUserId.ToString())
+                .SendAsync("ReceiveNotification", dto);
+
+            var unreadCount = await _notificationRepository.GetUnreadCountAsync(targetUserId);
+            await _hubContext.Clients.Group(targetUserId.ToString())
+                .SendAsync("UpdateUnreadCount", unreadCount);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[SignalR] Failed to push notification to {targetUserId}: {ex.Message}");
+        }
     }
 }
 
