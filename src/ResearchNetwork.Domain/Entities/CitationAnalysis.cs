@@ -6,6 +6,7 @@ public class CitationAnalysisEntry
 {
     public string Sentence { get; set; } = string.Empty;
     public List<int> CitationNumbers { get; set; } = new();
+    public List<string> CitationLabels { get; set; } = new();
     public string Intent { get; set; } = string.Empty;
     public double Confidence { get; set; }
 }

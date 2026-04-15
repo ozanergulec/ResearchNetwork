@@ -54,6 +54,7 @@ public record AiCitationAnalysisRequest(string Full_text);
 public record AiCitationItem(
     string Sentence,
     List<int> Citation_numbers,
+    List<string>? Citation_labels,
     string Intent,
     double Confidence
 );
@@ -63,6 +64,7 @@ public record AiCitationAnalysisResponse(List<AiCitationItem> Citations);
 public record CitationAnalysisDto(
     string Sentence,
     List<int> CitationNumbers,
+    List<string> CitationLabels,
     string Intent,
     double Confidence
 );

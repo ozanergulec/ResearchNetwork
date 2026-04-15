@@ -77,28 +77,114 @@ class CitationService:
                 skipped += 1
                 continue
             
+            # Filter out mathematical notation from bracket-style matches
+            # Skip brackets preceded by math/stats symbols: U [0,1], N [0,1], = [...], × [...]
+            # Skip brackets containing decimals: [0.5, 4.0]
+            MATH_PREFIX = re.compile(r'(?:[UNBPFGXuΓβχ𝒰𝒩ℕ]|Bin|Poi|Exp|Var|log|diag|dim)\s*$|[=×~≈∼<>≤≥±∓]\s*$')
+            MAX_CITATION_NUM = 300
+
             # Find [n] style citations
-            citation_nums = re.findall(r"\[(\d+)\]", sent)
+            citation_nums = []
+            for m in re.finditer(r'\[(\d+)\]', sent):
+                num = int(m.group(1))
+                prefix = sent[:m.start()]
+                if MATH_PREFIX.search(prefix):
+                    continue
+                if num > MAX_CITATION_NUM:
+                    continue
+                citation_nums.append(str(num))
             
             # Also find [n, m] style (multiple in one bracket)
-            multi_citations = re.findall(r"\[(\d+(?:\s*,\s*\d+)+)\]", sent)
-            for mc in multi_citations:
-                for num in re.findall(r"\d+", mc):
-                    if int(num) not in [int(c) for c in citation_nums]:
-                        citation_nums.append(num)
+            for m in re.finditer(r'\[(\d[\d\s,.*-]*)\]', sent):
+                bracket_content = m.group(1)
+                prefix = sent[:m.start()]
+                # Skip if preceded by math symbol
+                if MATH_PREFIX.search(prefix):
+                    continue
+                # Skip if bracket contains decimal numbers (e.g., [0.5, 4.0])
+                if re.search(r'\d+\.\d+', bracket_content):
+                    continue
+                # Extract individual numbers
+                nums_in_bracket = [int(x) for x in re.findall(r'\d+', bracket_content)]
+                if not nums_in_bracket:
+                    continue
+                # Skip if any number exceeds citation range
+                if any(n > MAX_CITATION_NUM for n in nums_in_bracket):
+                    continue
+                # Skip if numbers look like a numeric interval (e.g., [0, 100], [10, 500]) 
+                # — real multi-citations have close consecutive numbers like [1, 2, 3]
+                if len(nums_in_bracket) == 2:
+                    gap = abs(nums_in_bracket[1] - nums_in_bracket[0])
+                    if gap > 20:
+                        continue
+                for num in nums_in_bracket:
+                    if num not in [int(c) for c in citation_nums]:
+                        citation_nums.append(str(num))
             
             # Also find [n-m] range style citations
-            range_citations = re.findall(r"\[(\d+)\s*[-–—]\s*(\d+)\]", sent)
-            for start, end in range_citations:
-                for num in range(int(start), int(end) + 1):
+            for m in re.finditer(r'\[(\d+)\s*[-–—]\s*(\d+)\]', sent):
+                prefix = sent[:m.start()]
+                if MATH_PREFIX.search(prefix):
+                    continue
+                start_n, end_n = int(m.group(1)), int(m.group(2))
+                # Skip large ranges (likely not citations)
+                if end_n > MAX_CITATION_NUM or (end_n - start_n) > 20:
+                    continue
+                for num in range(start_n, end_n + 1):
                     if str(num) not in citation_nums:
                         citation_nums.append(str(num))
             
-            # Also try author-year style: (Author, 2021) or (Author et al., 2021)
+            # Also try author-year style citations, covering common formats:
+            # (Author 2001), (Author, 2001), (Author & Author 2001),
+            # (Author and Author 2001), (Author et al. 2001),
+            # (Author et al., 2001), (e.g., Author 2001; Author 2002)
+            # Also handles year suffixes like 2022a, 2022b
+            # Also handles "see Author 2001" prefix forms
+            
+            # Fix PDF line-break hyphenation artifacts: "Git- tins" or "Git-\ntins" → "Gittins"
+            sent_clean = re.sub(r'([a-z])-\s+([a-z])', r'\1\2', sent)
+            
             author_year_matches = re.findall(
-                r'\(([A-Z][a-z]+(?:\s+(?:et\s+al\.|and\s+[A-Z][a-z]+))?(?:,\s*\d{4}))\)',
-                sent
+                r'\('
+                r'(?:(?:e\.g\.,?|see|cf\.?|c\.f\.|i\.e\.,?)\s*)?'  # optional prefix
+                r'(?:'
+                r'[A-Z][a-zA-Z\x27\u2019-]+'                        # first author surname
+                r'(?:'
+                r'(?:\s+(?:&|and)\s+[A-Z][a-zA-Z\x27\u2019-]+)'    # & / and second author
+                r'|(?:\s+et\s+al\.?)'                                # et al.
+                r')?'
+                r',?\s*\d{4}[a-z]?'                                  # optional comma + year + optional suffix
+                r')'
+                r'(?:\s*;\s*'                                        # semicolon separator
+                r'(?:(?:e\.g\.,?|see|cf\.?|c\.f\.|i\.e\.,?)\s*)?'
+                r'[A-Z][a-zA-Z\x27\u2019-]+'
+                r'(?:'
+                r'(?:\s+(?:&|and)\s+[A-Z][a-zA-Z\x27\u2019-]+)'
+                r'|(?:\s+et\s+al\.?)'
+                r')?'
+                r',?\s*\d{4}[a-z]?'
+                r')*'                                                # zero or more additional citations
+                r'\)',
+                sent_clean
             )
+            
+            # Extract individual author-year labels from matched parenthetical groups
+            author_year_labels = []
+            if author_year_matches:
+                # Pattern to extract individual "Author Year" entries from inside parens
+                individual_pattern = re.compile(
+                    r'([A-Z][a-zA-Z\x27\u2019-]+'
+                    r'(?:\s+(?:&|and)\s+[A-Z][a-zA-Z\x27\u2019-]+)?'
+                    r'(?:\s+et\s+al\.?)?'
+                    r'),?\s*(\d{4}[a-z]?)'
+                )
+                for match_text in author_year_matches:
+                    # Remove outer parens for parsing
+                    inner = match_text[1:-1] if match_text.startswith('(') else match_text
+                    for m in individual_pattern.finditer(inner if inner else match_text):
+                        label = f"{m.group(1).strip()} {m.group(2)}"
+                        if label not in author_year_labels:
+                            author_year_labels.append(label)
             
             if citation_nums:
                 # Deduplicate
@@ -106,11 +192,13 @@ class CitationService:
                 contexts.append({
                     "sentence": sent.strip(),
                     "citation_numbers": unique_nums,
+                    "citation_labels": [],
                 })
-            elif author_year_matches:
+            elif author_year_labels:
                 contexts.append({
                     "sentence": sent.strip(),
                     "citation_numbers": [0],
+                    "citation_labels": author_year_labels,
                 })
         
         logger.info(f"[Citation] Contexts found: {len(contexts)}, "
@@ -142,6 +230,7 @@ class CitationService:
                 {
                     "sentence": ctx["sentence"],
                     "citation_numbers": ctx["citation_numbers"],
+                    "citation_labels": ctx.get("citation_labels", []),
                     "intent": intent_result["intent"],
                     "confidence": intent_result["confidence"],
                 }

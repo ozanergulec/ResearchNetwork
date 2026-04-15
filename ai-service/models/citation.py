@@ -4,6 +4,7 @@ from pydantic import BaseModel
 class CitationContext(BaseModel):
     sentence: str
     citation_numbers: list[int]
+    citation_labels: list[str] = []
 
 
 class ExtractContextsRequest(BaseModel):
@@ -27,6 +28,7 @@ class ClassifyIntentResponse(BaseModel):
 class CitationAnalysisItem(BaseModel):
     sentence: str
     citation_numbers: list[int]
+    citation_labels: list[str] = []
     intent: str
     confidence: float
 

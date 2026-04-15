@@ -157,6 +157,7 @@ public class PublicationService : IPublicationService
                                     {
                                         Sentence = c.Sentence,
                                         CitationNumbers = c.Citation_numbers ?? new List<int>(),
+                                        CitationLabels = c.Citation_labels ?? new List<string>(),
                                         Intent = c.Intent,
                                         Confidence = c.Confidence
                                     }).ToList();

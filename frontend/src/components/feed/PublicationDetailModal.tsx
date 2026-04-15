@@ -314,7 +314,11 @@ const PublicationDetailModal: React.FC<PublicationDetailModalProps> = ({ publica
                                                             <li key={idx} className={`pub-detail-citation-item ${intentClass}`}>
                                                                 <span className="citation-intent-badge">{citation.intent}</span>
                                                                 <span className="citation-sentence">"{citation.sentence}"</span>
-                                                                {citation.citationNumbers && citation.citationNumbers.length > 0 && (
+                                                                {citation.citationLabels && citation.citationLabels.length > 0 ? (
+                                                                    <span className="citation-numbers">
+                                                                        ({citation.citationLabels.join('; ')})
+                                                                    </span>
+                                                                ) : citation.citationNumbers && citation.citationNumbers.length > 0 && !(citation.citationNumbers.length === 1 && citation.citationNumbers[0] === 0) && (
                                                                     <span className="citation-numbers">
                                                                         [{citation.citationNumbers.join(', ')}]
                                                                     </span>

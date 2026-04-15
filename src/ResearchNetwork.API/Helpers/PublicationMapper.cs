@@ -32,7 +32,7 @@ public static class PublicationMapper
         if (analysisCheck != null)
         {
             citationAnalysis = analysisCheck.GetItems()
-                .Select(a => new CitationAnalysisDto(a.Sentence, a.CitationNumbers, a.Intent, a.Confidence))
+                .Select(a => new CitationAnalysisDto(a.Sentence, a.CitationNumbers, a.CitationLabels ?? new List<string>(), a.Intent, a.Confidence))
                 .ToList();
         }
 

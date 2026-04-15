@@ -302,7 +302,7 @@ public class AiController : ControllerBase
             var paged = allItems
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
-                .Select(i => new CitationAnalysisDto(i.Sentence, i.CitationNumbers, i.Intent, i.Confidence))
+                .Select(i => new CitationAnalysisDto(i.Sentence, i.CitationNumbers, i.CitationLabels ?? new List<string>(), i.Intent, i.Confidence))
                 .ToList();
 
             return Ok(new PagedResult<CitationAnalysisDto>(paged, totalCount, page, pageSize, page * pageSize < totalCount));
@@ -313,16 +313,16 @@ public class AiController : ControllerBase
 
     [Authorize]
     [HttpPost("publications/{id:guid}/analyze-citations")]
-    public async Task<ActionResult<List<CitationAnalysisDto>>> AnalyzeCitations(Guid id)
+    public async Task<ActionResult<List<CitationAnalysisDto>>> AnalyzeCitations(Guid id, [FromQuery] bool force = false)
     {
         var publication = await _publicationRepository.GetByIdAsync(id);
         if (publication == null) return NotFound();
 
         var cached = await _publicationRepository.GetCitationAnalysisAsync(id);
-        if (cached != null)
+        if (cached != null && !force)
         {
             var cachedItems = cached.GetItems().Select(i => new CitationAnalysisDto(
-                i.Sentence, i.CitationNumbers, i.Intent, i.Confidence
+                i.Sentence, i.CitationNumbers, i.CitationLabels ?? new List<string>(), i.Intent, i.Confidence
             )).ToList();
             return Ok(cachedItems);
         }
@@ -360,6 +360,7 @@ public class AiController : ControllerBase
         {
             Sentence = c.Sentence,
             CitationNumbers = c.Citation_numbers,
+            CitationLabels = c.Citation_labels ?? new List<string>(),
             Intent = c.Intent,
             Confidence = c.Confidence
         }).ToList();
@@ -368,7 +369,7 @@ public class AiController : ControllerBase
         await _publicationRepository.UpsertCitationAnalysisAsync(analysis);
 
         var result = entries.Select(e => new CitationAnalysisDto(
-            e.Sentence, e.CitationNumbers, e.Intent, e.Confidence
+            e.Sentence, e.CitationNumbers, e.CitationLabels ?? new List<string>(), e.Intent, e.Confidence
         )).ToList();
 
         return Ok(result);
@@ -412,33 +413,64 @@ public class AiController : ControllerBase
             }
         }
 
+        var addedLabelRefs = new HashSet<string>();
+
         foreach (var item in items)
         {
-            foreach (var citNum in item.CitationNumbers)
+            var labels = item.CitationLabels ?? new List<string>();
+            bool isAuthorYear = item.CitationNumbers.Count == 1 && item.CitationNumbers[0] == 0 && labels.Count > 0;
+
+            if (isAuthorYear)
             {
-                if (addedRefs.Add(citNum))
+                // Author-year citations: create nodes from labels
+                foreach (var label in labels)
                 {
-                    var refNodeId = GenerateDeterministicGuid(publication.Id, citNum);
-                    string refTitle = $"Reference [{citNum}]";
-                    
-                    if (citNum > 0 && citNum <= referencesList.Count)
+                    var labelHash = label.GetHashCode();
+                    var refNodeId = GenerateDeterministicGuid(publication.Id, labelHash);
+
+                    if (addedLabelRefs.Add(label))
                     {
-                        var rawRef = referencesList[citNum - 1];
-                        var truncated = rawRef.Length > 80 ? rawRef.Substring(0, 80) + "..." : rawRef;
-                        refTitle = $"[{citNum}] {truncated}";
+                        nodes.Add(new CitationGraphNodeDto(refNodeId, label, "reference"));
                     }
 
-                    nodes.Add(new CitationGraphNodeDto(refNodeId, refTitle, "reference"));
+                    edges.Add(new CitationGraphEdgeDto(
+                        publication.Id,
+                        refNodeId,
+                        item.Intent,
+                        Math.Round(item.Confidence, 4),
+                        item.Sentence
+                    ));
                 }
+            }
+            else
+            {
+                // Numbered citations: original logic
+                foreach (var citNum in item.CitationNumbers)
+                {
+                    if (addedRefs.Add(citNum))
+                    {
+                        var refNodeId = GenerateDeterministicGuid(publication.Id, citNum);
+                        string refTitle = $"Reference [{citNum}]";
+                        
+                        if (citNum > 0 && citNum <= referencesList.Count)
+                        {
+                            var rawRef = referencesList[citNum - 1];
+                            var truncated = rawRef.Length > 80 ? rawRef.Substring(0, 80) + "..." : rawRef;
+                            refTitle = $"[{citNum}] {truncated}";
+                        }
 
-                var edgeTargetId = GenerateDeterministicGuid(publication.Id, citNum);
-                edges.Add(new CitationGraphEdgeDto(
-                    publication.Id,
-                    edgeTargetId,
-                    item.Intent,
-                    Math.Round(item.Confidence, 4),
-                    item.Sentence
-                ));
+                        nodes.Add(new CitationGraphNodeDto(refNodeId, refTitle, "reference"));
+                    }
+
+                    var edgeTargetId = GenerateDeterministicGuid(publication.Id, citNum);
+                    edges.Add(new CitationGraphEdgeDto(
+                        publication.Id,
+                        edgeTargetId,
+                        item.Intent,
+                        Math.Round(item.Confidence, 4),
+                        item.Sentence
+                    ));
+                }
             }
         }
 

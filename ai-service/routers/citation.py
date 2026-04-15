@@ -20,7 +20,8 @@ def extract_contexts(request: ExtractContextsRequest):
     return ExtractContextsResponse(
         contexts=[
             CitationContext(
-                sentence=c["sentence"], citation_numbers=c["citation_numbers"]
+                sentence=c["sentence"], citation_numbers=c["citation_numbers"],
+                citation_labels=c.get("citation_labels", [])
             )
             for c in contexts
         ]
@@ -45,6 +46,7 @@ def analyze_citations(request: AnalyzeCitationsRequest):
             CitationAnalysisItem(
                 sentence=r["sentence"],
                 citation_numbers=r["citation_numbers"],
+                citation_labels=r.get("citation_labels", []),
                 intent=r["intent"],
                 confidence=r["confidence"],
             )

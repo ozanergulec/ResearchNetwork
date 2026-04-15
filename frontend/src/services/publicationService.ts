@@ -14,6 +14,7 @@ export interface UserSummary {
 export interface CitationAnalysisEntry {
     sentence: string;
     citationNumbers: number[];
+    citationLabels: string[];
     intent: string;
     confidence: number;
 }

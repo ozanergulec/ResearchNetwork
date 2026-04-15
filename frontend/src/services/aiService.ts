@@ -32,6 +32,7 @@ export interface SimilarPublication {
 export interface CitationAnalysisItem {
     sentence: string;
     citationNumbers: number[];
+    citationLabels: string[];
     intent: string;
     confidence: number;
 }
@@ -91,7 +92,7 @@ export const aiApi = {
         api.get<CitationAnalysisItem[]>(`/ai/publications/${publicationId}/citation-analysis`),
 
     analyzeCitations: (publicationId: string) =>
-        api.post<CitationAnalysisItem[]>(`/ai/publications/${publicationId}/analyze-citations`),
+        api.post<CitationAnalysisItem[]>(`/ai/publications/${publicationId}/analyze-citations?force=true`),
 
     getCitationGraph: (publicationId: string) =>
         api.get<CitationGraph>(`/ai/publications/${publicationId}/citation-graph`),
