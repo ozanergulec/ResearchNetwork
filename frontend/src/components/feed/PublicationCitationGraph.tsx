@@ -78,45 +78,97 @@ const PublicationCitationGraph: React.FC<PublicationCitationGraphProps> = ({ pub
     const [hoveredNode, setHoveredNode] = useState<string | null>(null);
     const [selectedNode, setSelectedNode] = useState<string | null>(null);
 
-    // Zoom & pan state for fullscreen
+    // We zoom and pan by manipulating the SVG viewBox (vector-accurate, no blur).
+    // Zoom uses React state so the UI (percentage label) updates; pan is a ref
+    // updated imperatively via requestAnimationFrame for smooth 60 fps dragging.
     const [zoom, setZoom] = useState(1);
-    const [pan, setPan] = useState({ x: 0, y: 0 });
-    const [isPanning, setIsPanning] = useState(false);
+    const [zoomDisplay, setZoomDisplay] = useState(100);
+    // Pan stored in SVG user-space units (not screen pixels).
+    const panRef = useRef({ x: 0, y: 0 });
+    const isPanningRef = useRef(false);
+    const [cursorStyle, setCursorStyle] = useState<'grab' | 'grabbing'>('grab');
     const panStart = useRef({ x: 0, y: 0 });
     const panOrigin = useRef({ x: 0, y: 0 });
+    const svgRef = useRef<SVGSVGElement>(null);
+    const rafPending = useRef(false);
     const fsBodyRef = useRef<HTMLDivElement>(null);
 
-    // Reset zoom/pan when entering fullscreen
+    const applyViewBox = useCallback(() => {
+        const svg = svgRef.current;
+        if (!svg || !layoutBaseRef.current) return;
+        const { minX, minY, baseW, baseH } = layoutBaseRef.current;
+        const vw = baseW / zoom;
+        const vh = baseH / zoom;
+        const cx = minX + baseW / 2 - panRef.current.x;
+        const cy = minY + baseH / 2 - panRef.current.y;
+        svg.setAttribute('viewBox', `${cx - vw / 2} ${cy - vh / 2} ${vw} ${vh}`);
+    }, [zoom]);
+
+    // Keep a ref copy of the base viewBox so applyViewBox doesn't need layout in deps.
+    const layoutBaseRef = useRef<{ minX: number; minY: number; baseW: number; baseH: number } | null>(null);
+
+    // When zoom changes, sync viewBox + zoom % label.
+    useEffect(() => { applyViewBox(); setZoomDisplay(Math.round(zoom * 100)); }, [zoom, applyViewBox]);
+
+    // Reset zoom/pan only when fullscreen opens.
     useEffect(() => {
-        if (fullscreen) { setZoom(1.4); setPan({ x: 0, y: 0 }); }
+        if (fullscreen) {
+            setZoom(1.4);
+            panRef.current = { x: 0, y: 0 };
+        }
     }, [fullscreen]);
 
-    const handleWheel = useCallback((e: React.WheelEvent) => {
-        e.preventDefault();
-        const delta = e.deltaY > 0 ? 0.9 : 1.1;
-        setZoom(prev => Math.min(Math.max(prev * delta, 0.3), 5));
-    }, []);
+    // React synthetic `onWheel` is passive since React 17, so e.preventDefault()
+    // silently fails and the page scrolls instead of zooming. Attach non-passive
+    // native listener via useEffect below.
+    useEffect(() => {
+        if (!fullscreen) return;
+        const el = fsBodyRef.current;
+        if (!el) return;
+        const onWheel = (e: WheelEvent) => {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            setZoom(prev => Math.min(Math.max(prev * delta, 0.3), 5));
+        };
+        el.addEventListener('wheel', onWheel, { passive: false });
+        return () => el.removeEventListener('wheel', onWheel);
+    }, [fullscreen]);
 
     const handleMouseDown = useCallback((e: React.MouseEvent) => {
         if (e.button !== 0) return;
-        setIsPanning(true);
+        isPanningRef.current = true;
+        setCursorStyle('grabbing');
         panStart.current = { x: e.clientX, y: e.clientY };
-        panOrigin.current = { ...pan };
-    }, [pan]);
+        panOrigin.current = { ...panRef.current };
+    }, []);
 
     const handleMouseMove = useCallback((e: React.MouseEvent) => {
-        if (!isPanning) return;
-        setPan({
-            x: panOrigin.current.x + (e.clientX - panStart.current.x),
-            y: panOrigin.current.y + (e.clientY - panStart.current.y),
-        });
-    }, [isPanning]);
+        if (!isPanningRef.current) return;
+        const svg = svgRef.current;
+        const base = layoutBaseRef.current;
+        if (!svg || !base) return;
+        // Convert screen-pixel delta to SVG-unit delta (accounts for current zoom & element size).
+        const rect = svg.getBoundingClientRect();
+        const unitsPerPxX = (base.baseW / zoom) / rect.width;
+        const unitsPerPxY = (base.baseH / zoom) / rect.height;
+        panRef.current = {
+            x: panOrigin.current.x + (e.clientX - panStart.current.x) * unitsPerPxX,
+            y: panOrigin.current.y + (e.clientY - panStart.current.y) * unitsPerPxY,
+        };
+        if (!rafPending.current) {
+            rafPending.current = true;
+            requestAnimationFrame(() => { rafPending.current = false; applyViewBox(); });
+        }
+    }, [applyViewBox, zoom]);
 
-    const handleMouseUp = useCallback(() => setIsPanning(false), []);
+    const handleMouseUp = useCallback(() => {
+        isPanningRef.current = false;
+        setCursorStyle('grab');
+    }, []);
 
     const resetView = useCallback(() => {
         setZoom(1.4);
-        setPan({ x: 0, y: 0 });
+        panRef.current = { x: 0, y: 0 };
     }, []);
 
     useEffect(() => {
@@ -149,10 +201,12 @@ const PublicationCitationGraph: React.FC<PublicationCitationGraphProps> = ({ pub
             style: { label: 'Current Article', fill: '#fff7ed', stroke: '#f97316', text: '#c2410c' },
         };
 
-        // Reference nodes in a circle
+        const edgeByTarget = new Map<string, GEdge>();
+        for (const e of edges) edgeByTarget.set(e.target, e);
+
         const refLayouts: LayoutNode[] = refs.map((ref, i) => {
             const angle = -Math.PI / 2 + (2 * Math.PI * i) / count;
-            const edge = edges.find(e => e.target === ref.id);
+            const edge = edgeByTarget.get(ref.id);
             const style = getStyle(edge?.intent);
             return {
                 id: ref.id, title: ref.title, type: 'reference',
@@ -171,19 +225,31 @@ const PublicationCitationGraph: React.FC<PublicationCitationGraphProps> = ({ pub
             return { from: sourceLayout, to: rn, style: rn.style, sentence: rn.sentence };
         });
 
-        // Calculate viewBox
+        // Base viewBox (we zoom by shrinking this, not by CSS transform — keeps SVG sharp)
         const pad = 140;
         const minX = Math.min(...allNodes.map(n => n.x - n.w / 2)) - pad;
         const minY = Math.min(...allNodes.map(n => n.y - n.h / 2)) - pad;
         const maxX = Math.max(...allNodes.map(n => n.x + n.w / 2)) + pad;
         const maxY = Math.max(...allNodes.map(n => n.y + n.h / 2)) + pad;
+        const baseW = maxX - minX;
+        const baseH = maxY - minY;
 
-        return { nodes: allNodes, edges: layoutEdges, viewBox: `${minX} ${minY} ${maxX - minX} ${maxY - minY}` };
+        return {
+            nodes: allNodes,
+            edges: layoutEdges,
+            viewBox: `${minX} ${minY} ${baseW} ${baseH}`,
+            base: { minX, minY, baseW, baseH },
+        };
     }, [nodes, edges]);
 
     const handleNodeClick = useCallback((id: string) => {
         setSelectedNode(prev => prev === id ? null : id);
     }, []);
+
+    // Keep layoutBaseRef in sync so imperative viewBox updates can read base dims.
+    useEffect(() => {
+        layoutBaseRef.current = layout?.base ?? null;
+    }, [layout]);
 
     if (loading) return <div className="cg-loading"><div className="pub-detail-preview-spinner"></div><span>Loading citation graph...</span></div>;
     if (error) return <div className="cg-error">{error}</div>;
@@ -195,16 +261,28 @@ const PublicationCitationGraph: React.FC<PublicationCitationGraphProps> = ({ pub
         const charLimit = fs ? 22 : 16;
 
         return (
-            <svg viewBox={layout.viewBox} className="cg-svg" preserveAspectRatio="xMidYMid meet">
+            <svg
+                ref={fs ? svgRef : undefined}
+                viewBox={layout.viewBox}
+                className="cg-svg"
+                preserveAspectRatio="xMidYMid meet"
+            >
                 <defs>
-                    {layout.edges.map((_, i) => (
-                        <marker key={`a${i}`} id={`arw${i}${fs?'f':''}`}
+                    {/* One arrow marker per intent color — not per edge. */}
+                    {Object.entries(INTENTS).map(([k, v]) => (
+                        <marker key={k} id={`arw-${k}${fs ? 'f' : ''}`}
                             viewBox="0 0 10 10" refX="10" refY="5"
                             markerWidth="7" markerHeight="7" orient="auto-start-reverse"
                         >
-                            <path d="M0 0L10 5L0 10z" fill={layout.edges[i].style.stroke} />
+                            <path d="M0 0L10 5L0 10z" fill={v.stroke} />
                         </marker>
                     ))}
+                    <marker id={`arw-default${fs ? 'f' : ''}`}
+                        viewBox="0 0 10 10" refX="10" refY="5"
+                        markerWidth="7" markerHeight="7" orient="auto-start-reverse"
+                    >
+                        <path d="M0 0L10 5L0 10z" fill="#9ca3af" />
+                    </marker>
                     <filter id="shadow">
                         <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="rgba(0,0,0,0.08)" />
                     </filter>
@@ -239,6 +317,10 @@ const PublicationCitationGraph: React.FC<PublicationCitationGraphProps> = ({ pub
 
                     const isHighlighted = hoveredNode === to.id || selectedNode === to.id;
 
+                    // Resolve shared marker id from intent label (falls back to default)
+                    const intentKey = Object.keys(INTENTS).find(k => style.label === INTENTS[k].label);
+                    const markerId = intentKey ? `arw-${intentKey}${fs ? 'f' : ''}` : `arw-default${fs ? 'f' : ''}`;
+
                     return (
                         <g key={`e${i}`}>
                             {/* Edge path */}
@@ -248,7 +330,7 @@ const PublicationCitationGraph: React.FC<PublicationCitationGraphProps> = ({ pub
                                 stroke={style.stroke}
                                 strokeWidth={isHighlighted ? 3 : 1.8}
                                 strokeOpacity={isHighlighted ? 1 : 0.5}
-                                markerEnd={`url(#arw${i}${fs?'f':''})`}
+                                markerEnd={`url(#${markerId})`}
                             />
                             {/* Intent label on edge */}
                             <g transform={`translate(${labelX},${labelY})`}>
@@ -286,13 +368,14 @@ const PublicationCitationGraph: React.FC<PublicationCitationGraphProps> = ({ pub
                             onClick={() => handleNodeClick(node.id)}
                             style={{ cursor: 'pointer' }}
                         >
-                            {/* Node rectangle */}
+                            {/* Node rectangle — SVG filter only applied on hover to avoid
+                                per-frame filter graph on 50+ nodes (big perf win). */}
                             <rect
                                 x={x - w / 2} y={y - h / 2} width={w} height={h}
                                 rx={12} fill={style.fill}
                                 stroke={style.stroke}
                                 strokeWidth={highlighted ? 3 : 2}
-                                filter={highlighted ? 'url(#shadowHover)' : 'url(#shadow)'}
+                                filter={highlighted ? 'url(#shadowHover)' : undefined}
                             />
 
                             {isSource ? (
@@ -380,10 +463,14 @@ const PublicationCitationGraph: React.FC<PublicationCitationGraphProps> = ({ pub
 
     return (
         <>
-            <div className="cg-inline-container" onClick={() => setFullscreen(true)}>
-                {renderGraph(false)}
-                <div className="cg-expand-hint">🔍 Click for fullscreen</div>
-            </div>
+            {/* Render the inline preview only when fullscreen is closed — saves
+                one full SVG worth of DOM (~110 elements × 2) during panning. */}
+            {!fullscreen && (
+                <div className="cg-inline-container" onClick={() => setFullscreen(true)}>
+                    {renderGraph(false)}
+                    <div className="cg-expand-hint">🔍 Click for fullscreen</div>
+                </div>
+            )}
 
             {fullscreen && (
                 <div className="cg-fullscreen-overlay" onClick={(e) => { if (e.target === e.currentTarget) setFullscreen(false); }}>
@@ -392,7 +479,7 @@ const PublicationCitationGraph: React.FC<PublicationCitationGraphProps> = ({ pub
                             <h3>Citation Relationship Graph</h3>
                             <div className="cg-zoom-controls">
                                 <button className="cg-zoom-btn" onClick={() => setZoom(z => Math.min(z * 1.25, 5))} title="Zoom In">＋</button>
-                                <span className="cg-zoom-level">{Math.round(zoom * 100)}%</span>
+                                <span className="cg-zoom-level">{zoomDisplay}%</span>
                                 <button className="cg-zoom-btn" onClick={() => setZoom(z => Math.max(z * 0.8, 0.3))} title="Zoom Out">−</button>
                                 <button className="cg-zoom-btn cg-zoom-reset" onClick={resetView} title="Reset View">⟳</button>
                             </div>
@@ -401,19 +488,15 @@ const PublicationCitationGraph: React.FC<PublicationCitationGraphProps> = ({ pub
                         <div
                             className="cg-fullscreen-body"
                             ref={fsBodyRef}
-                            onWheel={handleWheel}
                             onMouseDown={handleMouseDown}
                             onMouseMove={handleMouseMove}
                             onMouseUp={handleMouseUp}
                             onMouseLeave={handleMouseUp}
-                            style={{ cursor: isPanning ? 'grabbing' : 'grab', overflow: 'hidden' }}
+                            style={{ cursor: cursorStyle, overflow: 'hidden' }}
                         >
                             <div
                                 className="cg-zoom-wrapper"
                                 style={{
-                                    transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-                                    transformOrigin: 'center center',
-                                    transition: isPanning ? 'none' : 'transform 0.15s ease',
                                     width: '100%',
                                     height: '100%',
                                     display: 'flex',
