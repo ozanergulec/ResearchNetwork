@@ -418,26 +418,46 @@ const PublicationCitationGraph: React.FC<PublicationCitationGraphProps> = ({ pub
                                 </>
                             )}
 
-                            {/* Tooltip on hover - show sentence */}
-                            {highlighted && !isSource && node.sentence && (
-                                <g>
-                                    <rect x={x - 130} y={y + h / 2 + 8} width={260} height={50} rx={8}
-                                        fill="#1f2937" fillOpacity={0.92}
-                                    />
-                                    <text x={x} y={y + h / 2 + 28} textAnchor="middle"
-                                        fill="#fff" fontSize={fs ? 9 : 7.5}
-                                        fontFamily="Inter, system-ui, sans-serif"
+                            {/* Tooltip on hover — foreignObject lets us use real HTML with
+                                proper word-wrap instead of clipped SVG <text>. */}
+                            {highlighted && !isSource && node.sentence && (() => {
+                                const tipW = 300;
+                                const tipH = 140;
+                                // Center horizontally, but clamp so tooltip stays in the
+                                // layout bounds (prevents overflow off-screen).
+                                const base = layout.base;
+                                const minTipX = base.minX + 8;
+                                const maxTipX = base.minX + base.baseW - tipW - 8;
+                                const rawTipX = x - tipW / 2;
+                                const tipX = Math.max(minTipX, Math.min(maxTipX, rawTipX));
+                                // Show above node if node is in lower half (avoids going off-screen).
+                                const showAbove = y > base.minY + base.baseH * 0.55;
+                                const tipY = showAbove ? y - h / 2 - tipH - 10 : y + h / 2 + 10;
+                                return (
+                                    <foreignObject
+                                        x={tipX} y={tipY} width={tipW} height={tipH}
+                                        style={{ pointerEvents: 'none', overflow: 'visible' }}
                                     >
-                                        {trunc(node.sentence, fs ? 60 : 45)}
-                                    </text>
-                                    <text x={x} y={y + h / 2 + 42} textAnchor="middle"
-                                        fill="#9ca3af" fontSize={fs ? 8 : 7}
-                                        fontFamily="Inter, system-ui, sans-serif"
-                                    >
-                                        {node.sentence.length > (fs ? 60 : 45) ? trunc(node.sentence.slice(fs ? 60 : 45), fs ? 60 : 45) : ''}
-                                    </text>
-                                </g>
-                            )}
+                                        <div
+                                            xmlns="http://www.w3.org/1999/xhtml"
+                                            style={{
+                                                background: 'rgba(17, 24, 39, 0.96)',
+                                                color: '#f9fafb',
+                                                padding: '10px 12px',
+                                                borderRadius: 8,
+                                                fontSize: fs ? 12 : 10,
+                                                fontFamily: 'Inter, system-ui, sans-serif',
+                                                lineHeight: 1.45,
+                                                wordBreak: 'break-word',
+                                                boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
+                                                border: `1px solid ${style.stroke}`,
+                                            }}
+                                        >
+                                            <span style={{ fontStyle: 'italic' }}>“{node.sentence}”</span>
+                                        </div>
+                                    </foreignObject>
+                                );
+                            })()}
 
                             {/* Confidence badge */}
                             {!isSource && node.confidence != null && (
