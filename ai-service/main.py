@@ -26,9 +26,9 @@ async def lifespan(app: FastAPI):
     summarization_service.load_model()
     logger.info("Summarization service ready.")
 
-    logger.info(f"Loading classification model: {settings.CLASSIFICATION_MODEL}")
+    logger.info(f"Loading citation classifier: {settings.CITATION_MODEL_PATH}")
     citation_service.load_model()
-    logger.info("Classification model loaded.")
+    logger.info("Citation classifier loaded.")
 
     logger.info("Initializing RAG service (ChromaDB + Gemini)...")
     rag_service.initialize()

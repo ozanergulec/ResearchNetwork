@@ -38,6 +38,9 @@ const INTENTS: Record<string, IntentStyle> = {
     // Gray family — neutral
     background:  { label: 'Background',     fill: '#f3f4f6', stroke: '#9ca3af', text: '#6b7280' },
     compare:     { label: 'Compares With',  fill: '#fef9c3', stroke: '#eab308', text: '#a16207' },
+
+    // Yellow/amber family — result (SciCite label)
+    result:      { label: 'Result',         fill: '#fef3c7', stroke: '#f59e0b', text: '#b45309' },
 };
 
 function getStyle(intent?: string): IntentStyle {

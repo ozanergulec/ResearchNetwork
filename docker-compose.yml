@@ -56,7 +56,7 @@ services:
       - .env
     environment:
       - EMBEDDING_MODEL=all-MiniLM-L6-v2
-      - CLASSIFICATION_MODEL=valhalla/distilbart-mnli-12-1
+      - CITATION_MODEL_PATH=/app/local_models/scibert-scicite
       - GROQ_API_KEY=${GROQ_API_KEY}
       - GROQ_MODEL=llama-3.3-70b-versatile
       - ALLOWED_ORIGINS=http://localhost:5000,http://localhost:5001,http://localhost:5051,http://api:8080

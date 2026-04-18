@@ -3,7 +3,9 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     EMBEDDING_MODEL: str = "all-MiniLM-L6-v2"
-    CLASSIFICATION_MODEL: str = "valhalla/distilbart-mnli-12-1"
+    # Local fine-tuned SciBERT (SciCite) model for citation intent classification.
+    # Can be either a local folder path or a Hugging Face repo id.
+    CITATION_MODEL_PATH: str = "./local_models/scibert-scicite"
     VECTOR_DIMENSION: int = 384
 
     GROQ_API_KEY: str = ""

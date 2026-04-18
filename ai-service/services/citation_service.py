@@ -1,25 +1,14 @@
 import re
 import logging
-from transformers import pipeline
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, pipeline
 from config import settings
 from services.pdf_service import pdf_service
 
 logger = logging.getLogger(__name__)
 
-INTENT_LABELS = [
-    "background information",
-    "uses methodology from",
-    "compares results with",
-    "supports findings of",
-    "contradicts findings of",
-    "extends work of",
-    "critiques approach of",
-    "builds theoretical framework from",
-    "provides empirical evidence for",
-    "identifies limitations of",
-    "proposes alternative to",
-    "replicates study of",
-]
+# Maximum input length in tokens for the classifier (SciBERT = 512).
+# Sentences longer than this are truncated by the tokenizer.
+MAX_CLASSIFIER_TOKENS = 512
 
 # ---------------------------------------------------------------------------
 # Pre-compiled patterns
@@ -118,11 +107,26 @@ class CitationService:
         self.classifier = None
 
     def load_model(self):
+        model_path = settings.CITATION_MODEL_PATH
+        logger.info("[Citation] Loading SciBERT classifier from: %s", model_path)
+
+        tokenizer = AutoTokenizer.from_pretrained(model_path)
+        model = AutoModelForSequenceClassification.from_pretrained(model_path)
+
+        # top_k=None returns scores for every label (replacement for the
+        # deprecated return_all_scores=True).
         self.classifier = pipeline(
-            "zero-shot-classification",
-            model=settings.CLASSIFICATION_MODEL,
+            "text-classification",
+            model=model,
+            tokenizer=tokenizer,
             device=-1,
+            top_k=None,
+            truncation=True,
+            max_length=MAX_CLASSIFIER_TOKENS,
         )
+
+        labels = list(model.config.id2label.values())
+        logger.info("[Citation] Classifier ready. Labels: %s", labels)
 
     # ------------------------------------------------------------------
     # Reference-entry filter
@@ -270,13 +274,18 @@ class CitationService:
     # ------------------------------------------------------------------
 
     def classify_intent(self, citation_context: str) -> dict:
-        result = self.classifier(citation_context, candidate_labels=INTENT_LABELS)
+        # With top_k=None the pipeline returns a list-of-lists: one inner list
+        # per input, each containing {"label", "score"} for every class.
+        raw = self.classifier(citation_context)
+        scores = raw[0] if isinstance(raw[0], list) else raw
+        scores_sorted = sorted(scores, key=lambda x: x["score"], reverse=True)
+
+        top = scores_sorted[0]
         return {
-            "intent": result["labels"][0],
-            "confidence": round(result["scores"][0], 4),
+            "intent": top["label"],
+            "confidence": round(float(top["score"]), 4),
             "all_scores": {
-                label: round(score, 4)
-                for label, score in zip(result["labels"], result["scores"])
+                s["label"]: round(float(s["score"]), 4) for s in scores_sorted
             },
         }
 

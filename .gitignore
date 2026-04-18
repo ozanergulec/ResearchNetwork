@@ -21,6 +21,12 @@ __pycache__/
 venv/
 .env
 
+# Local ML model weights (too large for git; Docker build COPYs them from disk)
+ai-service/local_models/**/*.safetensors
+ai-service/local_models/**/*.bin
+ai-service/local_models/**/pytorch_model.bin
+ai-service/local_models/**/training_args.bin
+
 # IDE
 .idea/
 .vscode/

@@ -346,6 +346,16 @@
     color: #c0392b;
 }
 
+.intent-result .citation-intent-badge {
+    background: rgba(245, 158, 11, 0.15);
+    color: #b45309;
+}
+
+.intent-background .citation-intent-badge {
+    background: rgba(148, 163, 184, 0.15);
+    color: #475569;
+}
+
 .citation-sentence {
     font-style: italic;
     color: #555;

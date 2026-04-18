@@ -309,6 +309,8 @@ const PublicationDetailModal: React.FC<PublicationDetailModalProps> = ({ publica
                                                         else if (lowerIntent.includes('contradict') || lowerIntent.includes('dispute')) intentClass = 'intent-dispute';
                                                         else if (lowerIntent.includes('method')) intentClass = 'intent-method';
                                                         else if (lowerIntent.includes('extend')) intentClass = 'intent-extend';
+                                                        else if (lowerIntent.includes('result')) intentClass = 'intent-result';
+                                                        else if (lowerIntent.includes('background')) intentClass = 'intent-background';
 
                                                         return (
                                                             <li key={idx} className={`pub-detail-citation-item ${intentClass}`}>
