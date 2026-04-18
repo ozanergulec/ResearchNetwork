@@ -305,10 +305,7 @@ const PublicationDetailModal: React.FC<PublicationDetailModalProps> = ({ publica
                                                         .map((citation, idx) => {
                                                         const lowerIntent = citation.intent.toLowerCase();
                                                         let intentClass = 'intent-neutral';
-                                                        if (lowerIntent.includes('support')) intentClass = 'intent-support';
-                                                        else if (lowerIntent.includes('contradict') || lowerIntent.includes('dispute')) intentClass = 'intent-dispute';
-                                                        else if (lowerIntent.includes('method')) intentClass = 'intent-method';
-                                                        else if (lowerIntent.includes('extend')) intentClass = 'intent-extend';
+                                                        if (lowerIntent.includes('method')) intentClass = 'intent-method';
                                                         else if (lowerIntent.includes('result')) intentClass = 'intent-result';
                                                         else if (lowerIntent.includes('background')) intentClass = 'intent-background';
 

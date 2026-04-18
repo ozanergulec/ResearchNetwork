@@ -319,15 +319,15 @@
     text-transform: capitalize;
 }
 
-/* Colors for specific intents */
-.intent-support .citation-intent-badge {
-    background: rgba(46, 204, 113, 0.15);
-    color: #27ae60;
-}
-
+/* Colors for SciCite intents: background / method / result */
 .intent-neutral .citation-intent-badge {
     background: rgba(149, 165, 166, 0.15);
     color: #7f8c8d;
+}
+
+.intent-background .citation-intent-badge {
+    background: rgba(148, 163, 184, 0.15);
+    color: #475569;
 }
 
 .intent-method .citation-intent-badge {
@@ -335,25 +335,9 @@
     color: #8e44ad;
 }
 
-.intent-extend .citation-intent-badge {
-    background: rgba(52, 152, 219, 0.15);
-    color: #2980b9;
-}
-
-.intent-dispute .citation-intent-badge,
-.intent-contradict .citation-intent-badge {
-    background: rgba(231, 76, 60, 0.15);
-    color: #c0392b;
-}
-
 .intent-result .citation-intent-badge {
     background: rgba(245, 158, 11, 0.15);
     color: #b45309;
-}
-
-.intent-background .citation-intent-badge {
-    background: rgba(148, 163, 184, 0.15);
-    color: #475569;
 }
 
 .citation-sentence {
