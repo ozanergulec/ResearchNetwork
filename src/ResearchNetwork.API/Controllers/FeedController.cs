@@ -19,17 +19,20 @@ public class FeedController : ControllerBase
     private readonly IUserRepository _userRepository;
     private readonly INotificationRepository _notificationRepository;
     private readonly IHubContext<NotificationHub> _hubContext;
+    private readonly ILogger<FeedController> _logger;
 
     public FeedController(
         IPublicationRepository publicationRepository,
         IUserRepository userRepository,
         INotificationRepository notificationRepository,
-        IHubContext<NotificationHub> hubContext)
+        IHubContext<NotificationHub> hubContext,
+        ILogger<FeedController> logger)
     {
         _publicationRepository = publicationRepository;
         _userRepository = userRepository;
         _notificationRepository = notificationRepository;
         _hubContext = hubContext;
+        _logger = logger;
     }
 
     private Guid? GetCurrentUserId()
@@ -71,25 +74,32 @@ public class FeedController : ControllerBase
         var (publications, _) = await _publicationRepository.GetFeedAsync(1, int.MaxValue);
         var (shares, _) = await _publicationRepository.GetAllSharesForFeedAsync(1, int.MaxValue);
 
-        var scoredItems = new List<(double Score, FeedItemDto Item)>();
+        var scoredItems = new List<(FeedScoreBreakdown Score, FeedItemDto Item, string DebugLabel, DateTime EventAt)>();
 
         foreach (var p in publications)
         {
-            double score = FeedScoringService.ScorePublication(p, followingIds, userTagNames);
+            var score = FeedScoringService.ScorePublication(p, followingIds, userTagNames);
             var dto = await PublicationMapper.ToDto(p, _publicationRepository, currentUserId);
-            scoredItems.Add((score, new FeedItemDto("publication", dto, null)));
+            var label = $"pub[{Truncate(p.Title, 40)}]";
+            scoredItems.Add((score, new FeedItemDto("publication", dto, null), label, p.CreatedAt));
         }
 
         foreach (var s in shares)
         {
-            double score = FeedScoringService.ScoreShare(s, followingIds, userTagNames);
+            var score = FeedScoringService.ScoreShare(s, followingIds, userTagNames);
             var sharedDto = await PublicationMapper.ToSharedDto(s, _publicationRepository, currentUserId);
-            scoredItems.Add((score, new FeedItemDto("share", null, sharedDto)));
+            var label = $"share[{Truncate(s.Publication.Title, 40)}]";
+            scoredItems.Add((score, new FeedItemDto("share", null, sharedDto), label, s.SharedAt));
         }
 
-        var sorted = scoredItems.OrderByDescending(f => f.Score).ToList();
+        var sorted = scoredItems.OrderByDescending(f => f.Score.Final).ToList();
         var totalCount = sorted.Count;
         var paged = sorted.Skip((page - 1) * pageSize).Take(pageSize).Select(f => f.Item).ToList();
+
+        if (_logger.IsEnabled(LogLevel.Debug))
+        {
+            LogFeedRanking(currentUserId, sorted, page, pageSize);
+        }
 
         var result = new PagedResult<FeedItemDto>(
             paged,
@@ -382,6 +392,37 @@ public class FeedController : ControllerBase
             pageSize,
             page * pageSize < totalCount
         ));
+    }
+
+    private static string Truncate(string input, int max)
+    {
+        if (string.IsNullOrEmpty(input)) return string.Empty;
+        return input.Length <= max ? input : input.Substring(0, max) + "...";
+    }
+
+    private void LogFeedRanking(
+        Guid? userId,
+        List<(FeedScoreBreakdown Score, FeedItemDto Item, string DebugLabel, DateTime EventAt)> sorted,
+        int page,
+        int pageSize)
+    {
+        var now = DateTime.UtcNow;
+        var top = sorted.Take(Math.Min(sorted.Count, pageSize + 5)).ToList();
+        _logger.LogDebug(
+            "[Feed] user={UserId} page={Page} pageSize={PageSize} totalItems={Total} topItems={TopCount}",
+            userId, page, pageSize, sorted.Count, top.Count);
+
+        for (int i = 0; i < top.Count; i++)
+        {
+            var entry = top[i];
+            double ageHours = (now - entry.EventAt).TotalHours;
+            var s = entry.Score;
+            _logger.LogDebug(
+                "[Feed] #{Rank,2} final={Final:F4} base={Base:F4} damp={Damp:F3} | rec={Rec:F4} eng={Eng:F4} fol={FolRaw:F0}->{FolEff:F3} tag={Tag:F2} aut={Aut:F2} | age={AgeH:F1}h | {Label}",
+                i + 1, s.Final, s.BaseScore, s.Damping,
+                s.Recency, s.Engagement, s.Following, s.EffectiveFollowing, s.TagRelevance, s.AuthorRep,
+                ageHours, entry.DebugLabel);
+        }
     }
 
     private async Task PushNotificationAsync(Guid targetUserId, Notification notification)
