@@ -114,7 +114,11 @@ export default function ArticleChat({
         }
 
         try {
-            const res = await aiApi.askArticleQuestion(publicationId, q);
+            const history = messages
+                .filter(m => m.content && (m.role === 'user' || m.role === 'assistant'))
+                .slice(-6)
+                .map(m => ({ role: m.role, content: m.content }));
+            const res = await aiApi.askArticleQuestion(publicationId, q, history);
             const assistantMsg: ChatMessage = {
                 id: (Date.now() + 1).toString(),
                 role: 'assistant',

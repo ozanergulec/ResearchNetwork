@@ -135,12 +135,19 @@ export const aiApi = {
             `/ai/publications/${publicationId}/rag/index`
         ),
 
-    askArticleQuestion: (publicationId: string, question: string) =>
+    askArticleQuestion: (
+        publicationId: string,
+        question: string,
+        history?: Array<{ role: 'user' | 'assistant'; content: string }>
+    ) =>
         api.post<{
             answer: string;
             sources: Array<{ chunkIndex: number; text: string; score: number }>;
             fromCache: boolean;
-        }>(`/ai/publications/${publicationId}/rag/ask`, { question }),
+        }>(`/ai/publications/${publicationId}/rag/ask`, {
+            question,
+            history: history && history.length > 0 ? history : undefined,
+        }),
 
     getRagIndexStatus: (publicationId: string) =>
         api.get<{ isIndexed: boolean }>(

@@ -129,9 +129,12 @@ public class AiServiceClient : IAiService
         return result!;
     }
 
-    public async Task<RagAskResponse> AskArticleQuestionAsync(string publicationId, string question)
+    public async Task<RagAskResponse> AskArticleQuestionAsync(
+        string publicationId,
+        string question,
+        List<RagConversationTurn>? history = null)
     {
-        var request = new RagAskRequest(publicationId, question);
+        var request = new RagAskRequest(publicationId, question, history);
         var response = await _httpClient.PostAsJsonAsync("/api/rag/ask", request, JsonOptions);
         response.EnsureSuccessStatusCode();
 

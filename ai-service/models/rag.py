@@ -1,4 +1,5 @@
-from pydantic import BaseModel
+from typing import Literal, Optional
+from pydantic import BaseModel, field_validator
 
 
 class IndexArticleRequest(BaseModel):
@@ -12,9 +13,27 @@ class IndexArticleResponse(BaseModel):
     status: str
 
 
+class ConversationTurn(BaseModel):
+    """A single past turn in the article-chat conversation."""
+    role: Literal["user", "assistant"]
+    content: str
+
+
 class AskQuestionRequest(BaseModel):
     publication_id: str
     question: str
+    # Optional prior turns (oldest first). Used to make retrieval and
+    # generation context-aware for follow-up questions. ``None`` and missing
+    # are both treated as an empty list so callers (e.g. the .NET client
+    # serializing ``History = null``) don't trip validation.
+    history: Optional[list[ConversationTurn]] = None
+
+    @field_validator("history", mode="before")
+    @classmethod
+    def _coerce_history(cls, v):
+        if v is None:
+            return []
+        return v
 
 
 class SourceChunk(BaseModel):

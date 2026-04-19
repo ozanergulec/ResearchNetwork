@@ -30,7 +30,7 @@ async def lifespan(app: FastAPI):
     citation_service.load_model()
     logger.info("Citation classifier loaded.")
 
-    logger.info("Initializing RAG service (ChromaDB + Gemini)...")
+    logger.info("Initializing RAG service (ChromaDB + Groq)...")
     rag_service.initialize()
     logger.info("RAG service ready.")
 

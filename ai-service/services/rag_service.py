@@ -42,7 +42,7 @@ CONTEXT (Relevant excerpts from the article):
 
 USER'S QUESTION: {question}
 
-PLEASE GENERATE YOUR ANSWER NOW (Using only the context above):"""
+PLEASE GENERATE YOUR ANSWER NOW. Use only the context above, and write the ENTIRE answer in the same language as the user's question{language_directive}."""
 
 
 # Patterns that should never appear in a genuine answer. If any match, we
@@ -73,6 +73,25 @@ def _is_answer_contaminated(answer: str) -> bool:
     if len(stripped) < 20:
         return True
     return bool(_CONTAMINATION_REGEX.search(stripped))
+
+
+# Characters unique to Turkish (or very strongly associated with it) — used
+# to give the LLM an explicit reminder to reply in Turkish, since otherwise
+# an English-language article can drag the response back into English even
+# when the question was Turkish.
+_TURKISH_CHAR_REGEX = re.compile(r"[ıİğĞşŞçÇöÖüÜ]")
+
+
+def _language_directive_for(question: str) -> str:
+    """Return an explicit language instruction appended to the user prompt
+    when we can confidently detect the user's language. Returns an empty
+    string when we cannot (model falls back to generic 'same language as
+    the question' rule)."""
+    if not question:
+        return ""
+    if _TURKISH_CHAR_REGEX.search(question):
+        return " (the user is asking in Turkish, so answer entirely in Turkish)"
+    return ""
 
 
 class RagService:
@@ -283,15 +302,48 @@ class RagService:
 
     # ─────────────────────────── SEMANTIC SEARCH ───────────────────────────
 
+    def _get_publication_chunk_count(self, publication_id: str) -> int:
+        """Return the total number of chunks stored for a publication, or 0
+        if the publication isn't indexed. The value was stored in chunk
+        metadata during indexing, so one light lookup is enough."""
+        try:
+            res = self.chunks_collection.get(
+                where={"publication_id": publication_id},
+                limit=1,
+                include=["metadatas"],
+            )
+            if res and res.get("metadatas") and res["metadatas"]:
+                meta = res["metadatas"][0] or {}
+                return int(meta.get("total_chunks", 0))
+        except Exception as e:
+            logger.warning(
+                f"Could not determine chunk count for {publication_id}: {e}"
+            )
+        return 0
+
+    def _determine_top_k(self, total_chunks: int) -> int:
+        """Pick a retrieval ``top_k`` adapted to the article size. Short
+        articles use a smaller k (less noise); long ones use a larger k
+        (better coverage). Clamped to [3, 8]."""
+        if total_chunks <= 0:
+            return settings.RAG_TOP_K
+
+        target = round(total_chunks * 0.3)
+        return max(3, min(8, target))
+
     def _search_chunks(
-        self, publication_id: str, query_embedding: list[float]
+        self,
+        publication_id: str,
+        query_embedding: list[float],
+        top_k: int | None = None,
     ) -> list[dict]:
         """Find the most relevant chunks in the vector database."""
+        n_results = top_k if top_k and top_k > 0 else settings.RAG_TOP_K
         try:
             results = self.chunks_collection.query(
                 query_embeddings=[query_embedding],
                 where={"publication_id": publication_id},
-                n_results=settings.RAG_TOP_K,
+                n_results=n_results,
             )
 
             if not results or not results["documents"] or not results["documents"][0]:
@@ -321,11 +373,21 @@ class RagService:
         self,
         question: str,
         context_chunks: list[dict],
+        history: list[dict] | None = None,
         strict: bool = False,
     ) -> str:
-        """Generate answer using Groq Llama. When ``strict`` is True, prepend
-        a stricter anti-leak reminder — used when retrying after a
-        contaminated first attempt."""
+        """Generate answer using Groq Llama.
+
+        Parameters
+        ----------
+        history:
+            Optional list of past ``{"role": "user"|"assistant", "content": str}``
+            turns. Used so follow-up questions stay coherent with earlier
+            turns in the same article-chat session.
+        strict:
+            When ``True``, prepend a stricter anti-leak reminder — used when
+            retrying after a contaminated first attempt.
+        """
         if not self.llm_client:
             return "API key not configured. Please check the GROQ_API_KEY setting."
 
@@ -334,24 +396,40 @@ class RagService:
             context_parts.append(f"[Chunk {i}]:\n{chunk['text']}")
         context = "\n\n".join(context_parts)
 
-        user_prompt = RAG_USER_PROMPT.format(context=context, question=question)
+        user_prompt = RAG_USER_PROMPT.format(
+            context=context,
+            question=question,
+            language_directive=_language_directive_for(question),
+        )
         if strict:
             user_prompt = RAG_STRICT_RETRY_NOTE + user_prompt
+
+        messages: list[dict] = [
+            {"role": "system", "content": RAG_SYSTEM_PROMPT}
+        ]
+        # Cap the carried history to the last 6 turns (~3 Q&A pairs). Keeps
+        # the prompt small while giving the model enough context to resolve
+        # short follow-ups like "peki amacı ne?".
+        if history:
+            trimmed = [h for h in history if h.get("role") in ("user", "assistant")]
+            for h in trimmed[-6:]:
+                messages.append({"role": h["role"], "content": h["content"]})
+        messages.append({"role": "user", "content": user_prompt})
 
         try:
             response = self.llm_client.chat.completions.create(
                 model=settings.GROQ_MODEL,
-                messages=[
-                    {"role": "system", "content": RAG_SYSTEM_PROMPT},
-                    {"role": "user", "content": user_prompt}
-                ],
-                temperature=0.2 if strict else 0.3,
+                messages=messages,
+                temperature=0.2 if strict else 0.25,
                 max_tokens=2048,
-                frequency_penalty=0.3 if strict else 0.0,
+                # A small first-try penalty reduces the odds of the model
+                # echoing the prompt template verbatim. Retry bumps it up.
+                frequency_penalty=0.35 if strict else 0.1,
             )
             answer = response.choices[0].message.content.strip()
             logger.info(
-                f"Groq generated answer ({len(answer)} chars, strict={strict}) "
+                f"Groq generated answer ({len(answer)} chars, strict={strict}, "
+                f"history_turns={len(history) if history else 0}) "
                 f"for question: {question[:80]}..."
             )
             return answer
@@ -362,24 +440,56 @@ class RagService:
     # ─────────────────────────── ASK (Ana Pipeline) ───────────────────────────
 
     def ask_question(
-        self, publication_id: str, question: str
+        self,
+        publication_id: str,
+        question: str,
+        history: list[dict] | None = None,
     ) -> dict:
-        """RAG pipeline: cache check → search → generate → cache save."""
+        """RAG pipeline: cache check → search → generate → cache save.
 
-        # 1. Generate question embedding
+        When ``history`` is non-empty, the semantic cache is bypassed (both
+        read and write) because the expected answer depends on prior turns
+        and reusing cached answers would be misleading or pollute future
+        unrelated follow-ups.
+        """
+        history = history or []
+        has_history = bool(history)
+
+        # 1. Build a retrieval query. For follow-ups, prepend the last user
+        #    question so the embedding reflects the broader intent (e.g.
+        #    "peki amacı ne?" alone is too ambiguous on its own).
+        retrieval_query = question
+        if has_history:
+            last_user_msg = next(
+                (h for h in reversed(history) if h.get("role") == "user"),
+                None,
+            )
+            if last_user_msg and last_user_msg.get("content"):
+                retrieval_query = f"{last_user_msg['content']}\n{question}"
+
         question_embedding = embedding_service.encode(question)
+        retrieval_embedding = (
+            embedding_service.encode(retrieval_query)
+            if retrieval_query != question
+            else question_embedding
+        )
 
-        # 2. Check cache
-        cached_answer = self._check_cache(publication_id, question_embedding)
-        if cached_answer:
-            return {
-                "answer": cached_answer,
-                "sources": [],
-                "from_cache": True,
-            }
+        # 2. Check cache — only for standalone questions.
+        if not has_history:
+            cached_answer = self._check_cache(publication_id, question_embedding)
+            if cached_answer:
+                return {
+                    "answer": cached_answer,
+                    "sources": [],
+                    "from_cache": True,
+                }
 
-        # 3. Find relevant chunks
-        chunks = self._search_chunks(publication_id, question_embedding)
+        # 3. Find relevant chunks using an article-adaptive top_k.
+        total_chunks = self._get_publication_chunk_count(publication_id)
+        top_k = self._determine_top_k(total_chunks)
+        chunks = self._search_chunks(
+            publication_id, retrieval_embedding, top_k=top_k
+        )
         if not chunks:
             return {
                 "answer": "This article has not been indexed yet or no relevant section was found for your question. Please index the article first.",
@@ -388,17 +498,25 @@ class RagService:
             }
 
         # 4. Generate answer with LLM (with one strict retry on contamination)
-        answer = self._generate_answer(question, chunks)
+        answer = self._generate_answer(question, chunks, history=history)
         if _is_answer_contaminated(answer):
             logger.warning(
                 f"Contaminated answer detected for publication {publication_id}; "
                 f"retrying with strict anti-leak prompt"
             )
-            answer = self._generate_answer(question, chunks, strict=True)
+            answer = self._generate_answer(
+                question, chunks, history=history, strict=True
+            )
 
-        # 5. Save to cache only if the answer is clean, so poisoned outputs
-        #    never pollute future semantic-cache hits.
-        if _is_answer_contaminated(answer):
+        # 5. Save to cache only for standalone questions AND only when the
+        #    answer is clean, so poisoned outputs never pollute future
+        #    semantic-cache hits.
+        if has_history:
+            logger.debug(
+                f"Skipping cache save for publication {publication_id} "
+                f"(follow-up question with {len(history)} history turns)"
+            )
+        elif _is_answer_contaminated(answer):
             logger.error(
                 f"Answer still contaminated after strict retry for publication "
                 f"{publication_id}; skipping cache save"

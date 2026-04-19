@@ -26,7 +26,10 @@ def index_article(request: IndexArticleRequest):
 @router.post("/ask", response_model=AskQuestionResponse)
 def ask_question(request: AskQuestionRequest):
     """Ask a question about an article (semantic cache + RAG pipeline)."""
-    result = rag_service.ask_question(request.publication_id, request.question)
+    history = [turn.model_dump() for turn in (request.history or [])]
+    result = rag_service.ask_question(
+        request.publication_id, request.question, history=history
+    )
     return AskQuestionResponse(
         answer=result["answer"],
         sources=[SourceChunk(**s) for s in result["sources"]],

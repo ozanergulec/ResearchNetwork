@@ -5,7 +5,11 @@ public record RagIndexRequest(string Publication_id, string Pdf_text);
 public record RagIndexResponse(string Publication_id, int Chunk_count, string Status);
 
 // RAG Ask
-public record RagAskRequest(string Publication_id, string Question);
+public record RagConversationTurn(string Role, string Content);
+public record RagAskRequest(
+    string Publication_id,
+    string Question,
+    List<RagConversationTurn>? History = null);
 
 public record RagSourceChunk(int Chunk_index, string Text, float Score);
 
@@ -18,7 +22,8 @@ public record RagStatusResponse(string Publication_id, bool Is_indexed);
 public record RagDeleteResponse(string Publication_id, int Deleted_chunks, string Status);
 
 // Frontend-facing DTOs (camelCase mapping)
-public record ArticleChatRequest(string Question);
+public record ArticleChatTurn(string Role, string Content);
+public record ArticleChatRequest(string Question, List<ArticleChatTurn>? History = null);
 
 public record ArticleChatResponse(
     string Answer,

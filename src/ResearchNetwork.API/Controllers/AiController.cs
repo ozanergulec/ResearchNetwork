@@ -816,8 +816,22 @@ public class AiController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.Question))
             return BadRequest(new { message = "Question is required." });
 
+        // Forward only the last 6 turns (~3 Q&A pairs) as conversation history,
+        // which is enough for the model to resolve short follow-ups without
+        // bloating the prompt.
+        List<RagConversationTurn>? history = null;
+        if (request.History is { Count: > 0 })
+        {
+            history = request.History
+                .Where(t => !string.IsNullOrWhiteSpace(t.Content) &&
+                            (t.Role == "user" || t.Role == "assistant"))
+                .TakeLast(6)
+                .Select(t => new RagConversationTurn(t.Role, t.Content))
+                .ToList();
+        }
+
         var ragResult = await _aiService.AskArticleQuestionAsync(
-            id.ToString(), request.Question);
+            id.ToString(), request.Question, history);
 
         var sources = ragResult.Sources.Select(s => new ArticleChatSource(
             s.Chunk_index, s.Text, s.Score

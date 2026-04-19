@@ -16,6 +16,9 @@ public interface IAiService
 
     // RAG
     Task<RagIndexResponse> IndexArticleForRagAsync(string publicationId, string pdfText);
-    Task<RagAskResponse> AskArticleQuestionAsync(string publicationId, string question);
+    Task<RagAskResponse> AskArticleQuestionAsync(
+        string publicationId,
+        string question,
+        List<RagConversationTurn>? history = null);
     Task<RagStatusResponse> GetRagIndexStatusAsync(string publicationId);
 }
