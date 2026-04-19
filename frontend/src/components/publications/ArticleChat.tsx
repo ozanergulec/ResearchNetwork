@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { aiApi } from '../../services/aiService';
 import '../../styles/publications/ArticleChat.css';
 
@@ -25,6 +25,83 @@ const SUGGESTION_QUESTIONS = [
     "What is this study's contribution to the literature?",
 ];
 
+// ───────────── Chat persistence (localStorage) ─────────────
+// The article chat is scoped per user AND per publication, so each user has
+// an isolated history per article. Storage survives modal close, page
+// navigation, and browser restarts (until the user clears it via the
+// "New chat" button or localStorage is pruned by the browser).
+
+const CHAT_STORAGE_PREFIX = 'rn:article-chat';
+const MAX_STORED_MESSAGES = 50;
+const STORAGE_DEBOUNCE_MS = 500;
+
+interface StoredChatMessage {
+    id: string;
+    role: 'user' | 'assistant';
+    content: string;
+    timestamp: string;
+    sources?: Array<{ chunkIndex: number; text: string; score: number }>;
+    fromCache?: boolean;
+}
+
+interface StoredChat {
+    messages: StoredChatMessage[];
+    updatedAt: string;
+}
+
+const getChatStorageKey = (userId: string, publicationId: string): string =>
+    `${CHAT_STORAGE_PREFIX}:${userId}:${publicationId}`;
+
+const loadStoredChat = (key: string): ChatMessage[] | null => {
+    try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw) as StoredChat;
+        if (!parsed || !Array.isArray(parsed.messages) || parsed.messages.length === 0) {
+            return null;
+        }
+        return parsed.messages.map(m => ({
+            id: m.id,
+            role: m.role,
+            content: m.content,
+            timestamp: new Date(m.timestamp),
+            sources: m.sources,
+            fromCache: m.fromCache,
+        }));
+    } catch {
+        return null;
+    }
+};
+
+const saveStoredChat = (key: string, messages: ChatMessage[]): void => {
+    try {
+        const trimmed = messages.slice(-MAX_STORED_MESSAGES);
+        const payload: StoredChat = {
+            messages: trimmed.map(m => ({
+                id: m.id,
+                role: m.role,
+                content: m.content,
+                timestamp: m.timestamp.toISOString(),
+                sources: m.sources,
+                fromCache: m.fromCache,
+            })),
+            updatedAt: new Date().toISOString(),
+        };
+        localStorage.setItem(key, JSON.stringify(payload));
+    } catch {
+        // Quota exceeded or storage disabled — fail silently; the in-memory
+        // state keeps working for the current session.
+    }
+};
+
+const clearStoredChat = (key: string): void => {
+    try {
+        localStorage.removeItem(key);
+    } catch {
+        /* ignore */
+    }
+};
+
 export default function ArticleChat({
     publicationId,
     publicationTitle,
@@ -38,9 +115,22 @@ export default function ArticleChat({
     const [isIndexed, setIsIndexed] = useState<boolean | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [expandedSources, setExpandedSources] = useState<Set<string>>(new Set());
+    const [hasResumedHistory, setHasResumedHistory] = useState(false);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+    // Persistence key — scoped per user + publication so different users
+    // on the same device don't see each other's chat history.
+    const storageKey = useMemo(() => {
+        try {
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+            if (!user?.id) return null;
+            return getChatStorageKey(user.id, publicationId);
+        } catch {
+            return null;
+        }
+    }, [publicationId]);
 
     // İndeks durumunu kontrol et
     const checkIndexStatus = useCallback(async () => {
@@ -70,14 +160,36 @@ export default function ArticleChat({
         }
     };
 
-    // Panel açıldığında kontrol et
+    // Panel açıldığında kontrol et + önceki konuşmayı geri yükle
     useEffect(() => {
-        if (isOpen) {
-            setIsIndexed(null);
-            setError(null);
-            checkIndexStatus();
+        if (!isOpen) return;
+
+        setIsIndexed(null);
+        setError(null);
+        checkIndexStatus();
+
+        if (storageKey) {
+            const restored = loadStoredChat(storageKey);
+            if (restored && restored.length > 0) {
+                setMessages(restored);
+                setHasResumedHistory(true);
+                return;
+            }
         }
-    }, [isOpen, checkIndexStatus]);
+        setMessages([]);
+        setHasResumedHistory(false);
+    }, [isOpen, storageKey, checkIndexStatus]);
+
+    // Mesajları localStorage'a debounced olarak yaz. Boş listede dokunmuyoruz
+    // çünkü "Yeni sohbet" akışı zaten açık bir biçimde siliyor.
+    useEffect(() => {
+        if (!storageKey) return;
+        if (messages.length === 0) return;
+        const timer = window.setTimeout(() => {
+            saveStoredChat(storageKey, messages);
+        }, STORAGE_DEBOUNCE_MS);
+        return () => window.clearTimeout(timer);
+    }, [messages, storageKey]);
 
     // Mesaj sonuna scroll
     useEffect(() => {
@@ -149,6 +261,22 @@ export default function ArticleChat({
         }
     };
 
+    // Konuşmayı sıfırla — UI state + localStorage'dan siler. Backend'deki
+    // semantic cache'e dokunmaz (farklı kullanıcı/soruların önbelleğe
+    // alınmış cevapları kaybolmasın diye).
+    const handleNewChat = () => {
+        if (messages.length === 0 && !hasResumedHistory) return;
+        const confirmed = window.confirm(
+            'Start a new conversation? Your previous messages for this article will be cleared.'
+        );
+        if (!confirmed) return;
+        if (storageKey) clearStoredChat(storageKey);
+        setMessages([]);
+        setHasResumedHistory(false);
+        setExpandedSources(new Set());
+        setError(null);
+    };
+
     // Kaynak toggle
     const toggleSources = (messageId: string) => {
         setExpandedSources(prev => {
@@ -178,7 +306,19 @@ export default function ArticleChat({
                             <p title={publicationTitle}>{publicationTitle}</p>
                         </div>
                     </div>
-                    <button className="article-chat-close" onClick={onClose}>✕</button>
+                    <div className="article-chat-header-actions">
+                        {messages.length > 0 && (
+                            <button
+                                className="article-chat-new-btn"
+                                onClick={handleNewChat}
+                                title="Start new conversation"
+                                aria-label="Start new conversation"
+                            >
+                                ↻
+                            </button>
+                        )}
+                        <button className="article-chat-close" onClick={onClose}>✕</button>
+                    </div>
                 </div>
 
                 {/* Indexing */}
@@ -206,6 +346,14 @@ export default function ArticleChat({
                 {isIndexed && !isIndexing && !error && (
                     <>
                         <div className="article-chat-messages">
+                            {hasResumedHistory && messages.length > 0 && (
+                                <div className="article-chat-resumed-banner">
+                                    <span className="article-chat-resumed-icon">⏪</span>
+                                    <span className="article-chat-resumed-text">
+                                        Continuing your previous conversation
+                                    </span>
+                                </div>
+                            )}
                             {messages.length === 0 ? (
                                 <div className="article-chat-welcome">
                                     <div className="article-chat-welcome-icon">📄</div>

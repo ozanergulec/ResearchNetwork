@@ -89,7 +89,15 @@
     max-width: 280px;
 }
 
-.article-chat-close {
+.article-chat-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.article-chat-close,
+.article-chat-new-btn {
     width: 36px;
     height: 36px;
     border-radius: 50%;
@@ -101,12 +109,53 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background 0.2s ease;
+    transition: background 0.2s ease, transform 0.2s ease;
     flex-shrink: 0;
 }
 
-.article-chat-close:hover {
+.article-chat-close:hover,
+.article-chat-new-btn:hover {
     background: rgba(42, 31, 29, 0.12);
+}
+
+.article-chat-new-btn {
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.article-chat-new-btn:hover {
+    transform: rotate(-90deg);
+}
+
+/* ─── Resumed Conversation Banner ─── */
+.article-chat-resumed-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    margin: 0 auto 8px;
+    background: rgba(42, 31, 29, 0.04);
+    border: 1px solid rgba(42, 31, 29, 0.08);
+    border-radius: 20px;
+    font-size: 0.78rem;
+    color: #666;
+    align-self: center;
+    max-width: fit-content;
+    animation: resumedFadeIn 0.35s ease;
+}
+
+@keyframes resumedFadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.article-chat-resumed-icon {
+    font-size: 0.9rem;
+    opacity: 0.8;
+}
+
+.article-chat-resumed-text {
+    letter-spacing: 0.01em;
 }
 
 /* ─── Messages Area ─── */
