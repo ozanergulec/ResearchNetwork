@@ -6,6 +6,7 @@ import { publicationsApi, type Publication, type UserSummary } from '../../servi
 import { usersApi } from '../../services/userService';
 import { searchApi } from '../../services/searchService';
 import signalRService from '../../services/signalRService';
+import { OPEN_CHAT_EVENT, type OpenChatDetail } from '../../services/chatEvents';
 import PublicationDetailModal from '../feed/PublicationDetailModal';
 import ChatView from './ChatView';
 import ConversationList from './ConversationList';
@@ -106,10 +107,12 @@ const FloatingChat: React.FC = () => {
 
     const activeChatUserRef = useRef<ConversationData | null>(activeChatUser);
     const isActiveExpandedRef = useRef(isActiveExpanded);
+    const conversationsRef = useRef<ConversationData[]>(conversations);
     useEffect(() => {
         activeChatUserRef.current = activeChatUser;
         isActiveExpandedRef.current = isActiveExpanded;
     }, [activeChatUser, isActiveExpanded]);
+    useEffect(() => { conversationsRef.current = conversations; }, [conversations]);
 
     const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
     const token = localStorage.getItem('token');
@@ -147,6 +150,43 @@ const FloatingChat: React.FC = () => {
         return () => {
             signalRService.off('ReceiveMessage', handleReceiveMessage);
         };
+    }, [token, isAuthPage, isMessagesPage]);
+
+    // Listen for external requests to open a chat with a given user
+    // (e.g. "Message" button on the recommendations page).
+    useEffect(() => {
+        if (!token || isAuthPage || isMessagesPage) return;
+
+        const handler = (e: Event) => {
+            const detail = (e as CustomEvent<OpenChatDetail>).detail;
+            if (!detail?.userId) return;
+
+            // If we already have a conversation with this user, reuse it so
+            // the panel shows the real last-message metadata and unread count.
+            const existing = conversationsRef.current.find(c => c.userId === detail.userId);
+            if (existing) {
+                setActiveChatUser(existing);
+            } else {
+                const synthetic: ConversationData = {
+                    userId: detail.userId,
+                    userName: detail.fullName,
+                    userProfileImageUrl: detail.profileImageUrl ?? null,
+                    userIsVerified: detail.isVerified ?? false,
+                    userTitle: detail.title ?? null,
+                    userInstitution: detail.institution ?? null,
+                    lastMessage: '',
+                    lastMessageAt: new Date().toISOString(),
+                    unreadCount: 0,
+                };
+                setActiveChatUser(synthetic);
+            }
+            setIsActiveExpanded(true);
+            setIsMainExpanded(false);
+            setShowNewChat(false);
+        };
+
+        window.addEventListener(OPEN_CHAT_EVENT, handler);
+        return () => window.removeEventListener(OPEN_CHAT_EVENT, handler);
     }, [token, isAuthPage, isMessagesPage]);
 
     useEffect(() => {

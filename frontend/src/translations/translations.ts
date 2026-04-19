@@ -111,6 +111,8 @@ export interface Translations {
         tagTitle: string;
         tagText: string;
         loadingRec: string;
+        message: string;
+        messageAria: string;
     };
     // SettingsPage (existing translations)
     settings: {
@@ -329,6 +331,8 @@ const en: Translations = {
         tagTitle: 'Tag-Based Matching',
         tagText: 'These recommendations are based on your shared research tags. Upload publications to unlock AI-powered matching for more accurate results.',
         loadingRec: 'Loading recommendations...',
+        message: 'Message',
+        messageAria: 'Send message to researcher',
     },
     settings: {
         settingsTitle: 'Settings',
@@ -544,6 +548,8 @@ const tr: Translations = {
         tagTitle: 'Etiket Bazlı Eşleştirme',
         tagText: 'Bu öneriler ortak araştırma etiketlerinize dayanmaktadır. Daha doğru sonuçlar için yayın yükleyerek yapay zeka destekli eşleştirmeyi aktifleştirin.',
         loadingRec: 'Öneriler yükleniyor...',
+        message: 'Mesaj Gönder',
+        messageAria: 'Araştırmacıya mesaj gönder',
     },
     settings: {
         settingsTitle: 'Ayarlar',

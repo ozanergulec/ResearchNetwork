@@ -115,6 +115,12 @@
     transition: width 0.6s ease;
 }
 
+.rmc-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
 .rmc-follow-btn {
     width: 100%;
     padding: 0.65rem;
@@ -142,4 +148,31 @@
     background: rgba(122, 31, 43, 0.05);
     box-shadow: none;
     transform: none;
+}
+
+.rmc-message-btn {
+    width: 100%;
+    padding: 0.55rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: #fff;
+    color: var(--heading-color);
+    border: 1px solid rgba(122, 31, 43, 0.25);
+    border-radius: 10px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.rmc-message-btn:hover {
+    background: rgba(122, 31, 43, 0.06);
+    border-color: var(--heading-color);
+    transform: translateY(-1px);
+}
+
+.rmc-message-btn svg {
+    flex-shrink: 0;
 }
