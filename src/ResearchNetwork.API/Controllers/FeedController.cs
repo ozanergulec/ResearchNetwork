@@ -71,38 +71,72 @@ public class FeedController : ControllerBase
             }
         }
 
-        var (publications, _) = await _publicationRepository.GetFeedAsync(1, int.MaxValue);
-        var (shares, _) = await _publicationRepository.GetAllSharesForFeedAsync(1, int.MaxValue);
+        var (publicationsRaw, _) = await _publicationRepository.GetFeedAsync(1, int.MaxValue);
+        var (sharesRaw, _) = await _publicationRepository.GetAllSharesForFeedAsync(1, int.MaxValue);
+        var publications = publicationsRaw as IList<Publication> ?? publicationsRaw.ToList();
+        var shares = sharesRaw as IList<PublicationShare> ?? sharesRaw.ToList();
 
-        var scoredItems = new List<(FeedScoreBreakdown Score, FeedItemDto Item, string DebugLabel, DateTime EventAt)>();
+        // Phase 1 — score everything in-memory. This is pure arithmetic
+        // over already-loaded entities, so no extra DB round-trips.
+        var scored = new List<ScoredFeedEntry>(publications.Count + shares.Count);
 
         foreach (var p in publications)
         {
-            var score = FeedScoringService.ScorePublication(p, followingIds, userTagNames);
-            var dto = await PublicationMapper.ToDto(p, _publicationRepository, currentUserId);
-            var label = $"pub[{Truncate(p.Title, 40)}]";
-            scoredItems.Add((score, new FeedItemDto("publication", dto, null), label, p.CreatedAt));
+            var breakdown = FeedScoringService.ScorePublication(p, followingIds, userTagNames);
+            scored.Add(new ScoredFeedEntry(
+                breakdown,
+                FeedEntryKind.Publication,
+                p,
+                null,
+                p.CreatedAt,
+                p.Title));
         }
 
         foreach (var s in shares)
         {
-            var score = FeedScoringService.ScoreShare(s, followingIds, userTagNames);
-            var sharedDto = await PublicationMapper.ToSharedDto(s, _publicationRepository, currentUserId);
-            var label = $"share[{Truncate(s.Publication.Title, 40)}]";
-            scoredItems.Add((score, new FeedItemDto("share", null, sharedDto), label, s.SharedAt));
+            var breakdown = FeedScoringService.ScoreShare(s, followingIds, userTagNames);
+            scored.Add(new ScoredFeedEntry(
+                breakdown,
+                FeedEntryKind.Share,
+                null,
+                s,
+                s.SharedAt,
+                s.Publication.Title));
         }
 
-        var sorted = scoredItems.OrderByDescending(f => f.Score.Final).ToList();
-        var totalCount = sorted.Count;
-        var paged = sorted.Skip((page - 1) * pageSize).Take(pageSize).Select(f => f.Item).ToList();
+        // Phase 2 — sort + paginate. Mapping was the expensive part
+        // (several extra queries per item), so we defer it until we
+        // know which items actually belong to this page.
+        scored.Sort((a, b) => b.Score.Final.CompareTo(a.Score.Final));
+        var totalCount = scored.Count;
+        var pageEntries = scored
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
+
+        // Phase 3 — map only the page items to DTOs.
+        var pagedDtos = new List<FeedItemDto>(pageEntries.Count);
+        foreach (var entry in pageEntries)
+        {
+            if (entry.Kind == FeedEntryKind.Publication)
+            {
+                var dto = await PublicationMapper.ToDto(entry.Publication!, _publicationRepository, currentUserId);
+                pagedDtos.Add(new FeedItemDto("publication", dto, null));
+            }
+            else
+            {
+                var sharedDto = await PublicationMapper.ToSharedDto(entry.Share!, _publicationRepository, currentUserId);
+                pagedDtos.Add(new FeedItemDto("share", null, sharedDto));
+            }
+        }
 
         if (_logger.IsEnabled(LogLevel.Debug))
         {
-            LogFeedRanking(currentUserId, sorted, page, pageSize);
+            LogFeedRanking(currentUserId, scored, page, pageSize);
         }
 
         var result = new PagedResult<FeedItemDto>(
-            paged,
+            pagedDtos,
             totalCount,
             page,
             pageSize,
@@ -111,6 +145,16 @@ public class FeedController : ControllerBase
 
         return Ok(result);
     }
+
+    private enum FeedEntryKind { Publication, Share }
+
+    private sealed record ScoredFeedEntry(
+        FeedScoreBreakdown Score,
+        FeedEntryKind Kind,
+        Publication? Publication,
+        PublicationShare? Share,
+        DateTime EventAt,
+        string Title);
 
     // ==================== RATE ====================
 
@@ -402,7 +446,7 @@ public class FeedController : ControllerBase
 
     private void LogFeedRanking(
         Guid? userId,
-        List<(FeedScoreBreakdown Score, FeedItemDto Item, string DebugLabel, DateTime EventAt)> sorted,
+        List<ScoredFeedEntry> sorted,
         int page,
         int pageSize)
     {
@@ -417,11 +461,14 @@ public class FeedController : ControllerBase
             var entry = top[i];
             double ageHours = (now - entry.EventAt).TotalHours;
             var s = entry.Score;
+            var label = entry.Kind == FeedEntryKind.Publication
+                ? $"pub[{Truncate(entry.Title, 40)}]"
+                : $"share[{Truncate(entry.Title, 40)}]";
             _logger.LogDebug(
                 "[Feed] #{Rank,2} final={Final:F4} base={Base:F4} damp={Damp:F3} | rec={Rec:F4} eng={Eng:F4} fol={FolRaw:F0}->{FolEff:F3} tag={Tag:F2} aut={Aut:F2} | age={AgeH:F1}h | {Label}",
                 i + 1, s.Final, s.BaseScore, s.Damping,
                 s.Recency, s.Engagement, s.Following, s.EffectiveFollowing, s.TagRelevance, s.AuthorRep,
-                ageHours, entry.DebugLabel);
+                ageHours, label);
         }
     }
 
