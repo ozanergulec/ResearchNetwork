@@ -1,5 +1,13 @@
 import api from './apiClient';
 
+export interface PagedResult<T> {
+    items: T[];
+    totalCount: number;
+    page: number;
+    pageSize: number;
+    hasMore: boolean;
+}
+
 export interface ResearcherMatch {
     userId: string;
     fullName: string;
@@ -76,8 +84,15 @@ export interface PdfProcessResult {
 }
 
 export const aiApi = {
-    getResearcherMatches: (userId: string, topK: number = 10) =>
-        api.get<ResearcherMatch[]>(`/ai/researchers/${userId}/matches?topK=${topK}`),
+    getResearcherMatches: (userId: string, page: number = 1, pageSize: number = 12) =>
+        api.get<PagedResult<ResearcherMatch>>(
+            `/ai/researchers/${userId}/matches?page=${page}&pageSize=${pageSize}`
+        ),
+
+    getTagResearcherMatches: (userId: string, page: number = 1, pageSize: number = 12) =>
+        api.get<PagedResult<ResearcherMatch>>(
+            `/ai/researchers/${userId}/tag-matches?page=${page}&pageSize=${pageSize}`
+        ),
 
     getSimilarPublications: (publicationId: string, topK: number = 5) =>
         api.get<SimilarPublication[]>(`/ai/publications/${publicationId}/similar?topK=${topK}`),

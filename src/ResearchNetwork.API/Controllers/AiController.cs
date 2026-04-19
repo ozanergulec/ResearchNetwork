@@ -183,38 +183,86 @@ public class AiController : ControllerBase
 
     [Authorize]
     [HttpGet("researchers/{userId:guid}/matches")]
-    public async Task<ActionResult<IEnumerable<ResearcherMatchDto>>> GetResearcherMatches(
-        Guid userId, [FromQuery] int topK = 10)
+    public async Task<ActionResult<PagedResult<ResearcherMatchDto>>> GetResearcherMatches(
+        Guid userId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 12)
     {
         var currentUserId = GetCurrentUserId();
         if (currentUserId == null || currentUserId.Value != userId)
             return Forbid();
 
-        // Per-user short-lived cache. Same user hitting the page multiple times
-        // (or nav back/forward) should not re-run the full scoring loop.
-        var cacheKey = $"ai:researcher-matches:{userId}:{topK}";
+        var ranked = await GetOrComputeRankedMatchesAsync(userId, tagOnly: false);
+        if (ranked == null) return NotFound();
+
+        return Ok(Paginate(ranked, page, pageSize));
+    }
+
+    [Authorize]
+    [HttpGet("researchers/{userId:guid}/tag-matches")]
+    public async Task<ActionResult<PagedResult<ResearcherMatchDto>>> GetTagResearcherMatches(
+        Guid userId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 12)
+    {
+        var currentUserId = GetCurrentUserId();
+        if (currentUserId == null || currentUserId.Value != userId)
+            return Forbid();
+
+        var ranked = await GetOrComputeRankedMatchesAsync(userId, tagOnly: true);
+        if (ranked == null) return NotFound();
+
+        return Ok(Paginate(ranked, page, pageSize));
+    }
+
+    private static PagedResult<ResearcherMatchDto> Paginate(
+        List<ResearcherMatchDto> ranked, int page, int pageSize)
+    {
+        if (page < 1) page = 1;
+        if (pageSize < 1) pageSize = 12;
+        if (pageSize > 50) pageSize = 50;
+
+        var totalCount = ranked.Count;
+        var items = ranked.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        var hasMore = page * pageSize < totalCount;
+        return new PagedResult<ResearcherMatchDto>(items, totalCount, page, pageSize, hasMore);
+    }
+
+    // Returns the full sorted ranking for the user. Caches it so subsequent
+    // pagination requests (infinite scroll) hit memory only. Returns null if
+    // the user doesn't exist.
+    private async Task<List<ResearcherMatchDto>?> GetOrComputeRankedMatchesAsync(
+        Guid userId, bool tagOnly)
+    {
+        var cacheKey = tagOnly
+            ? $"ai:researcher-tag-matches:{userId}"
+            : $"ai:researcher-matches:{userId}";
+
         if (_cache.TryGetValue<List<ResearcherMatchDto>>(cacheKey, out var cached) && cached != null)
         {
-            _logger.LogDebug("[Recommendation] cache HIT user={UserId} topK={TopK} items={Count}",
-                userId, topK, cached.Count);
-            return Ok(cached);
+            _logger.LogDebug("[Recommendation] cache HIT user={UserId} mode={Mode} items={Count}",
+                userId, tagOnly ? "tag" : "ai", cached.Count);
+            return cached;
         }
 
         var sw = System.Diagnostics.Stopwatch.StartNew();
 
         var allUsers = await _userRepository.GetAllAsync();
         var user = allUsers.FirstOrDefault(u => u.Id == userId);
-        if (user == null) return NotFound();
+        if (user == null) return null;
 
         var userInterestTags = user.Tags.Select(t => t.Tag.Name.ToLower()).ToHashSet();
         var userInstitution = user.Institution?.Trim().ToLowerInvariant();
 
-        var normalizedByAuthor = await GetOrBuildNormalizedEmbeddingsAsync();
+        // Tag-only mode skips expensive embedding load entirely.
+        Dictionary<Guid, List<float[]>>? normalizedByAuthor = tagOnly
+            ? null
+            : await GetOrBuildNormalizedEmbeddingsAsync();
         var pubTagsByAuthor = await _publicationRepository.GetPublicationTagsByAuthorAsync();
 
-        var userVectors = normalizedByAuthor.GetValueOrDefault(userId);
+        var userVectors = normalizedByAuthor?.GetValueOrDefault(userId);
         var userPubTags = pubTagsByAuthor.GetValueOrDefault(userId) ?? new HashSet<string>();
-        bool userHasEmbeddings = userVectors != null && userVectors.Count > 0;
+        bool userHasEmbeddings = !tagOnly && userVectors != null && userVectors.Count > 0;
 
         var results = new List<ResearcherMatchDto>();
         var breakdowns = new List<RecommendationBreakdown>();
@@ -232,7 +280,7 @@ public class AiController : ControllerBase
                 .Select(t => t.Tag.Name.ToLower()).ToHashSet();
             var candidatePubTags = pubTagsByAuthor.GetValueOrDefault(candidate.Id)
                                    ?? new HashSet<string>();
-            var candidateVectors = normalizedByAuthor.GetValueOrDefault(candidate.Id);
+            var candidateVectors = normalizedByAuthor?.GetValueOrDefault(candidate.Id);
 
             bool hasContent = userHasEmbeddings && candidateVectors != null && candidateVectors.Count > 0;
             bool hasPubTags = userPubTags.Count > 0 && candidatePubTags.Count > 0;
@@ -306,15 +354,15 @@ public class AiController : ControllerBase
                 finalScore));
         }
 
-        var top = results.OrderByDescending(r => r.Similarity).Take(topK).ToList();
-        _cache.Set(cacheKey, top, RecommendationCacheTtl);
+        var ranked = results.OrderByDescending(r => r.Similarity).ToList();
+        _cache.Set(cacheKey, ranked, RecommendationCacheTtl);
 
         sw.Stop();
         LogRecommendationBreakdown(
-            user, candidateCount, shortCircuited, belowThreshold,
-            breakdowns, topK, sw.ElapsedMilliseconds);
+            user, tagOnly, candidateCount, shortCircuited, belowThreshold,
+            breakdowns, sw.ElapsedMilliseconds);
 
-        return Ok(top);
+        return ranked;
     }
 
     private record RecommendationBreakdown(
@@ -328,17 +376,22 @@ public class AiController : ControllerBase
         double Final);
 
     private void LogRecommendationBreakdown(
-        User user, int total, int shortCircuited, int belowThreshold,
-        List<RecommendationBreakdown> breakdowns, int topK, long elapsedMs)
+        User user, bool tagOnly, int total, int shortCircuited, int belowThreshold,
+        List<RecommendationBreakdown> breakdowns, long elapsedMs)
     {
         if (!_logger.IsEnabled(LogLevel.Debug)) return;
 
-        var top = breakdowns.OrderByDescending(b => b.Final).Take(topK).ToList();
+        // Always log the full ranked list breakdown at debug. 5-min cache means
+        // this is rare; when it runs, having every candidate visible helps
+        // validate the scoring. Cap at 20 for log hygiene.
+        const int MaxLogged = 20;
+        var top = breakdowns.OrderByDescending(b => b.Final).Take(MaxLogged).ToList();
+
         var sb = new System.Text.StringBuilder();
         sb.AppendLine();
-        sb.AppendLine($"[Recommendation] user={user.FullName} candidates={total} " +
-                      $"shortCircuit={shortCircuited} belowThreshold={belowThreshold} " +
-                      $"kept={breakdowns.Count} topK={topK} elapsed={elapsedMs}ms");
+        sb.AppendLine($"[Recommendation] user={user.FullName} mode={(tagOnly ? "tag" : "ai")} " +
+                      $"candidates={total} shortCircuit={shortCircuited} " +
+                      $"belowThreshold={belowThreshold} kept={breakdowns.Count} elapsed={elapsedMs}ms");
 
         for (int i = 0; i < top.Count; i++)
         {

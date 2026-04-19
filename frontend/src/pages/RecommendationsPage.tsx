@@ -1,36 +1,16 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { aiApi } from '../services/aiService';
 import type { ResearcherMatch } from '../services/aiService';
 import { usersApi } from '../services/userService';
-import type { User } from '../services/userService';
 import { Navbar, Loading } from '../components';
 import ResearcherMatchCard from '../components/recommendations/ResearcherMatchCard';
 import { useTranslation } from '../translations/translations';
 import '../styles/pages/RecommendationsPage.css';
 
-function computeTagMatch(currentTags: string[], otherTags: string[]): { similarity: number; commonTags: string[] } {
-    const setA = new Set(currentTags.map(t => t.toLowerCase()));
-    const setB = new Set(otherTags.map(t => t.toLowerCase()));
-    const common = [...setA].filter(t => setB.has(t));
-    const union = new Set([...setA, ...setB]);
-    const similarity = union.size > 0 ? common.length / union.size : 0;
-    return { similarity, commonTags: common };
-}
+const PAGE_SIZE = 12;
 
-function userToMatch(user: User, similarity: number, commonTags: string[]): ResearcherMatch {
-    return {
-        userId: user.id,
-        fullName: user.fullName,
-        title: user.title,
-        institution: user.institution,
-        department: user.department,
-        profileImageUrl: user.profileImageUrl,
-        isVerified: user.isVerified,
-        similarity,
-        commonTags,
-    };
-}
+type FetchMode = 'ai' | 'tag';
 
 const RecommendationsPage: React.FC = () => {
     const navigate = useNavigate();
@@ -39,9 +19,42 @@ const RecommendationsPage: React.FC = () => {
     const [matches, setMatches] = useState<ResearcherMatch[]>([]);
     const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [hasMore, setHasMore] = useState(false);
+    const [page, setPage] = useState(1);
+    const [mode, setMode] = useState<FetchMode>('ai');
     const [isAiPowered, setIsAiPowered] = useState(false);
 
     const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+    const userId: string | undefined = currentUser.id;
+
+    const sentinelRef = useRef<HTMLDivElement | null>(null);
+    // Refs mirror state so the IntersectionObserver callback always sees the
+    // latest values without needing to re-create the observer on every change.
+    const loadingMoreRef = useRef(false);
+    const hasMoreRef = useRef(false);
+    const pageRef = useRef(1);
+    const modeRef = useRef<FetchMode>('ai');
+
+    useEffect(() => { loadingMoreRef.current = loadingMore; }, [loadingMore]);
+    useEffect(() => { hasMoreRef.current = hasMore; }, [hasMore]);
+    useEffect(() => { pageRef.current = page; }, [page]);
+    useEffect(() => { modeRef.current = mode; }, [mode]);
+
+    const fetchPage = useCallback(
+        async (fetchMode: FetchMode, pageNumber: number): Promise<{ items: ResearcherMatch[]; hasMore: boolean }> => {
+            if (!userId) return { items: [], hasMore: false };
+            const call = fetchMode === 'ai'
+                ? aiApi.getResearcherMatches(userId, pageNumber, PAGE_SIZE)
+                : aiApi.getTagResearcherMatches(userId, pageNumber, PAGE_SIZE);
+            const res = await call;
+            return {
+                items: res.data.items ?? [],
+                hasMore: res.data.hasMore ?? false,
+            };
+        },
+        [userId]
+    );
 
     useEffect(() => {
         const token = localStorage.getItem('token');
@@ -50,21 +63,27 @@ const RecommendationsPage: React.FC = () => {
             return;
         }
 
-        const fetchData = async () => {
+        const initialLoad = async () => {
             try {
                 const followRes = await usersApi.getFollowingIds();
                 setFollowingIds(new Set(followRes.data));
 
-                try {
-                    const aiRes = await aiApi.getResearcherMatches(currentUser.id, 12);
-                    if (aiRes.data && aiRes.data.length > 0) {
-                        setMatches(aiRes.data);
-                        setIsAiPowered(true);
-                        return;
-                    }
-                } catch { /* AI not available, fall through to tag-based */ }
+                // Try AI (embedding-aware) first. Fall back to pure-tag mode
+                // only if the AI endpoint returns an empty first page, which
+                // means the user has neither embeddings nor any shared tags.
+                let active: FetchMode = 'ai';
+                let first = await fetchPage('ai', 1);
 
-                await loadTagBasedMatches();
+                if (first.items.length === 0) {
+                    active = 'tag';
+                    first = await fetchPage('tag', 1);
+                }
+
+                setMode(active);
+                setIsAiPowered(active === 'ai');
+                setMatches(first.items);
+                setHasMore(first.hasMore);
+                setPage(1);
             } catch (err) {
                 console.error('Failed to load recommendations', err);
             } finally {
@@ -72,42 +91,62 @@ const RecommendationsPage: React.FC = () => {
             }
         };
 
-        const loadTagBasedMatches = async () => {
-            const [profileRes, allUsersRes] = await Promise.all([
-                usersApi.getProfile(),
-                usersApi.getAll(),
-            ]);
+        initialLoad();
+    }, [navigate, fetchPage]);
 
-            const myTags = profileRes.data.tags?.map(t => t.name) || [];
-            const others = allUsersRes.data.filter((u: User) => u.id !== currentUser.id);
-
-            const scored = others.map((user) => {
-                const userTags = user.tags?.map(t => t.name) || [];
-                const { similarity, commonTags } = computeTagMatch(myTags, userTags);
-                return userToMatch(user, similarity, commonTags);
-            });
-
-            scored.sort((a, b) => b.similarity - a.similarity);
-
-            const withTags = scored.filter(m => m.commonTags.length > 0);
-            setMatches(withTags);
-        };
-
-        fetchData();
-    }, [navigate, currentUser.id]);
-
-    const handleFollow = useCallback(async (userId: string) => {
+    const loadMore = useCallback(async () => {
+        if (loadingMoreRef.current || !hasMoreRef.current) return;
+        setLoadingMore(true);
         try {
-            if (followingIds.has(userId)) {
-                await usersApi.unfollow(userId);
+            const next = pageRef.current + 1;
+            const res = await fetchPage(modeRef.current, next);
+            setMatches((prev) => {
+                const seen = new Set(prev.map((m) => m.userId));
+                const merged = [...prev];
+                for (const item of res.items) {
+                    if (!seen.has(item.userId)) merged.push(item);
+                }
+                return merged;
+            });
+            setHasMore(res.hasMore);
+            setPage(next);
+        } catch (err) {
+            console.error('Failed to load more recommendations', err);
+        } finally {
+            setLoadingMore(false);
+        }
+    }, [fetchPage]);
+
+    useEffect(() => {
+        const sentinel = sentinelRef.current;
+        if (!sentinel) return;
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                const entry = entries[0];
+                if (entry.isIntersecting && hasMoreRef.current && !loadingMoreRef.current) {
+                    loadMore();
+                }
+            },
+            { rootMargin: '200px 0px' }
+        );
+
+        observer.observe(sentinel);
+        return () => observer.disconnect();
+    }, [loadMore, loading]);
+
+    const handleFollow = useCallback(async (targetId: string) => {
+        try {
+            if (followingIds.has(targetId)) {
+                await usersApi.unfollow(targetId);
                 setFollowingIds((prev) => {
                     const next = new Set(prev);
-                    next.delete(userId);
+                    next.delete(targetId);
                     return next;
                 });
             } else {
-                await usersApi.follow(userId);
-                setFollowingIds((prev) => new Set(prev).add(userId));
+                await usersApi.follow(targetId);
+                setFollowingIds((prev) => new Set(prev).add(targetId));
             }
         } catch (err) {
             console.error('Follow action failed', err);
@@ -146,6 +185,10 @@ const RecommendationsPage: React.FC = () => {
                                     isFollowing={followingIds.has(match.userId)}
                                 />
                             ))}
+                        </div>
+
+                        <div ref={sentinelRef} className="rec-sentinel" aria-hidden="true">
+                            {loadingMore && <Loading message={t.recommendations.loadingRec} />}
                         </div>
 
                         <div className={`rec-ai-note ${isAiPowered ? 'rec-ai-active' : ''}`}>
