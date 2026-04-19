@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 using ResearchNetwork.Application.DTOs;
 using ResearchNetwork.Application.Interfaces;
 using ResearchNetwork.Domain.Entities;
@@ -14,15 +15,30 @@ public class AiController : ControllerBase
     private readonly IPublicationRepository _publicationRepository;
     private readonly IUserRepository _userRepository;
     private readonly IAiService _aiService;
+    private readonly IMemoryCache _cache;
+    private readonly ILogger<AiController> _logger;
+
+    // Per-user recommendation cache TTL. Researcher matches don't need to be
+    // recomputed on every page view; a short window avoids thrashing.
+    private static readonly TimeSpan RecommendationCacheTtl = TimeSpan.FromMinutes(5);
+
+    // Normalized-embedding map cache. Shared across all recommendation calls;
+    // rebuilt when expired so new uploads are eventually reflected.
+    private const string NormalizedEmbeddingsCacheKey = "ai:normalized-embeddings-by-author";
+    private static readonly TimeSpan NormalizedEmbeddingsCacheTtl = TimeSpan.FromMinutes(5);
 
     public AiController(
         IPublicationRepository publicationRepository,
         IUserRepository userRepository,
-        IAiService aiService)
+        IAiService aiService,
+        IMemoryCache cache,
+        ILogger<AiController> logger)
     {
         _publicationRepository = publicationRepository;
         _userRepository = userRepository;
         _aiService = aiService;
+        _cache = cache;
+        _logger = logger;
     }
 
     private Guid? GetCurrentUserId()
@@ -174,40 +190,68 @@ public class AiController : ControllerBase
         if (currentUserId == null || currentUserId.Value != userId)
             return Forbid();
 
+        // Per-user short-lived cache. Same user hitting the page multiple times
+        // (or nav back/forward) should not re-run the full scoring loop.
+        var cacheKey = $"ai:researcher-matches:{userId}:{topK}";
+        if (_cache.TryGetValue<List<ResearcherMatchDto>>(cacheKey, out var cached) && cached != null)
+        {
+            _logger.LogDebug("[Recommendation] cache HIT user={UserId} topK={TopK} items={Count}",
+                userId, topK, cached.Count);
+            return Ok(cached);
+        }
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+
         var allUsers = await _userRepository.GetAllAsync();
         var user = allUsers.FirstOrDefault(u => u.Id == userId);
         if (user == null) return NotFound();
 
         var userInterestTags = user.Tags.Select(t => t.Tag.Name.ToLower()).ToHashSet();
+        var userInstitution = user.Institution?.Trim().ToLowerInvariant();
 
-        var embeddingsByAuthor = await _publicationRepository.GetAllEmbeddingsGroupedByAuthorAsync();
+        var normalizedByAuthor = await GetOrBuildNormalizedEmbeddingsAsync();
         var pubTagsByAuthor = await _publicationRepository.GetPublicationTagsByAuthorAsync();
 
-        var userVectors = embeddingsByAuthor.GetValueOrDefault(userId);
+        var userVectors = normalizedByAuthor.GetValueOrDefault(userId);
         var userPubTags = pubTagsByAuthor.GetValueOrDefault(userId) ?? new HashSet<string>();
         bool userHasEmbeddings = userVectors != null && userVectors.Count > 0;
 
         var results = new List<ResearcherMatchDto>();
+        var breakdowns = new List<RecommendationBreakdown>();
+
+        int candidateCount = 0;
+        int shortCircuited = 0;
+        int belowThreshold = 0;
 
         foreach (var candidate in allUsers)
         {
             if (candidate.Id == userId) continue;
+            candidateCount++;
 
             var candidateInterestTags = candidate.Tags
                 .Select(t => t.Tag.Name.ToLower()).ToHashSet();
             var candidatePubTags = pubTagsByAuthor.GetValueOrDefault(candidate.Id)
                                    ?? new HashSet<string>();
-            var candidateVectors = embeddingsByAuthor.GetValueOrDefault(candidate.Id);
+            var candidateVectors = normalizedByAuthor.GetValueOrDefault(candidate.Id);
 
             bool hasContent = userHasEmbeddings && candidateVectors != null && candidateVectors.Count > 0;
             bool hasPubTags = userPubTags.Count > 0 && candidatePubTags.Count > 0;
 
-            double contentScore = 0;
-            if (hasContent)
-                contentScore = MaxPairwiseSimilarity(userVectors!, candidateVectors!);
-
             double interestTagScore = JaccardSimilarity(userInterestTags, candidateInterestTags);
             double pubTagScore = hasPubTags ? JaccardSimilarity(userPubTags, candidatePubTags) : 0;
+
+            // Short-circuit: if there is zero overlap across every signal, the
+            // candidate can't produce a meaningful score. Skip before doing any
+            // embedding work (which is the expensive part).
+            if (!hasContent && interestTagScore == 0 && pubTagScore == 0)
+            {
+                shortCircuited++;
+                continue;
+            }
+
+            double contentScore = 0;
+            if (hasContent)
+                contentScore = TopKAverageSimilarity(userVectors!, candidateVectors!, k: 3);
 
             var allCommonTags = userInterestTags.Intersect(candidateInterestTags)
                 .Union(userPubTags.Intersect(candidatePubTags))
@@ -219,17 +263,29 @@ public class AiController : ControllerBase
             else
                 rawScore = 0.50 * pubTagScore + 0.50 * interestTagScore;
 
-            int activeSignals = (hasContent ? 1 : 0) + (hasPubTags ? 1 : 0) + (interestTagScore > 0 ? 1 : 0);
-            double confidence = activeSignals switch
-            {
-                3 => 1.0,
-                2 => 0.65,
-                1 => 0.35,
-                _ => 0.0
-            };
-            double finalScore = rawScore * confidence;
+            // Same-institution bonus. Cheap but meaningful — colleagues are
+            // naturally high-value recommendations even if embeddings are thin.
+            bool sameInstitution = !string.IsNullOrEmpty(userInstitution)
+                && !string.IsNullOrEmpty(candidate.Institution)
+                && string.Equals(candidate.Institution.Trim(), userInstitution,
+                                 StringComparison.InvariantCultureIgnoreCase);
+            double institutionBonus = sameInstitution ? 0.05 : 0.0;
+            rawScore += institutionBonus;
 
-            if (finalScore < 0.01) continue;
+            // Smoother confidence than a step function. sqrt(n/3) gives
+            // 1->0.58, 2->0.82, 3->1.0 — avoids penalising 2 strong signals
+            // almost as much as a 3rd noisy one.
+            int activeSignals = (hasContent ? 1 : 0)
+                              + (hasPubTags ? 1 : 0)
+                              + (interestTagScore > 0 ? 1 : 0);
+            double confidence = activeSignals == 0 ? 0.0 : Math.Sqrt(activeSignals / 3.0);
+            double finalScore = Math.Min(1.0, rawScore * confidence);
+
+            if (finalScore < 0.05)
+            {
+                belowThreshold++;
+                continue;
+            }
 
             results.Add(new ResearcherMatchDto(
                 candidate.Id,
@@ -242,9 +298,90 @@ public class AiController : ControllerBase
                 Math.Round(finalScore, 4),
                 allCommonTags
             ));
+
+            breakdowns.Add(new RecommendationBreakdown(
+                candidate.FullName,
+                contentScore, pubTagScore, interestTagScore,
+                confidence, institutionBonus, activeSignals,
+                finalScore));
         }
 
-        return Ok(results.OrderByDescending(r => r.Similarity).Take(topK));
+        var top = results.OrderByDescending(r => r.Similarity).Take(topK).ToList();
+        _cache.Set(cacheKey, top, RecommendationCacheTtl);
+
+        sw.Stop();
+        LogRecommendationBreakdown(
+            user, candidateCount, shortCircuited, belowThreshold,
+            breakdowns, topK, sw.ElapsedMilliseconds);
+
+        return Ok(top);
+    }
+
+    private record RecommendationBreakdown(
+        string Name,
+        double Content,
+        double PubTag,
+        double InterestTag,
+        double Confidence,
+        double InstitutionBonus,
+        int ActiveSignals,
+        double Final);
+
+    private void LogRecommendationBreakdown(
+        User user, int total, int shortCircuited, int belowThreshold,
+        List<RecommendationBreakdown> breakdowns, int topK, long elapsedMs)
+    {
+        if (!_logger.IsEnabled(LogLevel.Debug)) return;
+
+        var top = breakdowns.OrderByDescending(b => b.Final).Take(topK).ToList();
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine();
+        sb.AppendLine($"[Recommendation] user={user.FullName} candidates={total} " +
+                      $"shortCircuit={shortCircuited} belowThreshold={belowThreshold} " +
+                      $"kept={breakdowns.Count} topK={topK} elapsed={elapsedMs}ms");
+
+        for (int i = 0; i < top.Count; i++)
+        {
+            var b = top[i];
+            sb.AppendLine(string.Format(System.Globalization.CultureInfo.InvariantCulture,
+                "  {0,2}. {1,-30} final={2:F3} content={3:F3} pubTag={4:F3} interest={5:F3} conf={6:F2} inst=+{7:F2} signals={8}",
+                i + 1, Truncate(b.Name, 30),
+                b.Final, b.Content, b.PubTag, b.InterestTag,
+                b.Confidence, b.InstitutionBonus, b.ActiveSignals));
+        }
+
+        _logger.LogDebug("{Breakdown}", sb.ToString());
+    }
+
+    private static string Truncate(string value, int maxLength)
+    {
+        if (string.IsNullOrEmpty(value)) return string.Empty;
+        return value.Length <= maxLength ? value : value.Substring(0, maxLength - 1) + "…";
+    }
+
+    private async Task<Dictionary<Guid, List<float[]>>> GetOrBuildNormalizedEmbeddingsAsync()
+    {
+        if (_cache.TryGetValue<Dictionary<Guid, List<float[]>>>(
+                NormalizedEmbeddingsCacheKey, out var cached) && cached != null)
+            return cached;
+
+        var raw = await _publicationRepository.GetAllEmbeddingsGroupedByAuthorAsync();
+
+        // Pre-normalize once so downstream similarity reduces to a dot product.
+        var normalized = new Dictionary<Guid, List<float[]>>(raw.Count);
+        foreach (var (authorId, vectors) in raw)
+        {
+            var list = new List<float[]>(vectors.Count);
+            foreach (var v in vectors)
+            {
+                var unit = Normalize(v);
+                if (unit != null) list.Add(unit);
+            }
+            if (list.Count > 0) normalized[authorId] = list;
+        }
+
+        _cache.Set(NormalizedEmbeddingsCacheKey, normalized, NormalizedEmbeddingsCacheTtl);
+        return normalized;
     }
 
     // ==================== TAG SUGGESTIONS ====================
@@ -653,18 +790,45 @@ public class AiController : ControllerBase
         return union > 0 ? (double)intersection / union : 0;
     }
 
-    private static double MaxPairwiseSimilarity(List<float[]> vectorsA, List<float[]> vectorsB)
+    // Average of the top-K pairwise similarities. More robust than MAX (which
+    // lets a single coincidentally-similar paper dominate the score) while
+    // still rewarding authors whose strongest work overlaps with ours.
+    private static double TopKAverageSimilarity(List<float[]> unitVectorsA, List<float[]> unitVectorsB, int k = 3)
     {
-        double maxSim = 0;
-        foreach (var a in vectorsA)
-        {
-            foreach (var b in vectorsB)
-            {
-                var sim = CosineSimilarity(a, b);
-                if (sim > maxSim) maxSim = sim;
-            }
-        }
-        return maxSim;
+        if (unitVectorsA.Count == 0 || unitVectorsB.Count == 0) return 0;
+
+        var sims = new List<double>(unitVectorsA.Count * unitVectorsB.Count);
+        foreach (var a in unitVectorsA)
+            foreach (var b in unitVectorsB)
+                sims.Add(DotProduct(a, b));
+
+        sims.Sort((x, y) => y.CompareTo(x));
+        var take = Math.Min(k, sims.Count);
+        double sum = 0;
+        for (int i = 0; i < take; i++) sum += sims[i];
+        return sum / take;
+    }
+
+    private static float[]? Normalize(float[] v)
+    {
+        if (v == null || v.Length == 0) return null;
+        double norm = 0;
+        for (int i = 0; i < v.Length; i++) norm += v[i] * v[i];
+        norm = Math.Sqrt(norm);
+        if (norm == 0) return null;
+
+        var unit = new float[v.Length];
+        var inv = (float)(1.0 / norm);
+        for (int i = 0; i < v.Length; i++) unit[i] = v[i] * inv;
+        return unit;
+    }
+
+    private static double DotProduct(float[] a, float[] b)
+    {
+        if (a.Length != b.Length) return 0;
+        double dot = 0;
+        for (int i = 0; i < a.Length; i++) dot += a[i] * b[i];
+        return dot;
     }
 
     private static Guid GenerateDeterministicGuid(Guid publicationId, int refNumber)
