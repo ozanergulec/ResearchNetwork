@@ -96,6 +96,27 @@ export interface Translations {
         myPublications: string;
         loading: string;
     };
+    // Reviewer Matching
+    reviewerMatch: {
+        title: string;
+        findReviewers: string;
+        hideSuggestions: string;
+        loading: string;
+        errorLoading: string;
+        noMatch: string;
+        noMatchDesc: string;
+        recommended: string;
+        score: string;
+        pubsInField: string;
+        reviewsInField: string;
+        tagsMatched: string;
+        sendInvite: string;
+        sending: string;
+        invited: string;
+        inviteError: string;
+        infoBanner: string;
+        inlineDesc: string;
+    };
     // RecommendationsPage
     recommendations: {
         title: string;
@@ -317,6 +338,26 @@ const en: Translations = {
         myPublications: 'My Publications',
         loading: 'Loading...',
     },
+    reviewerMatch: {
+        title: 'Suggested Reviewers',
+        findReviewers: 'Find Reviewers',
+        hideSuggestions: 'Hide Suggestions',
+        loading: 'Matching reviewers...',
+        errorLoading: 'Failed to load suggestions.',
+        noMatch: 'No matching reviewers found',
+        noMatchDesc: 'No eligible reviewers match this publication\'s tags. Try adding more tags to your publication.',
+        recommended: 'Recommended',
+        score: 'score',
+        pubsInField: 'publications in field',
+        reviewsInField: 'past reviews in field',
+        tagsMatched: 'tags matched',
+        sendInvite: 'Send Invitation',
+        sending: 'Sending...',
+        invited: 'Invited',
+        inviteError: 'Failed to send invitation.',
+        infoBanner: 'Click "Find Reviewers" on any publication to see AI-matched reviewers based on tag overlap, publication history, and past review experience.',
+        inlineDesc: 'Reviewers ranked by tag match, publications in this field, and past review experience.',
+    },
     recommendations: {
         title: 'Recommended Researchers',
         subtitle: 'Connect with researchers in similar fields. AI-powered recommendations coming soon!',
@@ -533,6 +574,26 @@ const tr: Translations = {
         myApplications: 'Başvurularım',
         myPublications: 'Yayınlarım',
         loading: 'Yükleniyor...',
+    },
+    reviewerMatch: {
+        title: 'Önerilen Hakemler',
+        findReviewers: 'Hakem Bul',
+        hideSuggestions: 'Önerileri Gizle',
+        loading: 'Hakemler eşleştiriliyor...',
+        errorLoading: 'Öneriler yüklenemedi.',
+        noMatch: 'Eşleşen hakem bulunamadı',
+        noMatchDesc: 'Bu yayının etiketlerine uygun hakem bulunamadı. Yayına daha fazla etiket eklemeyi deneyin.',
+        recommended: 'Önerilen',
+        score: 'puan',
+        pubsInField: 'alandaki yayın',
+        reviewsInField: 'alandaki hakemlik',
+        tagsMatched: 'eşleşen etiket',
+        sendInvite: 'Davet Gönder',
+        sending: 'Gönderiliyor...',
+        invited: 'Davet Edildi',
+        inviteError: 'Davet gönderilemedi.',
+        infoBanner: 'Herhangi bir yayında "Hakem Bul" butonuna tıklayarak etiket eşleşmesi, yayın geçmişi ve hakemlik deneyimine göre eşleştirilmiş hakemleri görün.',
+        inlineDesc: 'Hakemler etiket eşleşmesi, alandaki yayınları ve geçmiş hakemlik deneyimlerine göre sıralanmıştır.',
     },
     recommendations: {
         title: 'Önerilen Araştırmacılar',

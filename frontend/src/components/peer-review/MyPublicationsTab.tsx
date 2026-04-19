@@ -1,21 +1,39 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { reviewApi } from '../../services/reviewService';
-import type { MyPublicationForReview, ReviewRequest } from '../../services/reviewService';
+import type { MyPublicationForReview, ReviewRequest, SuggestedReviewer } from '../../services/reviewService';
 import { renderAvatar, renderStatus, renderVerdict, formatDate } from './prHelpers';
 import ReviewDetailModal from './ReviewDetailModal';
+import { useTranslation } from '../../translations/translations';
 
 interface MyPublicationsTabProps {
     myPublications: MyPublicationForReview[];
     onToggleSearch: (pubId: string) => void;
+    highlightPubId?: string | null;
 }
 
-const MyPublicationsTab: React.FC<MyPublicationsTabProps> = ({ myPublications, onToggleSearch }) => {
+const MyPublicationsTab: React.FC<MyPublicationsTabProps> = ({ myPublications, onToggleSearch, highlightPubId }) => {
+    const t = useTranslation();
     const navigate = useNavigate();
     const [selectedPubId, setSelectedPubId] = useState<string | null>(null);
     const [pubReviewRequests, setPubReviewRequests] = useState<ReviewRequest[]>([]);
     const [loadingPubRequests, setLoadingPubRequests] = useState(false);
     const [selectedRequest, setSelectedRequest] = useState<ReviewRequest | null>(null);
+
+    const [suggestPubId, setSuggestPubId] = useState<string | null>(null);
+    const [suggestedReviewers, setSuggestedReviewers] = useState<SuggestedReviewer[]>([]);
+    const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+    const [invitedIds, setInvitedIds] = useState<Set<string>>(new Set());
+    const [invitingId, setInvitingId] = useState<string | null>(null);
+    const highlightRef = useRef<HTMLDivElement | null>(null);
+
+    useEffect(() => {
+        if (highlightPubId && highlightRef.current) {
+            setTimeout(() => {
+                highlightRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 300);
+        }
+    }, [highlightPubId, myPublications]);
 
     const loadPubRequests = async (pubId: string) => {
         if (selectedPubId === pubId) {
@@ -32,6 +50,49 @@ const MyPublicationsTab: React.FC<MyPublicationsTabProps> = ({ myPublications, o
             console.error('Failed to load review requests', err);
         } finally {
             setLoadingPubRequests(false);
+        }
+    };
+
+    const loadSuggestions = async (pubId: string) => {
+        if (suggestPubId === pubId) {
+            setSuggestPubId(null);
+            setSuggestedReviewers([]);
+            return;
+        }
+        setSuggestPubId(pubId);
+        setLoadingSuggestions(true);
+        try {
+            const res = await reviewApi.suggestReviewers(pubId);
+            setSuggestedReviewers(res.data);
+        } catch (err) {
+            console.error('Failed to load suggestions', err);
+            setSuggestedReviewers([]);
+        } finally {
+            setLoadingSuggestions(false);
+        }
+    };
+
+    const handleToggleAndSuggest = async (pubId: string, isCurrentlyLooking: boolean) => {
+        onToggleSearch(pubId);
+        if (!isCurrentlyLooking) {
+            setTimeout(() => loadSuggestions(pubId), 300);
+        } else {
+            if (suggestPubId === pubId) {
+                setSuggestPubId(null);
+                setSuggestedReviewers([]);
+            }
+        }
+    };
+
+    const handleInvite = async (pubId: string, reviewerId: string) => {
+        setInvitingId(reviewerId);
+        try {
+            await reviewApi.inviteReviewer(pubId, reviewerId);
+            setInvitedIds(prev => new Set(prev).add(reviewerId));
+        } catch (err: any) {
+            alert(err.response?.data?.message || err.response?.data || t.reviewerMatch.inviteError);
+        } finally {
+            setInvitingId(null);
         }
     };
 
@@ -59,6 +120,12 @@ const MyPublicationsTab: React.FC<MyPublicationsTabProps> = ({ myPublications, o
         }
     };
 
+    const getScoreColor = (score: number) => {
+        if (score >= 0.5) return '#059669';
+        if (score >= 0.2) return '#d97706';
+        return '#6b7280';
+    };
+
     if (myPublications.length === 0) {
         return (
             <div className="pr-empty">
@@ -71,9 +138,21 @@ const MyPublicationsTab: React.FC<MyPublicationsTabProps> = ({ myPublications, o
 
     return (
         <>
-            {myPublications.map(pub => (
+            <div className="pr-info-banner">
+                <span className="pr-info-banner-icon">💡</span>
+                <span>
+                    {t.reviewerMatch.infoBanner}
+                </span>
+            </div>
+
+            {myPublications.map(pub => {
+                const isHighlighted = highlightPubId === pub.id;
+                return (
                 <div key={pub.id}>
-                    <div className="pr-my-pub-card">
+                    <div
+                        ref={isHighlighted ? highlightRef : undefined}
+                        className={`pr-my-pub-card ${isHighlighted ? 'pr-pub-highlight' : ''}`}
+                    >
                         <div className="pr-my-pub-info">
                             <h4 className="pr-my-pub-title">{pub.title}</h4>
                             <div className="pr-my-pub-meta">
@@ -81,7 +160,7 @@ const MyPublicationsTab: React.FC<MyPublicationsTabProps> = ({ myPublications, o
                             </div>
                         </div>
                         <div className="pr-my-pub-actions">
-                            <div className="pr-toggle" onClick={() => onToggleSearch(pub.id)}>
+                            <div className="pr-toggle" onClick={() => handleToggleAndSuggest(pub.id, pub.isLookingForReviewers)}>
                                 <div className={`pr-toggle-track ${pub.isLookingForReviewers ? 'active' : ''}`}>
                                     <div className="pr-toggle-thumb" />
                                 </div>
@@ -89,6 +168,12 @@ const MyPublicationsTab: React.FC<MyPublicationsTabProps> = ({ myPublications, o
                                     {pub.isLookingForReviewers ? 'Seeking reviewers' : 'Not seeking'}
                                 </span>
                             </div>
+                            <button
+                                className={`pr-btn pr-btn-sm ${suggestPubId === pub.id ? 'pr-btn-outline' : 'pr-btn-primary'}`}
+                                onClick={() => loadSuggestions(pub.id)}
+                            >
+                                🔍 {suggestPubId === pub.id ? t.reviewerMatch.hideSuggestions : t.reviewerMatch.findReviewers}
+                            </button>
                             {pub.reviewRequestCount > 0 && (
                                 <button
                                     className="pr-btn pr-btn-outline pr-btn-sm"
@@ -99,6 +184,113 @@ const MyPublicationsTab: React.FC<MyPublicationsTabProps> = ({ myPublications, o
                             )}
                         </div>
                     </div>
+
+                    {/* ===== INLINE SUGGESTED REVIEWERS ===== */}
+                    {suggestPubId === pub.id && (
+                        <div className="pr-suggest-inline">
+                            <div className="pr-suggest-inline-header">
+                                <h4 className="pr-suggest-inline-title">
+                                    ✨ {t.reviewerMatch.title}
+                                </h4>
+                                <span className="pr-suggest-inline-subtitle">
+                                    {t.reviewerMatch.inlineDesc}
+                                </span>
+                            </div>
+
+                            {loadingSuggestions ? (
+                                <div className="pr-loading" style={{ padding: '1.5rem' }}>
+                                    <div className="pr-spinner" />
+                                    <span>{t.reviewerMatch.loading}</span>
+                                </div>
+                            ) : suggestedReviewers.length === 0 ? (
+                                <div className="pr-suggest-inline-empty">
+                                    <span>🔍</span>
+                                    <p>{t.reviewerMatch.noMatchDesc}</p>
+                                </div>
+                            ) : (
+                                <div className="pr-suggest-inline-list">
+                                    {suggestedReviewers.map(reviewer => (
+                                        <div
+                                            key={reviewer.userId}
+                                            className={`pr-suggest-card ${reviewer.isRecommended ? 'pr-suggest-recommended' : ''}`}
+                                        >
+                                            {reviewer.isRecommended && (
+                                                <div className="pr-suggest-recommended-badge">
+                                                    ★ {t.reviewerMatch.recommended}
+                                                </div>
+                                            )}
+
+                                            <div className="pr-suggest-card-header">
+                                                <div
+                                                    className="pr-suggest-user"
+                                                    onClick={() => navigate(`/profile/${reviewer.userId}`)}
+                                                    style={{ cursor: 'pointer' }}
+                                                >
+                                                    {renderAvatar(reviewer.fullName, reviewer.profileImageUrl, 42)}
+                                                    <div className="pr-suggest-user-info">
+                                                        <span className="pr-suggest-user-name">
+                                                            {reviewer.fullName}
+                                                            {reviewer.isVerified && <span className="pr-suggest-verified" title="Verified">✓</span>}
+                                                        </span>
+                                                        <span className="pr-suggest-user-title">
+                                                            {[reviewer.title, reviewer.institution].filter(Boolean).join(' • ')}
+                                                        </span>
+                                                        {reviewer.department && (
+                                                            <span className="pr-suggest-user-dept">{reviewer.department}</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                <div className="pr-suggest-score" style={{ color: getScoreColor(reviewer.similarity) }}>
+                                                    {(reviewer.similarity * 100).toFixed(0)}%
+                                                    <span className="pr-suggest-score-label">{t.reviewerMatch.score}</span>
+                                                </div>
+                                            </div>
+
+                                            {reviewer.commonTags.length > 0 && (
+                                                <div className="pr-suggest-tags">
+                                                    {reviewer.commonTags.map(tag => (
+                                                        <span key={tag} className="pr-pub-tag">{tag}</span>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            <div className="pr-suggest-stats">
+                                                {reviewer.completedReviews > 0 && (
+                                                    <span className="pr-suggest-stat pr-suggest-stat-review">
+                                                        📋 {reviewer.completedReviews} {t.reviewerMatch.reviewsInField}
+                                                    </span>
+                                                )}
+                                                {reviewer.commonTags.length > 0 && (
+                                                    <span className="pr-suggest-stat">
+                                                        🏷️ {reviewer.commonTags.length} {t.reviewerMatch.tagsMatched}
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            <div className="pr-suggest-card-actions">
+                                                {invitedIds.has(reviewer.userId) ? (
+                                                    <button className="pr-btn pr-btn-sm pr-btn-invited" disabled>
+                                                        ✓ {t.reviewerMatch.invited}
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        className="pr-btn pr-btn-primary pr-btn-sm"
+                                                        onClick={() => handleInvite(pub.id, reviewer.userId)}
+                                                        disabled={invitingId === reviewer.userId}
+                                                    >
+                                                        {invitingId === reviewer.userId
+                                                            ? t.reviewerMatch.sending
+                                                            : t.reviewerMatch.sendInvite}
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     {/* Expanded review requests */}
                     {selectedPubId === pub.id && (
@@ -163,7 +355,8 @@ const MyPublicationsTab: React.FC<MyPublicationsTabProps> = ({ myPublications, o
                         </div>
                     )}
                 </div>
-            ))}
+            );
+            })}
 
             {selectedRequest && (
                 <ReviewDetailModal

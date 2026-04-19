@@ -5,6 +5,7 @@ using Microsoft.Extensions.Caching.Memory;
 using ResearchNetwork.Application.DTOs;
 using ResearchNetwork.Application.Interfaces;
 using ResearchNetwork.Domain.Entities;
+using ResearchNetwork.Domain.Enums;
 
 namespace ResearchNetwork.API.Controllers;
 
@@ -14,6 +15,7 @@ public class AiController : ControllerBase
 {
     private readonly IPublicationRepository _publicationRepository;
     private readonly IUserRepository _userRepository;
+    private readonly IReviewRepository _reviewRepository;
     private readonly IAiService _aiService;
     private readonly IMemoryCache _cache;
     private readonly ILogger<AiController> _logger;
@@ -27,15 +29,20 @@ public class AiController : ControllerBase
     private const string NormalizedEmbeddingsCacheKey = "ai:normalized-embeddings-by-author";
     private static readonly TimeSpan NormalizedEmbeddingsCacheTtl = TimeSpan.FromMinutes(5);
 
+    private static readonly string[] ReviewerTitles =
+        { "Professor", "Associate Professor", "Assistant Professor" };
+
     public AiController(
         IPublicationRepository publicationRepository,
         IUserRepository userRepository,
+        IReviewRepository reviewRepository,
         IAiService aiService,
         IMemoryCache cache,
         ILogger<AiController> logger)
     {
         _publicationRepository = publicationRepository;
         _userRepository = userRepository;
+        _reviewRepository = reviewRepository;
         _aiService = aiService;
         _cache = cache;
         _logger = logger;
@@ -435,6 +442,194 @@ public class AiController : ControllerBase
 
         _cache.Set(NormalizedEmbeddingsCacheKey, normalized, NormalizedEmbeddingsCacheTtl);
         return normalized;
+    }
+
+    // ==================== REVIEWER MATCHING (same hybrid system) ====================
+
+    [Authorize]
+    [HttpGet("publications/{publicationId:guid}/suggest-reviewers")]
+    public async Task<ActionResult<List<SuggestedReviewerDto>>> SuggestReviewersForPublication(Guid publicationId)
+    {
+        var currentUserId = GetCurrentUserId();
+        if (currentUserId == null) return Unauthorized();
+
+        var publication = await _publicationRepository.GetByIdAsync(publicationId);
+        if (publication == null) return NotFound("Publication not found.");
+        if (publication.AuthorId != currentUserId.Value) return Forbid();
+
+        var cacheKey = $"ai:reviewer-suggestions:{publicationId}";
+        if (_cache.TryGetValue<List<SuggestedReviewerDto>>(cacheKey, out var cached) && cached != null)
+            return Ok(cached);
+
+        var pubTags = publication.Tags.Select(t => t.Tag.Name.ToLower()).ToHashSet();
+
+        var pubEmbedding = await _publicationRepository.GetEmbeddingAsync(publicationId);
+        float[]? pubVector = null;
+        if (pubEmbedding != null)
+            pubVector = Normalize(pubEmbedding.Embedding);
+
+        var pubTagsByAuthor = await _publicationRepository.GetPublicationTagsByAuthorAsync();
+        Dictionary<Guid, List<float[]>>? normalizedByAuthor =
+            pubVector != null ? await GetOrBuildNormalizedEmbeddingsAsync() : null;
+
+        var allUsers = await _userRepository.GetAllAsync();
+        var appliedIds = (await _reviewRepository.GetReviewContextForPublicationAsync(publicationId, Guid.Empty)).AppliedIds;
+
+        var results = new List<SuggestedReviewerDto>();
+
+        foreach (var candidate in allUsers)
+        {
+            if (candidate.Id == currentUserId.Value) continue;
+            if (appliedIds.Contains(candidate.Id)) continue;
+            if (candidate.Title == null || !ReviewerTitles.Contains(candidate.Title, StringComparer.OrdinalIgnoreCase))
+                continue;
+
+            var candidateInterestTags = candidate.Tags
+                .Select(t => t.Tag.Name.ToLower()).ToHashSet();
+            var candidatePubTags = pubTagsByAuthor.GetValueOrDefault(candidate.Id)
+                                   ?? new HashSet<string>();
+
+            var candidateAllTags = new HashSet<string>(candidateInterestTags);
+            foreach (var t in candidatePubTags) candidateAllTags.Add(t);
+
+            double interestTagScore = JaccardSimilarity(pubTags, candidateInterestTags);
+            double pubTagScore = JaccardSimilarity(pubTags, candidatePubTags);
+
+            double contentScore = 0;
+            bool hasContent = pubVector != null && normalizedByAuthor != null;
+            if (hasContent)
+            {
+                var candidateVectors = normalizedByAuthor!.GetValueOrDefault(candidate.Id);
+                if (candidateVectors != null && candidateVectors.Count > 0)
+                    contentScore = TopKAverageSimilarity(new List<float[]> { pubVector! }, candidateVectors, k: 3);
+                else
+                    hasContent = false;
+            }
+
+            bool hasPubTags = pubTags.Count > 0 && candidatePubTags.Count > 0;
+
+            if (!hasContent && interestTagScore == 0 && pubTagScore == 0)
+                continue;
+
+            var commonTags = pubTags.Intersect(candidateAllTags).ToList();
+
+            double rawScore;
+            if (hasContent)
+                rawScore = 0.40 * contentScore + 0.30 * pubTagScore + 0.30 * interestTagScore;
+            else
+                rawScore = 0.50 * pubTagScore + 0.50 * interestTagScore;
+
+            int activeSignals = (hasContent ? 1 : 0)
+                              + (hasPubTags ? 1 : 0)
+                              + (interestTagScore > 0 ? 1 : 0);
+            double confidence = activeSignals == 0 ? 0.0 : Math.Sqrt(activeSignals / 3.0);
+            double finalScore = Math.Min(1.0, rawScore * confidence);
+
+            var (_, completedReviews) = await _reviewRepository
+                .GetReviewContextForPublicationAsync(publicationId, candidate.Id);
+            if (completedReviews > 0)
+                finalScore = Math.Min(1.0, finalScore + 0.10 * completedReviews);
+
+            if (finalScore < 0.03) continue;
+
+            results.Add(new SuggestedReviewerDto(
+                candidate.Id,
+                candidate.FullName,
+                candidate.Title,
+                candidate.Institution,
+                candidate.Department,
+                candidate.ProfileImageUrl,
+                candidate.IsVerified,
+                Math.Round(finalScore, 4),
+                commonTags,
+                completedReviews,
+                completedReviews > 0
+            ));
+        }
+
+        var ranked = results.OrderByDescending(r => r.Similarity).Take(20).ToList();
+        _cache.Set(cacheKey, ranked, RecommendationCacheTtl);
+
+        return Ok(ranked);
+    }
+
+    // ==================== REVIEWER-PUBLICATION MATCH SCORES ====================
+
+    /// <summary>
+    /// For a reviewer browsing publications, compute match scores showing
+    /// how well each publication fits their expertise.
+    /// </summary>
+    [Authorize]
+    [HttpPost("reviewer/publication-scores")]
+    public async Task<ActionResult<Dictionary<string, double>>> GetReviewerPublicationScores(
+        [FromBody] List<Guid> publicationIds)
+    {
+        var currentUserId = GetCurrentUserId();
+        if (currentUserId == null) return Unauthorized();
+
+        var user = (await _userRepository.GetAllAsync()).FirstOrDefault(u => u.Id == currentUserId.Value);
+        if (user == null) return NotFound();
+
+        var reviewerInterestTags = user.Tags.Select(t => t.Tag.Name.ToLower()).ToHashSet();
+        var pubTagsByAuthor = await _publicationRepository.GetPublicationTagsByAuthorAsync();
+        var reviewerPubTags = pubTagsByAuthor.GetValueOrDefault(currentUserId.Value) ?? new HashSet<string>();
+
+        Dictionary<Guid, List<float[]>>? normalizedByAuthor = null;
+
+        var allReviewerVectors = await GetOrBuildNormalizedEmbeddingsAsync();
+        var reviewerVectors = allReviewerVectors?.GetValueOrDefault(currentUserId.Value);
+        bool hasEmbeddings = reviewerVectors != null && reviewerVectors.Count > 0;
+        if (hasEmbeddings) normalizedByAuthor = allReviewerVectors;
+
+        var scores = new Dictionary<string, double>();
+
+        foreach (var pubId in publicationIds)
+        {
+            var pub = await _publicationRepository.GetByIdAsync(pubId);
+            if (pub == null) continue;
+
+            var pubTags = pub.Tags.Select(t => t.Tag.Name.ToLower()).ToHashSet();
+
+            double interestTagScore = JaccardSimilarity(reviewerInterestTags, pubTags);
+            double pubTagScore = JaccardSimilarity(reviewerPubTags, pubTags);
+
+            double contentScore = 0;
+            bool hasContent = false;
+            if (hasEmbeddings)
+            {
+                var pubEmbedding = await _publicationRepository.GetEmbeddingAsync(pubId);
+                if (pubEmbedding != null)
+                {
+                    var pubVector = Normalize(pubEmbedding.Embedding);
+                    if (pubVector != null)
+                    {
+                        contentScore = TopKAverageSimilarity(reviewerVectors!, new List<float[]> { pubVector }, k: 3);
+                        hasContent = true;
+                    }
+                }
+            }
+
+            bool hasPubTags = reviewerPubTags.Count > 0 && pubTags.Count > 0;
+            if (!hasContent && interestTagScore == 0 && pubTagScore == 0)
+                continue;
+
+            double rawScore;
+            if (hasContent)
+                rawScore = 0.40 * contentScore + 0.30 * pubTagScore + 0.30 * interestTagScore;
+            else
+                rawScore = 0.50 * pubTagScore + 0.50 * interestTagScore;
+
+            int activeSignals = (hasContent ? 1 : 0)
+                              + (hasPubTags ? 1 : 0)
+                              + (interestTagScore > 0 ? 1 : 0);
+            double confidence = activeSignals == 0 ? 0.0 : Math.Sqrt(activeSignals / 3.0);
+            double finalScore = Math.Min(1.0, rawScore * confidence);
+
+            if (finalScore >= 0.03)
+                scores[pubId.ToString()] = Math.Round(finalScore, 4);
+        }
+
+        return Ok(scores);
     }
 
     // ==================== TAG SUGGESTIONS ====================

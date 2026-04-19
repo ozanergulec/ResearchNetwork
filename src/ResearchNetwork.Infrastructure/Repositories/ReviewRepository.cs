@@ -124,4 +124,19 @@ public class ReviewRepository : IReviewRepository
 
         return ratings.Average(r => r.Score);
     }
+
+    public async Task<(HashSet<Guid> AppliedIds, int CompletedReviewCount)>
+        GetReviewContextForPublicationAsync(Guid publicationId, Guid candidateId)
+    {
+        var appliedIds = (await _context.ReviewRequests
+            .Where(r => r.PublicationId == publicationId)
+            .Select(r => r.ReviewerId)
+            .ToListAsync()).ToHashSet();
+
+        var completedCount = await _context.ReviewRequests
+            .Where(r => r.ReviewerId == candidateId && r.Status == ReviewRequestStatus.Completed)
+            .CountAsync();
+
+        return (appliedIds, completedCount);
+    }
 }

@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ReviewablePublication } from '../../services/reviewService';
+import { reviewApi } from '../../services/reviewService';
 import { publicationsApi } from '../../services/publicationService';
+import { aiApi } from '../../services/aiService';
 import type { Publication } from '../../services/publicationService';
 import { renderAvatar } from './prHelpers';
 
@@ -15,15 +17,58 @@ interface BrowseTabProps {
     totalPages: number;
     totalCount: number;
     onPageChange: (page: number) => void;
+    highlightPubId?: string | null;
 }
 
 const ITEMS_PER_PAGE = 10;
 
 const BrowseTab: React.FC<BrowseTabProps> = ({
     publications, canReview, onApply, onShowDetail, onCloseReview,
-    currentPage, totalPages, totalCount, onPageChange
+    currentPage, totalPages, totalCount, onPageChange, highlightPubId
 }) => {
     const navigate = useNavigate();
+    const highlightRef = useRef<HTMLDivElement | null>(null);
+    const [allPubs, setAllPubs] = useState(publications);
+    const [matchScores, setMatchScores] = useState<Record<string, number>>({});
+
+    useEffect(() => {
+        if (!highlightPubId) {
+            setAllPubs(publications);
+            return;
+        }
+        const found = publications.find(p => p.id === highlightPubId);
+        if (found) {
+            setAllPubs(publications);
+        } else {
+            reviewApi.getLookingForReviewers(1, 100).then(res => {
+                const target = res.data.items.find((p: ReviewablePublication) => p.id === highlightPubId);
+                if (target) {
+                    const rest = publications.filter(p => p.id !== highlightPubId);
+                    setAllPubs([target, ...rest]);
+                } else {
+                    setAllPubs(publications);
+                }
+            }).catch(() => setAllPubs(publications));
+        }
+    }, [publications, highlightPubId]);
+
+    useEffect(() => {
+        if (highlightPubId && highlightRef.current) {
+            setTimeout(() => {
+                highlightRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 300);
+        }
+    }, [highlightPubId, allPubs]);
+
+    useEffect(() => {
+        if (!canReview || allPubs.length === 0) return;
+        const nonOwnedIds = allPubs.filter(p => !p.isOwner).map(p => p.id);
+        if (nonOwnedIds.length === 0) return;
+
+        aiApi.getReviewerPublicationScores(nonOwnedIds)
+            .then(res => setMatchScores(res.data))
+            .catch(() => setMatchScores({}));
+    }, [allPubs, canReview]);
 
     const handleCardClick = async (pubId: string) => {
         try {
@@ -55,6 +100,12 @@ const BrowseTab: React.FC<BrowseTabProps> = ({
         return pages;
     };
 
+    const getMatchColor = (score: number) => {
+        if (score >= 0.5) return '#059669';
+        if (score >= 0.2) return '#d97706';
+        return '#6b7280';
+    };
+
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
 
     return (
@@ -65,7 +116,7 @@ const BrowseTab: React.FC<BrowseTabProps> = ({
                     <span>Only Professor, Associate Professor and Assistant Professor can apply as reviewers. You can request reviewers for your own publications from the "My Publications" tab.</span>
                 </div>
             )}
-            {publications.length === 0 ? (
+            {allPubs.length === 0 ? (
                 <div className="pr-empty">
                     <div className="pr-empty-icon">🔍</div>
                     <h3>No publications looking for reviewers</h3>
@@ -73,58 +124,69 @@ const BrowseTab: React.FC<BrowseTabProps> = ({
                 </div>
             ) : (
                 <>
-                    {/* Page info */}
                     <div className="pr-pagination-info">
                         Showing {startIndex + 1}–{Math.min(startIndex + ITEMS_PER_PAGE, totalCount)} of {totalCount} publications
                     </div>
 
-                    {publications.map(pub => (
-                        <div
-                            key={pub.id}
-                            className="pr-pub-card pr-pub-card-clickable"
-                            onClick={() => handleCardClick(pub.id)}
-                        >
-                            <div className="pr-pub-header">
-                                <div>
-                                    <h3 className="pr-pub-title">{pub.title}</h3>
+                    {allPubs.map(pub => {
+                        const isHighlighted = highlightPubId === pub.id;
+                        const score = matchScores[pub.id];
+                        return (
+                            <div
+                                key={pub.id}
+                                ref={isHighlighted ? highlightRef : undefined}
+                                className={`pr-pub-card pr-pub-card-clickable ${isHighlighted ? 'pr-pub-highlight' : ''}`}
+                                onClick={() => handleCardClick(pub.id)}
+                            >
+                                <div className="pr-pub-header">
+                                    <div style={{ flex: 1 }}>
+                                        <h3 className="pr-pub-title">{pub.title}</h3>
+                                    </div>
+                                    <div className="pr-pub-actions" onClick={e => e.stopPropagation()}>
+                                        {score != null && score > 0 && (
+                                            <span
+                                                className="pr-match-badge"
+                                                style={{ color: getMatchColor(score) }}
+                                            >
+                                                {(score * 100).toFixed(0)}% match
+                                            </span>
+                                        )}
+                                        {pub.isOwner ? (
+                                            <button
+                                                className="pr-btn pr-btn-danger pr-btn-sm"
+                                                onClick={() => onCloseReview(pub.id)}
+                                            >
+                                                Close Review
+                                            </button>
+                                        ) : pub.hasApplied ? (
+                                            <span className="pr-btn pr-btn-sm" style={{ background: '#d1fae5', color: '#065f46' }}>Applied ✓</span>
+                                        ) : canReview ? (
+                                            <button
+                                                className="pr-btn pr-btn-primary pr-btn-sm"
+                                                onClick={() => onApply(pub.id, pub.title)}
+                                            >
+                                                Apply to Review
+                                            </button>
+                                        ) : null}
+                                    </div>
                                 </div>
-                                <div className="pr-pub-actions" onClick={e => e.stopPropagation()}>
-                                    {pub.isOwner ? (
-                                        <button
-                                            className="pr-btn pr-btn-danger pr-btn-sm"
-                                            onClick={() => onCloseReview(pub.id)}
-                                        >
-                                            Close Review
-                                        </button>
-                                    ) : pub.hasApplied ? (
-                                        <span className="pr-btn pr-btn-sm" style={{ background: '#d1fae5', color: '#065f46' }}>Applied ✓</span>
-                                    ) : canReview ? (
-                                        <button
-                                            className="pr-btn pr-btn-primary pr-btn-sm"
-                                            onClick={() => onApply(pub.id, pub.title)}
-                                        >
-                                            Apply to Review
-                                        </button>
-                                    ) : null}
+                                {pub.abstract && <p className="pr-pub-abstract">{pub.abstract}</p>}
+                                <div className="pr-pub-meta">
+                                    <div className="pr-pub-author" onClick={(e) => { e.stopPropagation(); navigate(`/profile/${pub.author.id}`); }} style={{ cursor: 'pointer' }}>
+                                        {renderAvatar(pub.author.fullName, pub.author.profileImageUrl)}
+                                        <span>{pub.author.fullName}</span>
+                                    </div>
+                                    {pub.tags.slice(0, 3).map(tag => (
+                                        <span key={tag} className="pr-pub-tag">{tag}</span>
+                                    ))}
+                                    <span className="pr-pub-reviewers">
+                                        {pub.reviewRequestCount} application{pub.reviewRequestCount !== 1 ? 's' : ''}
+                                    </span>
                                 </div>
                             </div>
-                            {pub.abstract && <p className="pr-pub-abstract">{pub.abstract}</p>}
-                            <div className="pr-pub-meta">
-                                <div className="pr-pub-author" onClick={(e) => { e.stopPropagation(); navigate(`/profile/${pub.author.id}`); }} style={{ cursor: 'pointer' }}>
-                                    {renderAvatar(pub.author.fullName, pub.author.profileImageUrl)}
-                                    <span>{pub.author.fullName}</span>
-                                </div>
-                                {pub.tags.slice(0, 3).map(tag => (
-                                    <span key={tag} className="pr-pub-tag">{tag}</span>
-                                ))}
-                                <span className="pr-pub-reviewers">
-                                    {pub.reviewRequestCount} application{pub.reviewRequestCount !== 1 ? 's' : ''}
-                                </span>
-                            </div>
-                        </div>
-                    ))}
+                        );
+                    })}
 
-                    {/* Pagination Controls */}
                     {totalPages > 1 && (
                         <div className="pr-pagination">
                             <button

@@ -40,6 +40,21 @@ export interface MyPublicationForReview {
     reviewRequestCount: number;
 }
 
+// Suggested Reviewer from AI-powered hybrid matching
+export interface SuggestedReviewer {
+    userId: string;
+    fullName: string;
+    title: string | null;
+    institution: string | null;
+    department: string | null;
+    profileImageUrl: string | null;
+    isVerified: boolean;
+    similarity: number;
+    commonTags: string[];
+    completedReviews: number;
+    isRecommended: boolean;
+}
+
 // Review API
 export const reviewApi = {
     // Toggle "looking for reviewers" on a publication
@@ -93,4 +108,12 @@ export const reviewApi = {
     // Get reviewer's average score
     getReviewerScore: (userId: string) =>
         api.get<{ reviewerAvgScore: number; totalCompletedReviews: number }>(`/review/reviewer/${userId}/score`),
+
+    // Get suggested reviewers for a publication (AI-powered hybrid matching)
+    suggestReviewers: (publicationId: string) =>
+        api.get<SuggestedReviewer[]>(`/ai/publications/${publicationId}/suggest-reviewers`),
+
+    // Send review invitation to a suggested reviewer
+    inviteReviewer: (publicationId: string, reviewerId: string) =>
+        api.post<{ message: string; isRecommended: boolean }>(`/review/publication/${publicationId}/invite-reviewer`, { reviewerId }),
 };

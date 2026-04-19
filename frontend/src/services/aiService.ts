@@ -97,6 +97,9 @@ export const aiApi = {
     getSimilarPublications: (publicationId: string, topK: number = 5) =>
         api.get<SimilarPublication[]>(`/ai/publications/${publicationId}/similar?topK=${topK}`),
 
+    getReviewerPublicationScores: (publicationIds: string[]) =>
+        api.post<Record<string, number>>('/ai/reviewer/publication-scores', publicationIds),
+
     summarizePublication: (publicationId: string) =>
         api.post<{ summary: string }>(`/ai/publications/${publicationId}/summarize`),
 

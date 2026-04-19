@@ -11,5 +11,6 @@ public enum NotificationType
     PublicationCited = 6,
     ReviewRequested = 7,
     ReviewAccepted = 8,
-    ReviewCompleted = 9
+    ReviewCompleted = 9,
+    ReviewerSuggested = 10
 }

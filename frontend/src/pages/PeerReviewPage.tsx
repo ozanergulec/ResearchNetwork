@@ -19,6 +19,7 @@ const PeerReviewPage: React.FC = () => {
     const t = useTranslation();
     const [searchParams] = useSearchParams();
     const initialTab = (searchParams.get('tab') as Tab) || 'browse';
+    const highlightPubId = searchParams.get('highlight') || null;
     const [activeTab, setActiveTab] = useState<Tab>(initialTab);
     const [loading, setLoading] = useState(true);
 
@@ -133,6 +134,7 @@ const PeerReviewPage: React.FC = () => {
                                 totalPages={browseTotalPages}
                                 totalCount={browseTotalCount}
                                 onPageChange={(p: number) => fetchData(p)}
+                                highlightPubId={highlightPubId}
                             />
                         )}
                         {activeTab === 'my-applications' && (
@@ -140,12 +142,14 @@ const PeerReviewPage: React.FC = () => {
                                 myRequests={myRequests}
                                 canReview={canReview}
                                 onSubmitReview={(requestId, pubTitle) => setSubmitModal({ requestId, pubTitle })}
+                                highlightPubId={highlightPubId}
                             />
                         )}
                         {activeTab === 'my-publications' && (
                             <MyPublicationsTab
                                 myPublications={myPublications}
                                 onToggleSearch={handleToggleSearch}
+                                highlightPubId={highlightPubId}
                             />
                         )}
                     </>

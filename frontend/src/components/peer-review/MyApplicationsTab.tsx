@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ReviewRequest } from '../../services/reviewService';
 import { renderAvatar, renderStatus, renderVerdict, formatDate } from './prHelpers';
@@ -8,11 +8,21 @@ interface MyApplicationsTabProps {
     myRequests: ReviewRequest[];
     canReview: boolean;
     onSubmitReview: (requestId: string, pubTitle: string) => void;
+    highlightPubId?: string | null;
 }
 
-const MyApplicationsTab: React.FC<MyApplicationsTabProps> = ({ myRequests, canReview, onSubmitReview }) => {
+const MyApplicationsTab: React.FC<MyApplicationsTabProps> = ({ myRequests, canReview, onSubmitReview, highlightPubId }) => {
     const navigate = useNavigate();
     const [selectedRequest, setSelectedRequest] = useState<ReviewRequest | null>(null);
+    const highlightRef = useRef<HTMLDivElement | null>(null);
+
+    useEffect(() => {
+        if (highlightPubId && highlightRef.current) {
+            setTimeout(() => {
+                highlightRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 300);
+        }
+    }, [highlightPubId, myRequests]);
 
     if (myRequests.length === 0) {
         return (
@@ -26,42 +36,46 @@ const MyApplicationsTab: React.FC<MyApplicationsTabProps> = ({ myRequests, canRe
 
     return (
         <>
-            {myRequests.map(req => (
-                <div
-                    key={req.id}
-                    className="pr-request-card pr-request-card-clickable"
-                    onClick={() => setSelectedRequest(req)}
-                >
-                    <div className="pr-request-header">
-                        <div>
-                            <div className="pr-request-pub-title">{req.publicationTitle}</div>
-                            <div className="pr-pub-author" onClick={(e) => { e.stopPropagation(); navigate(`/profile/${req.author.id}`); }} style={{ cursor: 'pointer', marginTop: '0.25rem' }}>
-                                {renderAvatar(req.author.fullName, req.author.profileImageUrl, 22)}
-                                <span style={{ fontSize: '0.8rem' }}>by {req.author.fullName}</span>
+            {myRequests.map(req => {
+                const isHighlighted = highlightPubId === req.publicationId;
+                return (
+                    <div
+                        key={req.id}
+                        ref={isHighlighted ? highlightRef : undefined}
+                        className={`pr-request-card pr-request-card-clickable ${isHighlighted ? 'pr-pub-highlight' : ''}`}
+                        onClick={() => setSelectedRequest(req)}
+                    >
+                        <div className="pr-request-header">
+                            <div>
+                                <div className="pr-request-pub-title">{req.publicationTitle}</div>
+                                <div className="pr-pub-author" onClick={(e) => { e.stopPropagation(); navigate(`/profile/${req.author.id}`); }} style={{ cursor: 'pointer', marginTop: '0.25rem' }}>
+                                    {renderAvatar(req.author.fullName, req.author.profileImageUrl, 22)}
+                                    <span style={{ fontSize: '0.8rem' }}>by {req.author.fullName}</span>
+                                </div>
+                            </div>
+                            <div className="pr-request-actions" onClick={e => e.stopPropagation()}>
+                                {renderStatus(req.status)}
+                                {req.status === 'Accepted' && canReview && (
+                                    <button
+                                        className="pr-btn pr-btn-primary pr-btn-sm"
+                                        onClick={() => onSubmitReview(req.id, req.publicationTitle)}
+                                    >
+                                        Submit Review
+                                    </button>
+                                )}
                             </div>
                         </div>
-                        <div className="pr-request-actions" onClick={e => e.stopPropagation()}>
-                            {renderStatus(req.status)}
-                            {req.status === 'Accepted' && canReview && (
-                                <button
-                                    className="pr-btn pr-btn-primary pr-btn-sm"
-                                    onClick={() => onSubmitReview(req.id, req.publicationTitle)}
-                                >
-                                    Submit Review
-                                </button>
-                            )}
-                        </div>
+                        {req.message && <div className="pr-request-message">"{req.message}"</div>}
+                        {req.reviewComment && (
+                            <div className="pr-request-review-content">
+                                <div className="pr-request-review-label">Your Review {renderVerdict(req.verdict)}</div>
+                                <p className="pr-request-review-text">{req.reviewComment}</p>
+                            </div>
+                        )}
+                        <div className="pr-request-time">{formatDate(req.createdAt)}</div>
                     </div>
-                    {req.message && <div className="pr-request-message">"{req.message}"</div>}
-                    {req.reviewComment && (
-                        <div className="pr-request-review-content">
-                            <div className="pr-request-review-label">Your Review {renderVerdict(req.verdict)}</div>
-                            <p className="pr-request-review-text">{req.reviewComment}</p>
-                        </div>
-                    )}
-                    <div className="pr-request-time">{formatDate(req.createdAt)}</div>
-                </div>
-            ))}
+                );
+            })}
 
             {selectedRequest && (
                 <ReviewDetailModal

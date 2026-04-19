@@ -191,7 +191,7 @@ public class ReviewController : ControllerBase
                 "New Review Application",
                 $"{reviewer.FullName} wants to review your publication \"{publication.Title}\"",
                 NotificationType.ReviewRequested,
-                $"/peer-review?tab=my-publications",
+                $"/peer-review?tab=my-publications&highlight={publicationId}",
                 userId.Value,
                 reviewer.FullName,
                 reviewer.ProfileImageUrl
@@ -234,7 +234,7 @@ public class ReviewController : ControllerBase
             "Review Application Accepted",
             $"Your review application for \"{request.Publication.Title}\" has been accepted.",
             NotificationType.ReviewAccepted,
-                $"/peer-review?tab=my-applications",
+                $"/peer-review?tab=my-applications&highlight={request.PublicationId}",
             userId.Value,
             author?.FullName,
             author?.ProfileImageUrl
@@ -308,7 +308,7 @@ public class ReviewController : ControllerBase
             "Review Submitted",
             $"{reviewer?.FullName} has submitted a review for \"{request.Publication.Title}\"",
             NotificationType.ReviewCompleted,
-                $"/peer-review?tab=my-publications",
+                $"/peer-review?tab=my-publications&highlight={request.PublicationId}",
             userId.Value,
             reviewer?.FullName,
             reviewer?.ProfileImageUrl
@@ -484,6 +484,66 @@ public class ReviewController : ControllerBase
             reviewerAvgScore = avgScore,
             totalCompletedReviews = completedReviews
         });
+    }
+
+    // ==================== INVITE REVIEWER ====================
+
+    /// <summary>
+    /// Send a review invitation notification to a suggested reviewer
+    /// </summary>
+    [Authorize]
+    [HttpPost("publication/{publicationId:guid}/invite-reviewer")]
+    public async Task<ActionResult> InviteReviewer(Guid publicationId, [FromBody] SendReviewInvitationDto dto)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+
+        var publication = await _publicationRepository.GetByIdAsync(publicationId);
+        if (publication == null) return NotFound("Publication not found.");
+        if (publication.AuthorId != userId.Value) return Forbid();
+
+        var reviewer = await _userRepository.GetByIdAsync(dto.ReviewerId);
+        if (reviewer == null) return NotFound("Reviewer not found.");
+
+        if (!IsEligibleReviewer(reviewer.Title))
+            return BadRequest("This user is not eligible to be a reviewer.");
+
+        var existing = await _reviewRepository.GetByPublicationAndReviewerAsync(publicationId, dto.ReviewerId);
+        if (existing != null)
+            return BadRequest("This reviewer has already been invited or has applied.");
+
+        if (!publication.IsLookingForReviewers)
+        {
+            publication.IsLookingForReviewers = true;
+            await _publicationRepository.UpdateAsync(publication);
+        }
+
+        var author = await _userRepository.GetByIdAsync(userId.Value);
+
+        var (_, completedReviews) = await _reviewRepository
+            .GetReviewContextForPublicationAsync(publicationId, dto.ReviewerId);
+        bool isRecommended = completedReviews > 0;
+
+        string title = isRecommended ? "Recommended: Review Invitation" : "Review Invitation";
+        string message = isRecommended
+            ? $"{author?.FullName} invites you to review \"{publication.Title}\". You are recommended based on your past reviews in this field."
+            : $"{author?.FullName} invites you to review \"{publication.Title}\". Your expertise matches the publication's topics.";
+
+        var notification = new Notification(
+            dto.ReviewerId,
+            title,
+            message,
+            NotificationType.ReviewerSuggested,
+            $"/peer-review?tab=browse&highlight={publicationId}",
+            userId.Value,
+            author?.FullName,
+            author?.ProfileImageUrl
+        );
+        await _notificationRepository.AddAsync(notification);
+
+        await PushNotificationAsync(dto.ReviewerId, notification);
+
+        return Ok(new { message = "Invitation sent successfully.", isRecommended });
     }
 
     private async Task UpdateReviewerAvgScore(Guid reviewerId)

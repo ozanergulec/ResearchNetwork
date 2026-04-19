@@ -27,3 +27,21 @@ public record SubmitReviewDto(
 public record RateReviewDto(
     int Score  // 1-5
 );
+
+public record SuggestedReviewerDto(
+    Guid UserId,
+    string FullName,
+    string? Title,
+    string? Institution,
+    string? Department,
+    string? ProfileImageUrl,
+    bool IsVerified,
+    double Similarity,
+    List<string> CommonTags,
+    int CompletedReviews,
+    bool IsRecommended
+);
+
+public record SendReviewInvitationDto(
+    Guid ReviewerId
+);
