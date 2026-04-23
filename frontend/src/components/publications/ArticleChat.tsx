@@ -408,7 +408,7 @@ export default function ArticleChat({
                                                                     <div key={i} className="article-chat-source-item">
                                                                         <div className="source-header">
                                                                             <span className="source-label">
-                                                                                Chunk #{src.chunkIndex + 1}
+                                                                                Excerpt {i + 1}
                                                                             </span>
                                                                             <span className="source-score">
                                                                                 Similarity: {(src.score * 100).toFixed(1)}%
