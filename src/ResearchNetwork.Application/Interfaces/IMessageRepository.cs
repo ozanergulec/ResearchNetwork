@@ -10,4 +10,5 @@ public interface IMessageRepository
     Task<Message> SendAsync(Message message);
     Task MarkConversationAsReadAsync(Guid currentUserId, Guid otherUserId);
     Task<int> GetTotalUnreadCountAsync(Guid userId);
+    Task<int> GetUnreadCountFromSenderAsync(Guid receiverId, Guid senderId);
 }

@@ -144,4 +144,10 @@ public class MessageRepository : IMessageRepository
         return await _context.Messages
             .CountAsync(m => m.ReceiverId == userId && !m.IsRead);
     }
+
+    public async Task<int> GetUnreadCountFromSenderAsync(Guid receiverId, Guid senderId)
+    {
+        return await _context.Messages
+            .CountAsync(m => m.ReceiverId == receiverId && m.SenderId == senderId && !m.IsRead);
+    }
 }
