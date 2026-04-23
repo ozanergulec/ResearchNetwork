@@ -514,14 +514,6 @@
     border: none;
 }
 
-.pub-detail-preview-word {
-    padding: 20px;
-    font-size: 0.85rem;
-    line-height: 1.6;
-    max-height: 500px;
-    overflow-y: auto;
-}
-
 .pub-detail-preview-loading {
     display: flex;
     flex-direction: column;

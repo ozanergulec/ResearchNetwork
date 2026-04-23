@@ -116,11 +116,10 @@ const AddPublicationModal: React.FC<AddPublicationModalProps> = ({ onClose, onPu
     };
 
     const validateAndSetFile = (file: File) => {
-        const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
         const maxSize = 10 * 1024 * 1024; // 10MB
 
-        if (!allowedTypes.includes(file.type)) {
-            setError('Only PDF and Word files are accepted.');
+        if (file.type !== 'application/pdf') {
+            setError('Only PDF files are accepted.');
             return;
         }
 
@@ -259,7 +258,7 @@ const AddPublicationModal: React.FC<AddPublicationModalProps> = ({ onClose, onPu
                                     <p>📁 Drag file here or click to select</p>
                                     <input
                                         type="file"
-                                        accept=".pdf,.doc,.docx"
+                                        accept=".pdf,application/pdf"
                                         onChange={handleFileSelect}
                                         style={{ display: 'none' }}
                                         id="file-input"
@@ -267,7 +266,7 @@ const AddPublicationModal: React.FC<AddPublicationModalProps> = ({ onClose, onPu
                                     <label htmlFor="file-input" className="file-select-button">
                                         Select File
                                     </label>
-                                    <p className="file-help">PDF or Word (max 10MB)</p>
+                                    <p className="file-help">PDF only (max 10MB)</p>
                                 </>
                             )}
                         </div>

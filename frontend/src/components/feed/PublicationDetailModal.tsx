@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import mammoth from 'mammoth';
 import type { Publication } from '../../services/publicationService';
 import { API_SERVER_URL } from '../../services/apiClient';
 import '../../styles/feed/PublicationDetailModal.css';
@@ -15,9 +14,6 @@ interface PublicationDetailModalProps {
 const PublicationDetailModal: React.FC<PublicationDetailModalProps> = ({ publication, onClose }) => {
     const navigate = useNavigate();
     const [downloading, setDownloading] = useState(false);
-    const [wordHtml, setWordHtml] = useState<string | null>(null);
-    const [wordLoading, setWordLoading] = useState(false);
-    const [wordError, setWordError] = useState<string | null>(null);
     const [abstractExpanded, setAbstractExpanded] = useState(false);
     const [summaryExpanded, setSummaryExpanded] = useState(false);
     const [citationViewType, setCitationViewType] = useState<'list' | 'graph'>('list');
@@ -57,7 +53,6 @@ const PublicationDetailModal: React.FC<PublicationDetailModalProps> = ({ publica
         : null;
     const fileExtension = publication.fileUrl?.split('.').pop()?.toLowerCase();
     const isPDF = fileExtension === 'pdf';
-    const isDocx = fileExtension === 'docx';
 
     const authorImageUrl = publication.author.profileImageUrl
         ? `${API_SERVER_URL}${publication.author.profileImageUrl}`
@@ -76,45 +71,6 @@ const PublicationDetailModal: React.FC<PublicationDetailModalProps> = ({ publica
         onClose();
         navigate(`/profile/${publication.author.id}`);
     };
-
-    // Load .docx preview — abort on unmount
-    useEffect(() => {
-        if (!isDocx || !downloadUrl) return;
-
-        const controller = new AbortController();
-        let cancelled = false;
-
-        const loadDocx = async () => {
-            setWordLoading(true);
-            setWordError(null);
-            try {
-                const token = localStorage.getItem('token');
-                const response = await fetch(downloadUrl, {
-                    signal: controller.signal,
-                    headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-                });
-                if (!response.ok) throw new Error('Failed to load file');
-                const arrayBuffer = await response.arrayBuffer();
-                if (cancelled) return;
-                const result = await mammoth.convertToHtml({ arrayBuffer });
-                if (cancelled) return;
-                setWordHtml(result.value);
-            } catch (error: any) {
-                if (error.name === 'AbortError' || cancelled) return;
-                console.error('Word preview error:', error);
-                setWordError('Failed to load document preview.');
-            } finally {
-                if (!cancelled) setWordLoading(false);
-            }
-        };
-
-        loadDocx();
-
-        return () => {
-            cancelled = true;
-            controller.abort();
-        };
-    }, [isDocx, downloadUrl]);
 
     const handleDownload = async (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -412,22 +368,6 @@ const PublicationDetailModal: React.FC<PublicationDetailModalProps> = ({ publica
                                         className="pub-detail-preview-iframe"
                                         title={`Preview: ${publication.title}`}
                                     />
-                                ) : isDocx ? (
-                                    wordLoading ? (
-                                        <div className="pub-detail-preview-loading">
-                                            <div className="pub-detail-preview-spinner" />
-                                            <span>Loading preview...</span>
-                                        </div>
-                                    ) : wordError ? (
-                                        <div className="pub-detail-preview-error">
-                                            <p>{wordError}</p>
-                                        </div>
-                                    ) : wordHtml ? (
-                                        <div
-                                            className="pub-detail-preview-word"
-                                            dangerouslySetInnerHTML={{ __html: wordHtml }}
-                                        />
-                                    ) : null
                                 ) : (
                                     <div className="pub-detail-preview-error">
                                         <p>Preview not available for this file type.</p>

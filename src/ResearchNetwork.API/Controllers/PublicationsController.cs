@@ -127,11 +127,10 @@ public class PublicationsController : ControllerBase
         if (file == null || file.Length == 0)
             return BadRequest("Dosya seçilmedi.");
 
-        var allowedExtensions = new[] { ".pdf", ".doc", ".docx" };
         var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
 
-        if (!allowedExtensions.Contains(extension))
-            return BadRequest("Sadece PDF ve Word dosyaları kabul edilir.");
+        if (extension != ".pdf")
+            return BadRequest("Sadece PDF dosyaları kabul edilir.");
 
         if (file.Length > 10 * 1024 * 1024)
             return BadRequest("Dosya boyutu 10MB'dan küçük olmalıdır.");
@@ -165,13 +164,7 @@ public class PublicationsController : ControllerBase
             return NotFound("File not found.");
 
         var extension = Path.GetExtension(fileName).ToLowerInvariant();
-        var contentType = extension switch
-        {
-            ".pdf" => "application/pdf",
-            ".doc" => "application/msword",
-            ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            _ => "application/octet-stream"
-        };
+        var contentType = extension == ".pdf" ? "application/pdf" : "application/octet-stream";
 
         var fileBytes = System.IO.File.ReadAllBytes(filePath);
         return File(fileBytes, contentType, fileName);
