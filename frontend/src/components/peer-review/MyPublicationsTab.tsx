@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { reviewApi } from '../../services/reviewService';
 import type { MyPublicationForReview, ReviewRequest, SuggestedReviewer } from '../../services/reviewService';
@@ -379,4 +379,4 @@ const MyPublicationsTab: React.FC<MyPublicationsTabProps> = ({ myPublications, o
     );
 };
 
-export default MyPublicationsTab;
+export default memo(MyPublicationsTab);

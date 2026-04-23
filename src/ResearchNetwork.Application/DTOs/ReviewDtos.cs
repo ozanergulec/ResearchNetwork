@@ -45,3 +45,28 @@ public record SuggestedReviewerDto(
 public record SendReviewInvitationDto(
     Guid ReviewerId
 );
+
+// ==================== PROJECTIONS ====================
+// Repository seviyesinde SQL projection ile hesaplanan, controller'ın
+// kullandığı hafif veri yapıları (entity Include'larına gerek kalmaz).
+
+public record ReviewablePublicationProjection(
+    Guid Id,
+    string Title,
+    string? Abstract,
+    DateTime? PublishedDate,
+    UserSummaryDto Author,
+    List<string> Tags,
+    int ReviewRequestCount,
+    bool HasApplied,
+    bool IsOwner
+);
+
+public record MyPublicationForReviewProjection(
+    Guid Id,
+    string Title,
+    string? Abstract,
+    bool IsLookingForReviewers,
+    DateTime CreatedAt,
+    int ReviewRequestCount
+);

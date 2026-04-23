@@ -15,6 +15,8 @@ import '../styles/pages/PeerReviewPage.css';
 
 type Tab = 'browse' | 'my-applications' | 'my-publications';
 
+const PAGE_SIZE = 10;
+
 const PeerReviewPage: React.FC = () => {
     const t = useTranslation();
     const [searchParams] = useSearchParams();
@@ -33,6 +35,9 @@ const PeerReviewPage: React.FC = () => {
     const [browseTotalCount, setBrowseTotalCount] = useState(0);
     const [browseTotalPages, setBrowseTotalPages] = useState(1);
 
+    // Highlight publication that is not on the current page (fetched on-demand).
+    const [highlightPublication, setHighlightPublication] = useState<ReviewablePublication | null>(null);
+
     // Modals
     const [applyModal, setApplyModal] = useState<{ pubId: string; pubTitle: string } | null>(null);
     const [submitModal, setSubmitModal] = useState<{ requestId: string; pubTitle: string } | null>(null);
@@ -41,32 +46,77 @@ const PeerReviewPage: React.FC = () => {
     // Eligibility
     const [canReview, setCanReview] = useState(false);
 
-    // Fetch data based on active tab
-    const fetchData = useCallback(async (page?: number) => {
+    // Sekmeye özel fetch. `page` argümanı varsa onu kullanır; yoksa default page 1.
+    const fetchBrowse = useCallback(async (page: number) => {
         setLoading(true);
         try {
-            if (activeTab === 'browse') {
-                const p = page || browsePage;
-                const res = await reviewApi.getLookingForReviewers(p, 10);
-                setPublications(res.data.items);
-                setBrowseTotalCount(res.data.totalCount);
-                setBrowseTotalPages(Math.ceil(res.data.totalCount / 10));
-                setBrowsePage(p);
-            } else if (activeTab === 'my-applications') {
-                const res = await reviewApi.getMyRequests();
-                setMyRequests(res.data);
-            } else if (activeTab === 'my-publications') {
-                const res = await reviewApi.getMyPublications();
-                setMyPublications(res.data);
-            }
+            const res = await reviewApi.getLookingForReviewers(page, PAGE_SIZE);
+            setPublications(res.data.items);
+            setBrowseTotalCount(res.data.totalCount);
+            setBrowseTotalPages(Math.max(1, Math.ceil(res.data.totalCount / PAGE_SIZE)));
+            setBrowsePage(page);
         } catch (err) {
-            console.error('Failed to fetch data', err);
+            console.error('Failed to fetch publications', err);
         } finally {
             setLoading(false);
         }
-    }, [activeTab, browsePage]);
+    }, []);
 
-    useEffect(() => { fetchData(); }, [fetchData]);
+    const fetchMyRequests = useCallback(async () => {
+        setLoading(true);
+        try {
+            const res = await reviewApi.getMyRequests();
+            setMyRequests(res.data);
+        } catch (err) {
+            console.error('Failed to fetch my requests', err);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    const fetchMyPublications = useCallback(async () => {
+        setLoading(true);
+        try {
+            const res = await reviewApi.getMyPublications();
+            setMyPublications(res.data);
+        } catch (err) {
+            console.error('Failed to fetch my publications', err);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    // Sekme değiştikçe yalnızca o sekmenin verisini çek.
+    useEffect(() => {
+        if (activeTab === 'browse') {
+            fetchBrowse(1);
+        } else if (activeTab === 'my-applications') {
+            fetchMyRequests();
+        } else if (activeTab === 'my-publications') {
+            fetchMyPublications();
+        }
+    }, [activeTab, fetchBrowse, fetchMyRequests, fetchMyPublications]);
+
+    // Highlight'lı publication mevcut sayfa listesinde yoksa tek başına fetch et.
+    useEffect(() => {
+        if (activeTab !== 'browse' || !highlightPubId) {
+            setHighlightPublication(null);
+            return;
+        }
+        if (publications.some(p => p.id === highlightPubId)) {
+            setHighlightPublication(null);
+            return;
+        }
+        let cancelled = false;
+        reviewApi.getReviewablePublication(highlightPubId)
+            .then(res => {
+                if (!cancelled) setHighlightPublication(res.data);
+            })
+            .catch(() => {
+                if (!cancelled) setHighlightPublication(null);
+            });
+        return () => { cancelled = true; };
+    }, [activeTab, highlightPubId, publications]);
 
     useEffect(() => {
         reviewApi.canReview()
@@ -74,14 +124,45 @@ const PeerReviewPage: React.FC = () => {
             .catch(() => setCanReview(false));
     }, []);
 
-    const handleToggleSearch = async (pubId: string) => {
+    const handleToggleSearch = useCallback(async (pubId: string) => {
         try {
             await reviewApi.toggleReviewSearch(pubId);
-            fetchData();
+            // Aktif sekmeye göre yeniden yükle
+            if (activeTab === 'browse') {
+                fetchBrowse(browsePage);
+            } else if (activeTab === 'my-publications') {
+                fetchMyPublications();
+            }
         } catch (err) {
             console.error('Failed to toggle review search', err);
         }
-    };
+    }, [activeTab, browsePage, fetchBrowse, fetchMyPublications]);
+
+    const handleBrowsePageChange = useCallback((page: number) => {
+        fetchBrowse(page);
+    }, [fetchBrowse]);
+
+    const handleOpenApply = useCallback((pubId: string, pubTitle: string) => {
+        setApplyModal({ pubId, pubTitle });
+    }, []);
+
+    const handleOpenSubmit = useCallback((requestId: string, pubTitle: string) => {
+        setSubmitModal({ requestId, pubTitle });
+    }, []);
+
+    const handleShowDetail = useCallback((pub: Publication) => {
+        setDetailPub(pub);
+    }, []);
+
+    const handleApplySuccess = useCallback(() => {
+        setApplyModal(null);
+        if (activeTab === 'browse') fetchBrowse(browsePage);
+    }, [activeTab, browsePage, fetchBrowse]);
+
+    const handleSubmitSuccess = useCallback(() => {
+        setSubmitModal(null);
+        if (activeTab === 'my-applications') fetchMyRequests();
+    }, [activeTab, fetchMyRequests]);
 
     return (
         <div className="peer-review-page">
@@ -126,14 +207,15 @@ const PeerReviewPage: React.FC = () => {
                         {activeTab === 'browse' && (
                             <BrowseTab
                                 publications={publications}
+                                highlightPublication={highlightPublication}
                                 canReview={canReview}
-                                onApply={(pubId, pubTitle) => setApplyModal({ pubId, pubTitle })}
-                                onShowDetail={setDetailPub}
+                                onApply={handleOpenApply}
+                                onShowDetail={handleShowDetail}
                                 onCloseReview={handleToggleSearch}
                                 currentPage={browsePage}
                                 totalPages={browseTotalPages}
                                 totalCount={browseTotalCount}
-                                onPageChange={(p: number) => fetchData(p)}
+                                onPageChange={handleBrowsePageChange}
                                 highlightPubId={highlightPubId}
                             />
                         )}
@@ -141,7 +223,7 @@ const PeerReviewPage: React.FC = () => {
                             <MyApplicationsTab
                                 myRequests={myRequests}
                                 canReview={canReview}
-                                onSubmitReview={(requestId, pubTitle) => setSubmitModal({ requestId, pubTitle })}
+                                onSubmitReview={handleOpenSubmit}
                                 highlightPubId={highlightPubId}
                             />
                         )}
@@ -162,7 +244,7 @@ const PeerReviewPage: React.FC = () => {
                     pubId={applyModal.pubId}
                     pubTitle={applyModal.pubTitle}
                     onClose={() => setApplyModal(null)}
-                    onSuccess={() => { setApplyModal(null); fetchData(); }}
+                    onSuccess={handleApplySuccess}
                 />
             )}
 
@@ -171,7 +253,7 @@ const PeerReviewPage: React.FC = () => {
                     requestId={submitModal.requestId}
                     pubTitle={submitModal.pubTitle}
                     onClose={() => setSubmitModal(null)}
-                    onSuccess={() => { setSubmitModal(null); fetchData(); }}
+                    onSuccess={handleSubmitSuccess}
                 />
             )}
 

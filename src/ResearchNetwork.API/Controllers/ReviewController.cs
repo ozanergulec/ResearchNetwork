@@ -108,35 +108,15 @@ public class ReviewController : ControllerBase
     // ==================== BROWSE ====================
 
     /// <summary>
-    /// List publications that are looking for reviewers
+    /// List publications that are looking for reviewers (projection-based)
     /// </summary>
     [Authorize]
     [HttpGet("looking-for-reviewers")]
     public async Task<ActionResult> GetPublicationsLookingForReviewers([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
         var userId = GetCurrentUserId();
-        var (publications, totalCount) = await _reviewRepository.GetPublicationsLookingForReviewersAsync(page, pageSize);
-
-        var items = publications.Select(p => new
-        {
-            p.Id,
-            p.Title,
-            p.Abstract,
-            PublishedDate = p.PublishedDate,
-            Tags = p.Tags.Select(t => t.Tag.Name).ToList(),
-            Author = new UserSummaryDto(
-                p.Author.Id,
-                p.Author.FullName,
-                p.Author.Title,
-                p.Author.Institution,
-                p.Author.ProfileImageUrl,
-                p.Author.CoverImageUrl,
-                p.Author.IsVerified
-            ),
-            ReviewRequestCount = p.ReviewRequests.Count,
-            HasApplied = userId.HasValue && p.ReviewRequests.Any(r => r.ReviewerId == userId.Value),
-            IsOwner = userId.HasValue && p.AuthorId == userId.Value
-        });
+        var (items, totalCount) = await _reviewRepository
+            .GetPublicationsLookingForReviewersAsync(userId, page, pageSize);
 
         return Ok(new
         {
@@ -146,6 +126,19 @@ public class ReviewController : ControllerBase
             pageSize,
             hasMore = page * pageSize < totalCount
         });
+    }
+
+    /// <summary>
+    /// Fetch a single reviewable publication by id (used by frontend for notification highlight targets).
+    /// </summary>
+    [Authorize]
+    [HttpGet("looking-for-reviewers/{publicationId:guid}")]
+    public async Task<ActionResult> GetReviewablePublication(Guid publicationId)
+    {
+        var userId = GetCurrentUserId();
+        var item = await _reviewRepository.GetReviewablePublicationByIdAsync(publicationId, userId);
+        if (item == null) return NotFound("Publication not found.");
+        return Ok(item);
     }
 
     // ==================== APPLY TO REVIEW ====================
@@ -160,8 +153,8 @@ public class ReviewController : ControllerBase
         var userId = GetCurrentUserId();
         if (userId == null) return Unauthorized();
 
-        // Only professors can apply to review
-        var currentUser = await _userRepository.GetByIdAsync(userId.Value);
+        // Only professors can apply to review — tek bir basit fetch yeterli
+        var currentUser = await _userRepository.GetByIdBasicAsync(userId.Value);
         if (currentUser == null) return Unauthorized();
         if (!IsEligibleReviewer(currentUser.Title))
             return StatusCode(403, "Only Professor, Associate Professor, and Assistant Professor can apply as reviewers.");
@@ -183,24 +176,19 @@ public class ReviewController : ControllerBase
         await _reviewRepository.CreateAsync(reviewRequest);
 
         // Notify the publication author
-        var reviewer = await _userRepository.GetByIdAsync(userId.Value);
-        if (reviewer != null)
-        {
-            var notification = new Notification(
-                publication.AuthorId,
-                "New Review Application",
-                $"{reviewer.FullName} wants to review your publication \"{publication.Title}\"",
-                NotificationType.ReviewRequested,
-                $"/peer-review?tab=my-publications&highlight={publicationId}",
-                userId.Value,
-                reviewer.FullName,
-                reviewer.ProfileImageUrl
-            );
-            await _notificationRepository.AddAsync(notification);
+        var notification = new Notification(
+            publication.AuthorId,
+            "New Review Application",
+            $"{currentUser.FullName} wants to review your publication \"{publication.Title}\"",
+            NotificationType.ReviewRequested,
+            $"/peer-review?tab=my-publications&highlight={publicationId}",
+            userId.Value,
+            currentUser.FullName,
+            currentUser.ProfileImageUrl
+        );
+        await _notificationRepository.AddAsync(notification);
 
-            // Push real-time notification via SignalR
-            await PushNotificationAsync(publication.AuthorId, notification);
-        }
+        await PushNotificationAsync(publication.AuthorId, notification);
 
         return Ok(new { message = "Application submitted successfully." });
     }
@@ -227,21 +215,19 @@ public class ReviewController : ControllerBase
         request.Accept();
         await _reviewRepository.UpdateAsync(request);
 
-        // Notify the reviewer
-        var author = await _userRepository.GetByIdAsync(userId.Value);
+        var author = await _userRepository.GetByIdBasicAsync(userId.Value);
         var notification = new Notification(
             request.ReviewerId,
             "Review Application Accepted",
             $"Your review application for \"{request.Publication.Title}\" has been accepted.",
             NotificationType.ReviewAccepted,
-                $"/peer-review?tab=my-applications&highlight={request.PublicationId}",
+            $"/peer-review?tab=my-applications&highlight={request.PublicationId}",
             userId.Value,
             author?.FullName,
             author?.ProfileImageUrl
         );
         await _notificationRepository.AddAsync(notification);
 
-        // Push real-time notification via SignalR
         await PushNotificationAsync(request.ReviewerId, notification);
 
         return Ok(new { message = "Reviewer accepted." });
@@ -282,8 +268,7 @@ public class ReviewController : ControllerBase
         var userId = GetCurrentUserId();
         if (userId == null) return Unauthorized();
 
-        // Only professors can submit reviews
-        var currentUser = await _userRepository.GetByIdAsync(userId.Value);
+        var currentUser = await _userRepository.GetByIdBasicAsync(userId.Value);
         if (currentUser == null) return Unauthorized();
         if (!IsEligibleReviewer(currentUser.Title))
             return StatusCode(403, "Only Professor, Associate Professor, and Assistant Professor can submit reviews.");
@@ -301,21 +286,18 @@ public class ReviewController : ControllerBase
         request.SubmitReview(dto.ReviewComment, verdict);
         await _reviewRepository.UpdateAsync(request);
 
-        // Notify the publication author
-        var reviewer = await _userRepository.GetByIdAsync(userId.Value);
         var notification = new Notification(
             request.Publication.AuthorId,
             "Review Submitted",
-            $"{reviewer?.FullName} has submitted a review for \"{request.Publication.Title}\"",
+            $"{currentUser.FullName} has submitted a review for \"{request.Publication.Title}\"",
             NotificationType.ReviewCompleted,
-                $"/peer-review?tab=my-publications&highlight={request.PublicationId}",
+            $"/peer-review?tab=my-publications&highlight={request.PublicationId}",
             userId.Value,
-            reviewer?.FullName,
-            reviewer?.ProfileImageUrl
+            currentUser.FullName,
+            currentUser.ProfileImageUrl
         );
         await _notificationRepository.AddAsync(notification);
 
-        // Push real-time notification via SignalR
         await PushNotificationAsync(request.Publication.AuthorId, notification);
 
         return Ok(new { message = "Review submitted successfully." });
@@ -333,7 +315,7 @@ public class ReviewController : ControllerBase
         var userId = GetCurrentUserId();
         if (userId == null) return Unauthorized();
 
-        var user = await _userRepository.GetByIdAsync(userId.Value);
+        var user = await _userRepository.GetByIdBasicAsync(userId.Value);
         if (user == null) return Unauthorized();
 
         return Ok(new { canReview = IsEligibleReviewer(user.Title) });
@@ -368,7 +350,6 @@ public class ReviewController : ControllerBase
         var request = await _reviewRepository.GetByIdAsync(requestId);
         if (request == null) return NotFound("Review request not found.");
 
-        // Only author or reviewer can see the request
         if (request.ReviewerId != userId.Value && request.Publication.AuthorId != userId.Value)
             return Forbid();
 
@@ -395,7 +376,7 @@ public class ReviewController : ControllerBase
     }
 
     /// <summary>
-    /// Get the current user's publications that have review search enabled
+    /// Get the current user's publications for the review management panel (projection-based)
     /// </summary>
     [Authorize]
     [HttpGet("my-publications")]
@@ -404,17 +385,7 @@ public class ReviewController : ControllerBase
         var userId = GetCurrentUserId();
         if (userId == null) return Unauthorized();
 
-        var (publications, _) = await _publicationRepository.GetByAuthorIdAsync(userId.Value, 1, int.MaxValue);
-        var result = publications.Select(p => new
-        {
-            p.Id,
-            p.Title,
-            p.Abstract,
-            p.IsLookingForReviewers,
-            p.CreatedAt,
-            ReviewRequestCount = p.ReviewRequests?.Count ?? 0
-        });
-
+        var result = await _publicationRepository.GetMyPublicationsForReviewAsync(userId.Value);
         return Ok(result);
     }
 
@@ -436,29 +407,23 @@ public class ReviewController : ControllerBase
         var request = await _reviewRepository.GetByIdAsync(requestId);
         if (request == null) return NotFound("Review request not found.");
 
-        // Only the publication author can rate
         if (request.Publication.AuthorId != userId.Value) return Forbid();
 
-        // Only completed reviews can be rated
         if (request.Status != ReviewRequestStatus.Completed)
             return BadRequest("You can only rate completed reviews.");
 
-        // Check if already rated
         var existingRating = await _reviewRepository.GetRatingByReviewRequestIdAsync(requestId);
         if (existingRating != null)
         {
-            // Update existing rating
             existingRating.UpdateScore(dto.Score);
             await _reviewRepository.UpdateRatingAsync(existingRating);
         }
         else
         {
-            // Create new rating
             var rating = new ReviewRating(requestId, userId.Value, dto.Score);
             await _reviewRepository.CreateRatingAsync(rating);
         }
 
-        // Recalculate reviewer's average score
         await UpdateReviewerAvgScore(request.ReviewerId);
 
         return Ok(new { message = "Review rated successfully.", score = dto.Score });
@@ -472,12 +437,11 @@ public class ReviewController : ControllerBase
     [HttpGet("reviewer/{userId:guid}/score")]
     public async Task<ActionResult> GetReviewerScore(Guid userId)
     {
-        var user = await _userRepository.GetByIdAsync(userId);
+        var user = await _userRepository.GetByIdBasicAsync(userId);
         if (user == null) return NotFound("User not found.");
 
         var avgScore = await _reviewRepository.CalculateReviewerAverageScoreAsync(userId);
-        var completedReviews = (await _reviewRepository.GetByReviewerIdAsync(userId))
-            .Count(r => r.Status == ReviewRequestStatus.Completed);
+        var completedReviews = await _reviewRepository.GetCompletedReviewCountAsync(userId);
 
         return Ok(new
         {
@@ -502,7 +466,7 @@ public class ReviewController : ControllerBase
         if (publication == null) return NotFound("Publication not found.");
         if (publication.AuthorId != userId.Value) return Forbid();
 
-        var reviewer = await _userRepository.GetByIdAsync(dto.ReviewerId);
+        var reviewer = await _userRepository.GetByIdBasicAsync(dto.ReviewerId);
         if (reviewer == null) return NotFound("Reviewer not found.");
 
         if (!IsEligibleReviewer(reviewer.Title))
@@ -518,7 +482,7 @@ public class ReviewController : ControllerBase
             await _publicationRepository.UpdateAsync(publication);
         }
 
-        var author = await _userRepository.GetByIdAsync(userId.Value);
+        var author = await _userRepository.GetByIdBasicAsync(userId.Value);
 
         var (_, completedReviews) = await _reviewRepository
             .GetReviewContextForPublicationAsync(publicationId, dto.ReviewerId);
@@ -548,12 +512,13 @@ public class ReviewController : ControllerBase
 
     private async Task UpdateReviewerAvgScore(Guid reviewerId)
     {
-        var reviewer = await _userRepository.GetByIdAsync(reviewerId);
+        var reviewer = await _userRepository.GetByIdBasicAsync(reviewerId);
         if (reviewer == null) return;
 
         var avgScore = await _reviewRepository.CalculateReviewerAverageScoreAsync(reviewerId);
         reviewer.UpdateReviewerScore(avgScore);
-        await _userRepository.UpdateAsync(reviewer);
+        // Change-tracker reviewer'ı takip ediyor; sadece değişen kolon UPDATE edilir.
+        await _userRepository.SaveChangesAsync();
     }
 
     private async Task PushNotificationAsync(Guid targetUserId, Notification notification)

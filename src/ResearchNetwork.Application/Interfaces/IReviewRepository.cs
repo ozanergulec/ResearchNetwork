@@ -1,3 +1,4 @@
+using ResearchNetwork.Application.DTOs;
 using ResearchNetwork.Domain.Entities;
 
 namespace ResearchNetwork.Application.Interfaces;
@@ -8,7 +9,13 @@ public interface IReviewRepository
     Task<ReviewRequest?> GetByPublicationAndReviewerAsync(Guid publicationId, Guid reviewerId);
     Task<IEnumerable<ReviewRequest>> GetByPublicationIdAsync(Guid publicationId);
     Task<IEnumerable<ReviewRequest>> GetByReviewerIdAsync(Guid reviewerId);
-    Task<(IEnumerable<Publication> Items, int TotalCount)> GetPublicationsLookingForReviewersAsync(int page = 1, int pageSize = 10);
+
+    // Projection-based queries (avoid heavy Includes).
+    Task<(IEnumerable<ReviewablePublicationProjection> Items, int TotalCount)>
+        GetPublicationsLookingForReviewersAsync(Guid? currentUserId, int page = 1, int pageSize = 10);
+    Task<ReviewablePublicationProjection?> GetReviewablePublicationByIdAsync(Guid publicationId, Guid? currentUserId);
+    Task<int> GetCompletedReviewCountAsync(Guid reviewerId);
+
     Task<ReviewRequest> CreateAsync(ReviewRequest reviewRequest);
     Task UpdateAsync(ReviewRequest reviewRequest);
 

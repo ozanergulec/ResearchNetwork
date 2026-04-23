@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using ResearchNetwork.Application.DTOs;
 using ResearchNetwork.Application.Interfaces;
 using ResearchNetwork.Domain.Entities;
 using ResearchNetwork.Domain.Enums;
@@ -59,23 +60,79 @@ public class ReviewRepository : IReviewRepository
             .ToListAsync();
     }
 
-    public async Task<(IEnumerable<Publication> Items, int TotalCount)> GetPublicationsLookingForReviewersAsync(int page = 1, int pageSize = 10)
+    public async Task<(IEnumerable<ReviewablePublicationProjection> Items, int TotalCount)>
+        GetPublicationsLookingForReviewersAsync(Guid? currentUserId, int page = 1, int pageSize = 10)
     {
-        var query = _context.Publications
-            .Include(p => p.Author)
-            .Include(p => p.Tags)
-                .ThenInclude(pt => pt.Tag)
-            .Include(p => p.ReviewRequests)
-            .Where(p => p.IsLookingForReviewers)
-            .OrderByDescending(p => p.CreatedAt);
+        // null user'ı SQL tarafında eşleşmeyecek bir değere (Guid.Empty) map'le.
+        var userIdForCompare = currentUserId ?? Guid.Empty;
 
-        var totalCount = await query.CountAsync();
-        var items = await query
+        var baseQuery = _context.Publications
+            .AsNoTracking()
+            .Where(p => p.IsLookingForReviewers);
+
+        var totalCount = await baseQuery.CountAsync();
+
+        var items = await baseQuery
+            .OrderByDescending(p => p.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
+            .Select(p => new ReviewablePublicationProjection(
+                p.Id,
+                p.Title,
+                p.Abstract,
+                p.PublishedDate,
+                new UserSummaryDto(
+                    p.Author.Id,
+                    p.Author.FullName,
+                    p.Author.Title,
+                    p.Author.Institution,
+                    p.Author.ProfileImageUrl,
+                    p.Author.CoverImageUrl,
+                    p.Author.IsVerified
+                ),
+                p.Tags.Select(pt => pt.Tag.Name).ToList(),
+                p.ReviewRequests.Count,
+                p.ReviewRequests.Any(r => r.ReviewerId == userIdForCompare),
+                p.AuthorId == userIdForCompare
+            ))
             .ToListAsync();
 
         return (items, totalCount);
+    }
+
+    public async Task<ReviewablePublicationProjection?> GetReviewablePublicationByIdAsync(Guid publicationId, Guid? currentUserId)
+    {
+        var userIdForCompare = currentUserId ?? Guid.Empty;
+
+        return await _context.Publications
+            .AsNoTracking()
+            .Where(p => p.Id == publicationId)
+            .Select(p => new ReviewablePublicationProjection(
+                p.Id,
+                p.Title,
+                p.Abstract,
+                p.PublishedDate,
+                new UserSummaryDto(
+                    p.Author.Id,
+                    p.Author.FullName,
+                    p.Author.Title,
+                    p.Author.Institution,
+                    p.Author.ProfileImageUrl,
+                    p.Author.CoverImageUrl,
+                    p.Author.IsVerified
+                ),
+                p.Tags.Select(pt => pt.Tag.Name).ToList(),
+                p.ReviewRequests.Count,
+                p.ReviewRequests.Any(r => r.ReviewerId == userIdForCompare),
+                p.AuthorId == userIdForCompare
+            ))
+            .FirstOrDefaultAsync();
+    }
+
+    public async Task<int> GetCompletedReviewCountAsync(Guid reviewerId)
+    {
+        return await _context.ReviewRequests
+            .CountAsync(r => r.ReviewerId == reviewerId && r.Status == ReviewRequestStatus.Completed);
     }
 
     public async Task<ReviewRequest> CreateAsync(ReviewRequest reviewRequest)

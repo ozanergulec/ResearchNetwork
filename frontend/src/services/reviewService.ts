@@ -65,6 +65,10 @@ export const reviewApi = {
     getLookingForReviewers: (page: number = 1, pageSize: number = 10) =>
         api.get<{ items: ReviewablePublication[]; totalCount: number; page: number; pageSize: number; hasMore: boolean }>(`/review/looking-for-reviewers?page=${page}&pageSize=${pageSize}`),
 
+    // Get a single reviewable publication by id (used for notification-driven highlights)
+    getReviewablePublication: (publicationId: string) =>
+        api.get<ReviewablePublication>(`/review/looking-for-reviewers/${publicationId}`),
+
     // Apply to review a publication
     applyToReview: (publicationId: string, message?: string) =>
         api.post<{ message: string }>(`/review/${publicationId}/apply`, { message: message || null }),

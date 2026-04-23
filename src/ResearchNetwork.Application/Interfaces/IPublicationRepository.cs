@@ -1,3 +1,4 @@
+using ResearchNetwork.Application.DTOs;
 using ResearchNetwork.Domain.Entities;
 
 namespace ResearchNetwork.Application.Interfaces;
@@ -9,6 +10,9 @@ public interface IPublicationRepository
     Task<(IEnumerable<Publication> Items, int TotalCount)> GetFeedAsync(int page, int pageSize);
     Task<(IEnumerable<Publication> Items, int TotalCount)> GetByAuthorIdAsync(Guid authorId, int page, int pageSize);
     Task<(IEnumerable<Publication> Items, int TotalCount)> GetLatestPublicationsByAuthorAsync(Guid authorId, int count);
+
+    // Projection-based: yazarın yayınlarını review paneli için hafif biçimde getirir.
+    Task<IEnumerable<MyPublicationForReviewProjection>> GetMyPublicationsForReviewAsync(Guid authorId);
     Task<Publication> CreateAsync(Publication publication);
     Task<Publication> UpdateAsync(Publication publication);
     Task DeleteAsync(Guid id);

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using ResearchNetwork.Application.DTOs;
 using ResearchNetwork.Application.Interfaces;
 using ResearchNetwork.Domain.Entities;
 using ResearchNetwork.Infrastructure.Data;
@@ -64,6 +65,23 @@ public class PublicationRepository : IPublicationRepository
             .ToListAsync();
 
         return (items, totalCount);
+    }
+
+    public async Task<IEnumerable<MyPublicationForReviewProjection>> GetMyPublicationsForReviewAsync(Guid authorId)
+    {
+        return await _context.Publications
+            .AsNoTracking()
+            .Where(p => p.AuthorId == authorId)
+            .OrderByDescending(p => p.CreatedAt)
+            .Select(p => new MyPublicationForReviewProjection(
+                p.Id,
+                p.Title,
+                p.Abstract,
+                p.IsLookingForReviewers,
+                p.CreatedAt,
+                p.ReviewRequests.Count
+            ))
+            .ToListAsync();
     }
 
     public async Task<(IEnumerable<Publication> Items, int TotalCount)> GetLatestPublicationsByAuthorAsync(Guid authorId, int count)

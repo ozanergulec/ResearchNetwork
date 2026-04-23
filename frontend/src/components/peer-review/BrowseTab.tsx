@@ -1,7 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ReviewablePublication } from '../../services/reviewService';
-import { reviewApi } from '../../services/reviewService';
 import { publicationsApi } from '../../services/publicationService';
 import { aiApi } from '../../services/aiService';
 import type { Publication } from '../../services/publicationService';
@@ -9,6 +8,7 @@ import { renderAvatar } from './prHelpers';
 
 interface BrowseTabProps {
     publications: ReviewablePublication[];
+    highlightPublication: ReviewablePublication | null;
     canReview: boolean;
     onApply: (pubId: string, pubTitle: string) => void;
     onShowDetail: (pub: Publication) => void;
@@ -23,52 +23,47 @@ interface BrowseTabProps {
 const ITEMS_PER_PAGE = 10;
 
 const BrowseTab: React.FC<BrowseTabProps> = ({
-    publications, canReview, onApply, onShowDetail, onCloseReview,
+    publications, highlightPublication, canReview, onApply, onShowDetail, onCloseReview,
     currentPage, totalPages, totalCount, onPageChange, highlightPubId
 }) => {
     const navigate = useNavigate();
     const highlightRef = useRef<HTMLDivElement | null>(null);
-    const [allPubs, setAllPubs] = useState(publications);
     const [matchScores, setMatchScores] = useState<Record<string, number>>({});
 
-    useEffect(() => {
-        if (!highlightPubId) {
-            setAllPubs(publications);
-            return;
+    // Mevcut sayfa listesi + (varsa) başa eklenmiş highlight'lı publication.
+    const displayedPubs = useMemo<ReviewablePublication[]>(() => {
+        if (highlightPublication && !publications.some(p => p.id === highlightPublication.id)) {
+            return [highlightPublication, ...publications];
         }
-        const found = publications.find(p => p.id === highlightPubId);
-        if (found) {
-            setAllPubs(publications);
-        } else {
-            reviewApi.getLookingForReviewers(1, 100).then(res => {
-                const target = res.data.items.find((p: ReviewablePublication) => p.id === highlightPubId);
-                if (target) {
-                    const rest = publications.filter(p => p.id !== highlightPubId);
-                    setAllPubs([target, ...rest]);
-                } else {
-                    setAllPubs(publications);
-                }
-            }).catch(() => setAllPubs(publications));
-        }
-    }, [publications, highlightPubId]);
+        return publications;
+    }, [publications, highlightPublication]);
 
     useEffect(() => {
         if (highlightPubId && highlightRef.current) {
-            setTimeout(() => {
+            const id = window.setTimeout(() => {
                 highlightRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }, 300);
+            return () => window.clearTimeout(id);
         }
-    }, [highlightPubId, allPubs]);
+    }, [highlightPubId, displayedPubs]);
 
     useEffect(() => {
-        if (!canReview || allPubs.length === 0) return;
-        const nonOwnedIds = allPubs.filter(p => !p.isOwner).map(p => p.id);
-        if (nonOwnedIds.length === 0) return;
+        if (!canReview || displayedPubs.length === 0) {
+            setMatchScores({});
+            return;
+        }
+        const nonOwnedIds = displayedPubs.filter(p => !p.isOwner).map(p => p.id);
+        if (nonOwnedIds.length === 0) {
+            setMatchScores({});
+            return;
+        }
 
+        let cancelled = false;
         aiApi.getReviewerPublicationScores(nonOwnedIds)
-            .then(res => setMatchScores(res.data))
-            .catch(() => setMatchScores({}));
-    }, [allPubs, canReview]);
+            .then(res => { if (!cancelled) setMatchScores(res.data); })
+            .catch(() => { if (!cancelled) setMatchScores({}); });
+        return () => { cancelled = true; };
+    }, [displayedPubs, canReview]);
 
     const handleCardClick = async (pubId: string) => {
         try {
@@ -116,7 +111,7 @@ const BrowseTab: React.FC<BrowseTabProps> = ({
                     <span>Only Professor, Associate Professor and Assistant Professor can apply as reviewers. You can request reviewers for your own publications from the "My Publications" tab.</span>
                 </div>
             )}
-            {allPubs.length === 0 ? (
+            {displayedPubs.length === 0 ? (
                 <div className="pr-empty">
                     <div className="pr-empty-icon">🔍</div>
                     <h3>No publications looking for reviewers</h3>
@@ -128,7 +123,7 @@ const BrowseTab: React.FC<BrowseTabProps> = ({
                         Showing {startIndex + 1}–{Math.min(startIndex + ITEMS_PER_PAGE, totalCount)} of {totalCount} publications
                     </div>
 
-                    {allPubs.map(pub => {
+                    {displayedPubs.map(pub => {
                         const isHighlighted = highlightPubId === pub.id;
                         const score = matchScores[pub.id];
                         return (
@@ -224,4 +219,4 @@ const BrowseTab: React.FC<BrowseTabProps> = ({
     );
 };
 
-export default BrowseTab;
+export default memo(BrowseTab);

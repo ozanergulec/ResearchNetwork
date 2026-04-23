@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ReviewRequest } from '../../services/reviewService';
 import { renderAvatar, renderStatus, renderVerdict, formatDate } from './prHelpers';
@@ -89,4 +89,4 @@ const MyApplicationsTab: React.FC<MyApplicationsTabProps> = ({ myRequests, canRe
     );
 };
 
-export default MyApplicationsTab;
+export default memo(MyApplicationsTab);
