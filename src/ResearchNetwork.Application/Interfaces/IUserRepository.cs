@@ -5,13 +5,17 @@ namespace ResearchNetwork.Application.Interfaces;
 public interface IUserRepository
 {
     Task<User?> GetByIdAsync(Guid id);
+    Task<User?> GetByIdBasicAsync(Guid id);
     Task<User?> GetByIdWithTagsAsync(Guid id);
     Task<User?> GetByEmailAsync(string email);
     Task<IEnumerable<User>> GetAllAsync();
     Task<User> CreateAsync(User user);
     Task<User> UpdateAsync(User user);
+    Task SaveChangesAsync();
     Task DeleteAsync(Guid id);
+    Task DeleteAsync(User user);
     Task<bool> ExistsAsync(string email);
+    Task<bool> ExistsAsync(string email, Guid excludeUserId);
     Task AddUserTagAsync(Guid userId, Guid tagId);
     Task RemoveUserTagAsync(Guid userId, Guid tagId);
 

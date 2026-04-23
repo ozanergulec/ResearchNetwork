@@ -5,4 +5,3 @@ export type { ProfileFormState } from './ProfileSection';
 export { default as AccountSection } from './AccountSection';
 export type { EmailFormState, PasswordFormState } from './AccountSection';
 export { default as PrivacySection } from './PrivacySection';
-export { default as PreferencesSection } from './PreferencesSection';

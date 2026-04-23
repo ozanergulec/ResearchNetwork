@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import type { Translations } from '../../translations/translations';
 import type { UserSettings } from '../../services/settingsService';
 
@@ -157,4 +157,4 @@ const AccountSection: React.FC<AccountSectionProps> = ({
     );
 };
 
-export default AccountSection;
+export default memo(AccountSection);

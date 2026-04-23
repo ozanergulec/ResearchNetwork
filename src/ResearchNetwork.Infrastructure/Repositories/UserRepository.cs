@@ -23,6 +23,12 @@ public class UserRepository : IUserRepository
             .FirstOrDefaultAsync(u => u.Id == id);
     }
 
+    // Lightweight fetch: sadece User entity'sini yükler (settings/auth gibi include gerektirmeyen işlemler için).
+    public async Task<User?> GetByIdBasicAsync(Guid id)
+    {
+        return await _context.Users.FirstOrDefaultAsync(u => u.Id == id);
+    }
+
     public async Task<User?> GetByIdWithTagsAsync(Guid id)
     {
         return await _context.Users
@@ -64,6 +70,12 @@ public class UserRepository : IUserRepository
         return user;
     }
 
+    // Change-tracker tarafından izlenen entity'ler için yalnızca değişen kolonları UPDATE eder.
+    public async Task SaveChangesAsync()
+    {
+        await _context.SaveChangesAsync();
+    }
+
     public async Task DeleteAsync(Guid id)
     {
         var user = await _context.Users.FindAsync(id);
@@ -74,9 +86,21 @@ public class UserRepository : IUserRepository
         }
     }
 
+    // Önceden yüklenmiş entity için gereksiz ek sorgu olmadan silme yapar.
+    public async Task DeleteAsync(User user)
+    {
+        _context.Users.Remove(user);
+        await _context.SaveChangesAsync();
+    }
+
     public async Task<bool> ExistsAsync(string email)
     {
         return await _context.Users.AnyAsync(u => u.Email == email);
+    }
+
+    public async Task<bool> ExistsAsync(string email, Guid excludeUserId)
+    {
+        return await _context.Users.AnyAsync(u => u.Email == email && u.Id != excludeUserId);
     }
 
     public async Task AddUserTagAsync(Guid userId, Guid tagId)

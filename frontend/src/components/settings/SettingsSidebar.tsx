@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { memo } from 'react';
 import type { Translations } from '../../translations/translations';
 
-export type SettingsSection = 'profile' | 'account' | 'privacy' | 'preferences';
+export type SettingsSection = 'profile' | 'account' | 'privacy';
 
 interface SettingsSidebarProps {
     activeSection: SettingsSection;
@@ -14,7 +14,6 @@ const SettingsSidebar: React.FC<SettingsSidebarProps> = ({ activeSection, onSect
         { key: 'profile', label: t.settings.profileInfo },
         { key: 'account', label: t.settings.accountAccess },
         { key: 'privacy', label: t.settings.visibility },
-        { key: 'preferences', label: t.settings.generalPreferences },
     ];
 
     return (
@@ -35,4 +34,4 @@ const SettingsSidebar: React.FC<SettingsSidebarProps> = ({ activeSection, onSect
     );
 };
 
-export default SettingsSidebar;
+export default memo(SettingsSidebar);

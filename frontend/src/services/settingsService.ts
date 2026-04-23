@@ -44,10 +44,6 @@ export interface UpdateNotificationSettings {
     emailNotificationsEnabled: boolean;
 }
 
-export interface UpdateLanguageData {
-    language: string;
-}
-
 // Settings API
 export const settingsApi = {
     getSettings: () =>
@@ -60,16 +56,13 @@ export const settingsApi = {
         api.put('/settings/password', data),
 
     changeEmail: (data: ChangeEmailData) =>
-        api.put('/settings/email', data),
+        api.put<UserSettings>('/settings/email', data),
 
     updatePrivacy: (data: UpdatePrivacySettings) =>
         api.put<UserSettings>('/settings/privacy', data),
 
     updateNotifications: (data: UpdateNotificationSettings) =>
         api.put<UserSettings>('/settings/notifications', data),
-
-    updateLanguage: (data: UpdateLanguageData) =>
-        api.put<UserSettings>('/settings/language', data),
 
     deleteAccount: () =>
         api.delete('/settings/account'),

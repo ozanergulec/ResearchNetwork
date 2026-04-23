@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import type { Translations } from '../../translations/translations';
 import type { UserSettings } from '../../services/settingsService';
 
@@ -106,4 +106,4 @@ const ProfileSection: React.FC<ProfileSectionProps> = ({
     );
 };
 
-export default ProfileSection;
+export default memo(ProfileSection);

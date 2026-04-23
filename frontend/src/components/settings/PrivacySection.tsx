@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import type { Translations } from '../../translations/translations';
 import type { UserSettings } from '../../services/settingsService';
 
@@ -41,4 +41,4 @@ const PrivacySection: React.FC<PrivacySectionProps> = ({ settings, onPrivacyChan
     );
 };
 
-export default PrivacySection;
+export default memo(PrivacySection);

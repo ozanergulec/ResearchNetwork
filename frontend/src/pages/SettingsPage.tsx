@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/common/Navbar';
 import {
@@ -6,7 +6,6 @@ import {
     ProfileSection,
     AccountSection,
     PrivacySection,
-    PreferencesSection,
 } from '../components/settings';
 import type {
     SettingsSection as SettingsSectionKey,
@@ -16,8 +15,7 @@ import type {
 } from '../components/settings';
 import { settingsApi } from '../services/settingsService';
 import type { UserSettings } from '../services/settingsService';
-import { useLanguage } from '../contexts/LanguageContext';
-import { useTranslation, getTranslations } from '../translations/translations';
+import { useTranslation } from '../translations/translations';
 import '../styles/pages/SettingsPage.css';
 
 const SettingsPage: React.FC = () => {
@@ -28,8 +26,8 @@ const SettingsPage: React.FC = () => {
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-    const { setLanguage } = useLanguage();
     const t = useTranslation();
+    const toastTimerRef = useRef<number | null>(null);
 
     const [profileForm, setProfileForm] = useState<ProfileFormState>({
         fullName: '',
@@ -50,11 +48,7 @@ const SettingsPage: React.FC = () => {
         password: '',
     });
 
-    useEffect(() => {
-        fetchSettings();
-    }, []);
-
-    const fetchSettings = async () => {
+    const fetchSettings = useCallback(async () => {
         try {
             setLoading(true);
             const res = await settingsApi.getSettings();
@@ -71,14 +65,32 @@ const SettingsPage: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
-    const showMessage = (type: 'success' | 'error', text: string) => {
+    useEffect(() => {
+        fetchSettings();
+    }, [fetchSettings]);
+
+    useEffect(() => {
+        return () => {
+            if (toastTimerRef.current !== null) {
+                window.clearTimeout(toastTimerRef.current);
+            }
+        };
+    }, []);
+
+    const showMessage = useCallback((type: 'success' | 'error', text: string) => {
+        if (toastTimerRef.current !== null) {
+            window.clearTimeout(toastTimerRef.current);
+        }
         setMessage({ type, text });
-        setTimeout(() => setMessage(null), 4000);
-    };
+        toastTimerRef.current = window.setTimeout(() => {
+            setMessage(null);
+            toastTimerRef.current = null;
+        }, 4000);
+    }, []);
 
-    const handleProfileSave = async () => {
+    const handleProfileSave = useCallback(async () => {
         setSaving(true);
         try {
             const res = await settingsApi.updateProfile(profileForm);
@@ -89,9 +101,9 @@ const SettingsPage: React.FC = () => {
         } finally {
             setSaving(false);
         }
-    };
+    }, [profileForm, showMessage, t]);
 
-    const handlePasswordChange = async () => {
+    const handlePasswordChange = useCallback(async () => {
         if (passwordForm.newPassword !== passwordForm.confirmPassword) {
             showMessage('error', t.settings.passwordsNoMatch);
             return;
@@ -113,27 +125,27 @@ const SettingsPage: React.FC = () => {
         } finally {
             setSaving(false);
         }
-    };
+    }, [passwordForm, showMessage, t]);
 
-    const handleEmailChange = async () => {
+    const handleEmailChange = useCallback(async () => {
         if (!emailForm.newEmail || !emailForm.password) {
             showMessage('error', t.settings.fillAllFields);
             return;
         }
         setSaving(true);
         try {
-            await settingsApi.changeEmail(emailForm);
+            const res = await settingsApi.changeEmail(emailForm);
+            setSettings(res.data);
             showMessage('success', t.settings.emailUpdated);
             setEmailForm({ newEmail: '', password: '' });
-            fetchSettings();
         } catch {
             showMessage('error', t.settings.emailChangeFailed);
         } finally {
             setSaving(false);
         }
-    };
+    }, [emailForm, showMessage, t]);
 
-    const handlePrivacyChange = async (level: number) => {
+    const handlePrivacyChange = useCallback(async (level: number) => {
         setSaving(true);
         try {
             const res = await settingsApi.updatePrivacy({ privacyLevel: level });
@@ -144,23 +156,9 @@ const SettingsPage: React.FC = () => {
         } finally {
             setSaving(false);
         }
-    };
+    }, [showMessage, t]);
 
-    const handleLanguageChange = async (newLang: string) => {
-        setSaving(true);
-        try {
-            const res = await settingsApi.updateLanguage({ language: newLang });
-            setSettings(res.data);
-            showMessage('success', getTranslations(newLang).settings.languageUpdated);
-            setLanguage(newLang);
-        } catch {
-            showMessage('error', t.settings.languageFailed);
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    const handleDeleteAccount = async () => {
+    const handleDeleteAccount = useCallback(async () => {
         setSaving(true);
         try {
             await settingsApi.deleteAccount();
@@ -171,7 +169,7 @@ const SettingsPage: React.FC = () => {
             showMessage('error', t.settings.deleteFailed);
             setSaving(false);
         }
-    };
+    }, [navigate, showMessage, t]);
 
     if (loading) {
         return (
@@ -235,15 +233,6 @@ const SettingsPage: React.FC = () => {
                             <PrivacySection
                                 settings={settings}
                                 onPrivacyChange={handlePrivacyChange}
-                                saving={saving}
-                                t={t}
-                            />
-                        )}
-
-                        {activeSection === 'preferences' && (
-                            <PreferencesSection
-                                settings={settings}
-                                onLanguageChange={handleLanguageChange}
                                 saving={saving}
                                 t={t}
                             />

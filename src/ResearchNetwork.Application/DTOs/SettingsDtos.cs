@@ -57,8 +57,3 @@ public record UpdateNotificationSettingsDto(
     bool NotificationsEnabled,
     bool EmailNotificationsEnabled
 );
-
-// Dil tercihi güncelleme
-public record UpdateLanguageDto(
-    string Language
-);

@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ResearchNetwork.Application.DTOs;
 using ResearchNetwork.Application.Interfaces;
-using ResearchNetwork.Domain.Enums;
 
 namespace ResearchNetwork.API.Controllers;
 
@@ -25,7 +24,7 @@ public class SettingsController : ControllerBase
         var userId = GetUserIdFromClaims();
         if (userId == null) return Unauthorized(new { Message = "User ID not found in token." });
 
-        var user = await _userRepository.GetByIdAsync(userId.Value);
+        var user = await _userRepository.GetByIdBasicAsync(userId.Value);
         if (user == null) return NotFound(new { Message = "User not found." });
 
         return Ok(MapToSettingsDto(user));
@@ -39,7 +38,7 @@ public class SettingsController : ControllerBase
         var userId = GetUserIdFromClaims();
         if (userId == null) return Unauthorized(new { Message = "User ID not found in token." });
 
-        var user = await _userRepository.GetByIdAsync(userId.Value);
+        var user = await _userRepository.GetByIdBasicAsync(userId.Value);
         if (user == null) return NotFound(new { Message = "User not found." });
 
         if (!string.IsNullOrWhiteSpace(dto.FullName)) user.FullName = dto.FullName;
@@ -48,7 +47,7 @@ public class SettingsController : ControllerBase
         if (dto.Department != null) user.Department = dto.Department;
         if (dto.Bio != null) user.Bio = dto.Bio;
 
-        await _userRepository.UpdateAsync(user);
+        await _userRepository.SaveChangesAsync();
 
         return Ok(MapToSettingsDto(user));
     }
@@ -61,24 +60,21 @@ public class SettingsController : ControllerBase
         var userId = GetUserIdFromClaims();
         if (userId == null) return Unauthorized(new { Message = "User ID not found in token." });
 
-        var user = await _userRepository.GetByIdAsync(userId.Value);
+        var user = await _userRepository.GetByIdBasicAsync(userId.Value);
         if (user == null) return NotFound(new { Message = "User not found." });
 
-        // Mevcut şifreyi doğrula
         if (string.IsNullOrEmpty(user.PasswordHash) || !BCrypt.Net.BCrypt.Verify(dto.CurrentPassword, user.PasswordHash))
         {
             return BadRequest(new { Message = "Current password is incorrect." });
         }
 
-        // Yeni şifre validasyonu
         if (string.IsNullOrWhiteSpace(dto.NewPassword) || dto.NewPassword.Length < 6)
         {
             return BadRequest(new { Message = "New password must be at least 6 characters." });
         }
 
-        // Yeni şifreyi hashle ve kaydet
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
-        await _userRepository.UpdateAsync(user);
+        await _userRepository.SaveChangesAsync();
 
         return Ok(new { Message = "Password changed successfully." });
     }
@@ -86,32 +82,41 @@ public class SettingsController : ControllerBase
     // ==================== EMAIL CHANGE ====================
 
     [HttpPut("email")]
-    public async Task<ActionResult> ChangeEmail([FromBody] ChangeEmailDto dto)
+    public async Task<ActionResult<UserSettingsDto>> ChangeEmail([FromBody] ChangeEmailDto dto)
     {
         var userId = GetUserIdFromClaims();
         if (userId == null) return Unauthorized(new { Message = "User ID not found in token." });
 
-        var user = await _userRepository.GetByIdAsync(userId.Value);
+        var user = await _userRepository.GetByIdBasicAsync(userId.Value);
         if (user == null) return NotFound(new { Message = "User not found." });
 
-        // Şifre doğrulama
         if (string.IsNullOrEmpty(user.PasswordHash) || !BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
         {
             return BadRequest(new { Message = "Password is incorrect." });
         }
 
-        // Yeni e-posta daha önce kayıtlı mı kontrol et
-        if (await _userRepository.ExistsAsync(dto.NewEmail))
+        if (string.IsNullOrWhiteSpace(dto.NewEmail))
+        {
+            return BadRequest(new { Message = "New email address cannot be empty." });
+        }
+
+        // Aynı email girildiyse anlamsız güncelleme yapmadan geri dön
+        if (string.Equals(user.Email, dto.NewEmail, StringComparison.OrdinalIgnoreCase))
+        {
+            return Ok(MapToSettingsDto(user));
+        }
+
+        // Başka bir kullanıcıda kayıtlı mı kontrol et (kendi email'ini hariç tut)
+        if (await _userRepository.ExistsAsync(dto.NewEmail, userId.Value))
         {
             return BadRequest(new { Message = "This email address is already registered." });
         }
 
-        // E-posta güncelle
         user.Email = dto.NewEmail;
         user.IsVerified = false; // Yeni e-posta doğrulanana kadar
-        await _userRepository.UpdateAsync(user);
+        await _userRepository.SaveChangesAsync();
 
-        return Ok(new { Message = "Email address updated. Please verify your new email address." });
+        return Ok(MapToSettingsDto(user));
     }
 
     // ==================== PRIVACY SETTINGS ====================
@@ -122,11 +127,11 @@ public class SettingsController : ControllerBase
         var userId = GetUserIdFromClaims();
         if (userId == null) return Unauthorized(new { Message = "User ID not found in token." });
 
-        var user = await _userRepository.GetByIdAsync(userId.Value);
+        var user = await _userRepository.GetByIdBasicAsync(userId.Value);
         if (user == null) return NotFound(new { Message = "User not found." });
 
         user.PrivacyLevel = dto.PrivacyLevel;
-        await _userRepository.UpdateAsync(user);
+        await _userRepository.SaveChangesAsync();
 
         return Ok(MapToSettingsDto(user));
     }
@@ -139,34 +144,12 @@ public class SettingsController : ControllerBase
         var userId = GetUserIdFromClaims();
         if (userId == null) return Unauthorized(new { Message = "User ID not found in token." });
 
-        var user = await _userRepository.GetByIdAsync(userId.Value);
+        var user = await _userRepository.GetByIdBasicAsync(userId.Value);
         if (user == null) return NotFound(new { Message = "User not found." });
 
         user.NotificationsEnabled = dto.NotificationsEnabled;
         user.EmailNotificationsEnabled = dto.EmailNotificationsEnabled;
-        await _userRepository.UpdateAsync(user);
-
-        return Ok(MapToSettingsDto(user));
-    }
-
-    // ==================== LANGUAGE SETTINGS ====================
-
-    [HttpPut("language")]
-    public async Task<ActionResult<UserSettingsDto>> UpdateLanguage([FromBody] UpdateLanguageDto dto)
-    {
-        var userId = GetUserIdFromClaims();
-        if (userId == null) return Unauthorized(new { Message = "User ID not found in token." });
-
-        var user = await _userRepository.GetByIdAsync(userId.Value);
-        if (user == null) return NotFound(new { Message = "User not found." });
-
-        if (string.IsNullOrWhiteSpace(dto.Language))
-        {
-            return BadRequest(new { Message = "Language preference cannot be empty." });
-        }
-
-        user.Language = dto.Language;
-        await _userRepository.UpdateAsync(user);
+        await _userRepository.SaveChangesAsync();
 
         return Ok(MapToSettingsDto(user));
     }
@@ -179,10 +162,10 @@ public class SettingsController : ControllerBase
         var userId = GetUserIdFromClaims();
         if (userId == null) return Unauthorized(new { Message = "User ID not found in token." });
 
-        var user = await _userRepository.GetByIdAsync(userId.Value);
+        var user = await _userRepository.GetByIdBasicAsync(userId.Value);
         if (user == null) return NotFound(new { Message = "User not found." });
 
-        await _userRepository.DeleteAsync(userId.Value);
+        await _userRepository.DeleteAsync(user);
 
         return Ok(new { Message = "Your account has been deleted successfully." });
     }
