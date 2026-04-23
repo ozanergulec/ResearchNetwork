@@ -11,7 +11,7 @@ interface NewChatModalProps {
     searchInputRef: React.RefObject<HTMLInputElement | null>;
     onClose: () => void;
     onSearchChange: (value: string) => void;
-    onStartChat: (userId: string) => void;
+    onStartChat: (user: UserSummary) => void;
 }
 
 const NewChatModal: React.FC<NewChatModalProps> = ({
@@ -70,7 +70,7 @@ const NewChatModal: React.FC<NewChatModalProps> = ({
                                 <div
                                     key={user.id}
                                     className="new-chat-contact-item"
-                                    onClick={() => onStartChat(user.id)}
+                                    onClick={() => onStartChat(user)}
                                 >
                                     <div className="new-chat-contact-avatar-wrap">
                                         {user.profileImageUrl ? (

@@ -14,6 +14,18 @@ import signalRService from '../services/signalRService';
 import { useTranslation } from '../translations/translations';
 import '../styles/pages/MessagesPage.css';
 
+const toConversationStub = (user: UserSummary): ConversationData => ({
+    userId: user.id,
+    userName: user.fullName,
+    userProfileImageUrl: user.profileImageUrl ?? null,
+    userIsVerified: user.isVerified,
+    userTitle: user.title ?? null,
+    userInstitution: user.institution ?? null,
+    lastMessage: '',
+    lastMessageAt: new Date().toISOString(),
+    unreadCount: 0,
+});
+
 const MessagesPage: React.FC = () => {
     const navigate = useNavigate();
     const t = useTranslation();
@@ -22,6 +34,7 @@ const MessagesPage: React.FC = () => {
     // --- Core state ---
     const [conversations, setConversations] = useState<ConversationData[]>([]);
     const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+    const [selectedConversationStub, setSelectedConversationStub] = useState<ConversationData | null>(null);
     const [messages, setMessages] = useState<MessageData[]>([]);
     const [newMessage, setNewMessage] = useState('');
     const [loadingConversations, setLoadingConversations] = useState(true);
@@ -145,6 +158,42 @@ const MessagesPage: React.FC = () => {
     }, [fetchMessages, selectedUserId]);
 
     useEffect(() => {
+        if (!selectedUserId) {
+            setSelectedConversationStub(null);
+            return;
+        }
+
+        const existing = conversations.find(c => c.userId === selectedUserId);
+        if (existing) {
+            setSelectedConversationStub(null);
+            return;
+        }
+
+        if (selectedConversationStub?.userId === selectedUserId) return;
+
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await usersApi.getById(selectedUserId);
+                if (cancelled) return;
+                const user = res.data;
+                setSelectedConversationStub(toConversationStub({
+                    id: user.id,
+                    fullName: user.fullName,
+                    profileImageUrl: user.profileImageUrl,
+                    isVerified: user.isVerified,
+                    title: user.title,
+                    institution: user.institution,
+                }));
+            } catch {
+                // no-op: header stays loading if user lookup fails
+            }
+        })();
+
+        return () => { cancelled = true; };
+    }, [conversations, selectedConversationStub?.userId, selectedUserId]);
+
+    useEffect(() => {
         if (shouldAutoScrollRef.current) {
             scrollToBottom();
         }
@@ -207,7 +256,10 @@ const MessagesPage: React.FC = () => {
     }, [selectedUserId, currentUser.id, fetchConversations]);
 
     // --- Handlers ---
-    const handleSelectConversation = (userId: string) => setSelectedUserId(userId);
+    const handleSelectConversation = (userId: string) => {
+        setSelectedConversationStub(null);
+        setSelectedUserId(userId);
+    };
 
     const handleSendMessage = async () => {
         if ((!newMessage.trim() && !attachedPublication) || !selectedUserId || sending) return;
@@ -256,7 +308,11 @@ const MessagesPage: React.FC = () => {
     };
 
     const closeNewChat = () => { setShowNewChat(false); setContactSearch(''); };
-    const handleStartChat = (userId: string) => { closeNewChat(); setSelectedUserId(userId); };
+    const handleStartChat = (user: UserSummary) => {
+        closeNewChat();
+        setSelectedConversationStub(toConversationStub(user));
+        setSelectedUserId(user.id);
+    };
 
     const openAttachPicker = async () => {
         if (!selectedUserId) return;
@@ -313,7 +369,8 @@ const MessagesPage: React.FC = () => {
         (p.abstract ?? '').toLowerCase().includes(attachSearch.toLowerCase())
     );
 
-    const selectedConversation = conversations.find(c => c.userId === selectedUserId);
+    const selectedConversation = conversations.find(c => c.userId === selectedUserId)
+        ?? (selectedConversationStub?.userId === selectedUserId ? selectedConversationStub : undefined);
 
     // --- Render ---
     return (

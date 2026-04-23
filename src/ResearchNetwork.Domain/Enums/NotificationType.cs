@@ -12,6 +12,5 @@ public enum NotificationType
     ReviewRequested = 7,
     ReviewAccepted = 8,
     ReviewCompleted = 9,
-    ReviewerSuggested = 10,
-    MessageReceived = 11
+    ReviewerSuggested = 10
 }

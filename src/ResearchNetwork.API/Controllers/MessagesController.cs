@@ -5,7 +5,6 @@ using Microsoft.AspNetCore.SignalR;
 using ResearchNetwork.Application.DTOs;
 using ResearchNetwork.Application.Interfaces;
 using ResearchNetwork.Domain.Entities;
-using ResearchNetwork.Domain.Enums;
 using ResearchNetwork.API.Hubs;
 
 namespace ResearchNetwork.API.Controllers;
@@ -18,20 +17,17 @@ public class MessagesController : ControllerBase
     private readonly IMessageRepository _messageRepository;
     private readonly IUserRepository _userRepository;
     private readonly IPublicationRepository _publicationRepository;
-    private readonly INotificationRepository _notificationRepository;
     private readonly IHubContext<NotificationHub> _hubContext;
 
     public MessagesController(
         IMessageRepository messageRepository,
         IUserRepository userRepository,
         IPublicationRepository publicationRepository,
-        INotificationRepository notificationRepository,
         IHubContext<NotificationHub> hubContext)
     {
         _messageRepository = messageRepository;
         _userRepository = userRepository;
         _publicationRepository = publicationRepository;
-        _notificationRepository = notificationRepository;
         _hubContext = hubContext;
     }
 
@@ -158,35 +154,6 @@ public class MessagesController : ControllerBase
         var message = new Message(userId.Value, dto.ReceiverId, dto.Content?.Trim() ?? string.Empty, dto.AttachedPublicationId);
         await _messageRepository.SendAsync(message);
 
-        var unreadFromSender = await _messageRepository.GetUnreadCountFromSenderAsync(dto.ReceiverId, userId.Value);
-        var notificationText = BuildAggregatedMessageNotificationText(sender.FullName, unreadFromSender);
-        var targetUrl = $"/messages?userId={userId.Value}";
-        var notification = await _notificationRepository.GetLatestUnreadByActorAndTypeAsync(
-            dto.ReceiverId,
-            sender.Id,
-            NotificationType.MessageReceived
-        );
-
-        if (notification == null)
-        {
-            notification = new Notification(
-                userId: dto.ReceiverId,
-                title: "New Messages",
-                message: notificationText,
-                type: NotificationType.MessageReceived,
-                targetUrl: targetUrl,
-                actorId: sender.Id,
-                actorName: sender.FullName,
-                actorProfileImageUrl: sender.ProfileImageUrl
-            );
-            await _notificationRepository.AddAsync(notification);
-        }
-        else
-        {
-            notification.UpdateContent("New Messages", notificationText, targetUrl);
-            await _notificationRepository.UpdateAsync(notification);
-        }
-
         var result = new MessageDto(
             message.Id,
             message.SenderId,
@@ -201,8 +168,7 @@ public class MessagesController : ControllerBase
         );
 
         // Push real-time notification to receiver via SignalR
-        await PushMessageToReceiver(dto.ReceiverId, result, userId.Value, sender.FullName);
-        await PushNotificationToReceiver(dto.ReceiverId, notification);
+        await PushMessageToReceiver(dto.ReceiverId, result);
 
         return Ok(result);
     }
@@ -224,13 +190,14 @@ public class MessagesController : ControllerBase
         if (userId == null) return Unauthorized();
 
         await _messageRepository.MarkConversationAsReadAsync(userId.Value, otherUserId);
+
         return Ok();
     }
 
     /// <summary>
     /// Pushes a real-time message notification to the receiver via SignalR.
     /// </summary>
-    private async Task PushMessageToReceiver(Guid receiverId, MessageDto messageDto, Guid senderId, string senderName)
+    private async Task PushMessageToReceiver(Guid receiverId, MessageDto messageDto)
     {
         try
         {
@@ -249,40 +216,5 @@ public class MessagesController : ControllerBase
         }
     }
 
-    private async Task PushNotificationToReceiver(Guid receiverId, Notification notification)
-    {
-        try
-        {
-            var dto = new NotificationDto(
-                notification.Id,
-                notification.Title,
-                notification.Message,
-                notification.TargetUrl,
-                notification.Type,
-                notification.IsRead,
-                notification.CreatedAt,
-                notification.ActorId,
-                notification.ActorName,
-                notification.ActorProfileImageUrl
-            );
-            await _hubContext.Clients.Group(receiverId.ToString())
-                .SendAsync("ReceiveNotification", dto);
-
-            var unreadCount = await _notificationRepository.GetUnreadCountAsync(receiverId);
-            await _hubContext.Clients.Group(receiverId.ToString())
-                .SendAsync("UpdateUnreadCount", unreadCount);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[SignalR] Failed to push notification to {receiverId}: {ex.Message}");
-        }
-    }
-
-    private static string BuildAggregatedMessageNotificationText(string senderName, int unreadCount)
-    {
-        return unreadCount <= 1
-            ? $"{senderName} sent you 1 message."
-            : $"{senderName} sent you {unreadCount} messages.";
-    }
 }
 

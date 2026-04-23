@@ -54,13 +54,4 @@ public class Notification
     {
         IsRead = true;
     }
-
-    public void UpdateContent(string title, string message, string? targetUrl = null)
-    {
-        Title = title;
-        Message = message;
-        TargetUrl = targetUrl;
-        CreatedAt = DateTime.UtcNow;
-        IsRead = false;
-    }
 }
