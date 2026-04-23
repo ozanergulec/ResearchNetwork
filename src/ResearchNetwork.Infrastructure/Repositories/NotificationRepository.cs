@@ -35,37 +35,32 @@ public class NotificationRepository : INotificationRepository
         await _context.SaveChangesAsync();
     }
 
-    public async Task MarkAsReadAsync(Guid notificationId)
+    public async Task<bool> MarkAsReadAsync(Guid notificationId, Guid userId)
     {
         var notification = await _context.Notifications.FindAsync(notificationId);
-        if (notification != null)
-        {
-            notification.MarkAsRead();
-            await _context.SaveChangesAsync();
-        }
+        if (notification == null || notification.UserId != userId)
+            return false;
+
+        notification.MarkAsRead();
+        await _context.SaveChangesAsync();
+        return true;
     }
 
     public async Task MarkAllAsReadAsync(Guid userId)
     {
-        var notifications = await _context.Notifications
+        await _context.Notifications
             .Where(n => n.UserId == userId && !n.IsRead)
-            .ToListAsync();
-
-        foreach (var notification in notifications)
-        {
-            notification.MarkAsRead();
-        }
-
-        await _context.SaveChangesAsync();
+            .ExecuteUpdateAsync(s => s.SetProperty(n => n.IsRead, true));
     }
 
-    public async Task DeleteAsync(Guid notificationId)
+    public async Task<bool> DeleteAsync(Guid notificationId, Guid userId)
     {
         var notification = await _context.Notifications.FindAsync(notificationId);
-        if (notification != null)
-        {
-            _context.Notifications.Remove(notification);
-            await _context.SaveChangesAsync();
-        }
+        if (notification == null || notification.UserId != userId)
+            return false;
+
+        _context.Notifications.Remove(notification);
+        await _context.SaveChangesAsync();
+        return true;
     }
 }

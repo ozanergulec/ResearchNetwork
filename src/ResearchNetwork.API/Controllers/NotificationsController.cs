@@ -71,7 +71,8 @@ public class NotificationsController : ControllerBase
         var userId = GetCurrentUserId();
         if (userId == null) return Unauthorized();
 
-        await _notificationRepository.MarkAsReadAsync(id);
+        var success = await _notificationRepository.MarkAsReadAsync(id, userId.Value);
+        if (!success) return NotFound();
 
         var unreadCount = await _notificationRepository.GetUnreadCountAsync(userId.Value);
         await _hubContext.Clients.Group(userId.Value.ToString())
@@ -88,9 +89,9 @@ public class NotificationsController : ControllerBase
 
         await _notificationRepository.MarkAllAsReadAsync(userId.Value);
 
-        var unreadCount = await _notificationRepository.GetUnreadCountAsync(userId.Value);
+        // After marking all as read, count is guaranteed to be 0
         await _hubContext.Clients.Group(userId.Value.ToString())
-            .SendAsync("UpdateUnreadCount", unreadCount);
+            .SendAsync("UpdateUnreadCount", 0);
 
         return Ok();
     }
@@ -101,7 +102,9 @@ public class NotificationsController : ControllerBase
         var userId = GetCurrentUserId();
         if (userId == null) return Unauthorized();
 
-        await _notificationRepository.DeleteAsync(id);
+        var success = await _notificationRepository.DeleteAsync(id, userId.Value);
+        if (!success) return NotFound();
+
         return NoContent();
     }
 }
