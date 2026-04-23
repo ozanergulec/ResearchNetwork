@@ -1,14 +1,21 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { searchApi } from '../services/searchService';
 import { Navbar } from '../components';
-import { API_SERVER_URL } from '../services/apiClient';
 import type { UserSummary, Publication } from '../services/publicationService';
 import PublicationDetailModal from '../components/feed/PublicationDetailModal';
+import {
+    SearchUserCard,
+    SearchPublicationCard,
+    SearchPagination,
+    SearchFilters,
+} from '../components/search';
+import type { FilterState } from '../components/search';
 import { useTranslation } from '../translations/translations';
 import '../styles/pages/SearchPage.css';
 
 type TabType = 'users' | 'publications' | 'tags';
+type SortByType = 'default' | 'newest' | 'oldest' | 'rating' | 'cited';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -30,15 +37,13 @@ const SearchPage: React.FC = () => {
     const [totalTagUsers, setTotalTagUsers] = useState(0);
     const [totalTagPublications, setTotalTagPublications] = useState(0);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
     // Filter state
     const [selectedInstitutions, setSelectedInstitutions] = useState<string[]>([]);
     const [selectedTitles, setSelectedTitles] = useState<string[]>([]);
-
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
     const [minRating, setMinRating] = useState(0);
-    const [sortBy, setSortBy] = useState<'default' | 'newest' | 'oldest' | 'rating' | 'cited'>('default');
-    const [openFilter, setOpenFilter] = useState<string | null>(null);
-    const filterRef = useRef<HTMLDivElement>(null);
+    const [sortBy, setSortBy] = useState<SortByType>('default');
 
     useEffect(() => {
         const token = localStorage.getItem('token');
@@ -46,6 +51,14 @@ const SearchPage: React.FC = () => {
             navigate('/login');
         }
     }, [navigate]);
+
+    const resetFilters = useCallback(() => {
+        setSelectedInstitutions([]);
+        setSelectedTitles([]);
+        setSelectedTags([]);
+        setMinRating(0);
+        setSortBy('default');
+    }, []);
 
     const performSearch = useCallback(async (searchQuery: string, page: number = 1, fetchAll: boolean = true, targetTab?: TabType) => {
         if (searchQuery.trim().length < 2) {
@@ -109,7 +122,7 @@ const SearchPage: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, [activeTab]);
+    }, [activeTab, resetFilters]);
 
     // Handle q param from navbar "View All" navigation
     const [searchParams] = useSearchParams();
@@ -132,85 +145,34 @@ const SearchPage: React.FC = () => {
         }, 300);
     };
 
-    const getInitials = (name: string) => {
-        return name
-            .split(' ')
-            .map((n) => n[0])
-            .join('')
-            .toUpperCase()
-            .slice(0, 2);
-    };
-
-    const getImageUrl = (url?: string | null) => {
-        if (!url) return null;
-        if (url.startsWith('http')) return url;
-        return `${API_SERVER_URL}${url}`;
-    };
-
-    const truncateAbstract = (text?: string | null, maxLength = 150) => {
-        if (!text) return '';
-        return text.length > maxLength ? text.slice(0, maxLength) + '...' : text;
-    };
-
-    const tagTotalCount = totalTagPublications + totalTagUsers;
-
-    // Pagination helpers
-    const paginate = <T,>(items: T[]) => {
-        return items;
-    };
-
-    const getTotalPages = (totalItems: number) => Math.ceil(totalItems / ITEMS_PER_PAGE);
-
-    const handlePageChange = (page: number) => {
+    const handlePageChange = useCallback((page: number) => {
         performSearch(query, page, false, activeTab);
         window.scrollTo({ top: 0, behavior: 'smooth' });
-    };
+    }, [performSearch, query, activeTab]);
 
-    const handleTabChange = (tab: TabType) => {
+    const handleTabChange = useCallback((tab: TabType) => {
         setActiveTab(tab);
         setCurrentPage(1);
         resetFilters();
         if (searched) {
             performSearch(query, 1, false, tab);
         }
-    };
+    }, [resetFilters, searched, performSearch, query]);
 
-    // ===== Filter Logic =====
-    const resetFilters = () => {
-        setSelectedInstitutions([]);
-        setSelectedTitles([]);
-        setSelectedTags([]);
-        setMinRating(0);
-        setSortBy('default');
-        setOpenFilter(null);
-    };
+    const handleUserClick = useCallback((userId: string) => {
+        navigate(`/profile/${userId}`);
+    }, [navigate]);
 
-    const hasActiveFilters = selectedInstitutions.length > 0 || selectedTitles.length > 0 || selectedTags.length > 0 || minRating > 0 || sortBy !== 'default';
+    const handleAuthorClick = useCallback((authorId: string) => {
+        navigate(`/profile/${authorId}`);
+    }, [navigate]);
 
-    // Close filter dropdown on outside click  
-    useEffect(() => {
-        const handleClickOutside = (e: MouseEvent) => {
-            if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
-                setOpenFilter(null);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
+    const handlePublicationClick = useCallback((pub: Publication) => {
+        setSelectedPublication(pub);
     }, []);
 
-    // Get unique filter options from search results
-    const getUniqueInstitutions = (userList: UserSummary[]) => {
-        return [...new Set(userList.map(u => u.institution).filter(Boolean))] as string[];
-    };
-    const getUniqueTitles = (userList: UserSummary[]) => {
-        return [...new Set(userList.map(u => u.title).filter(Boolean))] as string[];
-    };
-    const getUniqueTags = (pubList: Publication[]) => {
-        return [...new Set(pubList.flatMap(p => p.tags || []))];
-    };
-
-    // Apply filters to users
-    const filterUsers = (userList: UserSummary[]) => {
+    // Filter logic
+    const filterUsers = useCallback((userList: UserSummary[]) => {
         let filtered = [...userList];
         if (selectedInstitutions.length > 0) {
             filtered = filtered.filter(u => u.institution && selectedInstitutions.includes(u.institution));
@@ -219,10 +181,9 @@ const SearchPage: React.FC = () => {
             filtered = filtered.filter(u => u.title && selectedTitles.includes(u.title));
         }
         return filtered;
-    };
+    }, [selectedInstitutions, selectedTitles]);
 
-    // Apply filters to publications
-    const filterPublications = (pubList: Publication[]) => {
+    const filterPublications = useCallback((pubList: Publication[]) => {
         let filtered = [...pubList];
         if (selectedTags.length > 0) {
             filtered = filtered.filter(p => p.tags && p.tags.some(tag => selectedTags.includes(tag)));
@@ -230,7 +191,6 @@ const SearchPage: React.FC = () => {
         if (minRating > 0) {
             filtered = filtered.filter(p => p.averageRating >= minRating);
         }
-        // Sort
         if (sortBy === 'newest') {
             filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         } else if (sortBy === 'oldest') {
@@ -241,193 +201,23 @@ const SearchPage: React.FC = () => {
             filtered.sort((a, b) => b.citationCount - a.citationCount);
         }
         return filtered;
-    };
+    }, [selectedTags, minRating, sortBy]);
 
-    const toggleFilterItem = (_list: string[], setList: React.Dispatch<React.SetStateAction<string[]>>, item: string) => {
-        setList(prev => prev.includes(item) ? prev.filter(i => i !== item) : [...prev, item]);
-        setCurrentPage(1);
-    };
+    const filteredUsers = useMemo(() => filterUsers(users), [filterUsers, users]);
+    const filteredPublications = useMemo(() => filterPublications(publications), [filterPublications, publications]);
+    const filteredTagPublications = useMemo(() => filterPublications(tagPublications), [filterPublications, tagPublications]);
 
-    // Get filtered data
-    const filteredUsers = filterUsers(users);
-    const filteredPublications = filterPublications(publications);
+    const filterState: FilterState = useMemo(() => ({
+        selectedInstitutions,
+        selectedTitles,
+        selectedTags,
+        minRating,
+        sortBy,
+    }), [selectedInstitutions, selectedTitles, selectedTags, minRating, sortBy]);
 
-    const filteredTagPublications = filterPublications(tagPublications);
+    const hasActiveFilters = selectedInstitutions.length > 0 || selectedTitles.length > 0 || selectedTags.length > 0 || minRating > 0 || sortBy !== 'default';
 
-
-    // Filter chip dropdown component
-    const renderMultiSelect = (id: string, label: string, options: string[], selected: string[], setSelected: React.Dispatch<React.SetStateAction<string[]>>) => {
-        if (options.length === 0) return null;
-        const isOpen = openFilter === id;
-        return (
-            <div className={`search-filter-chip ${selected.length > 0 ? 'active' : ''} ${isOpen ? 'open' : ''}`}
-                onClick={() => setOpenFilter(isOpen ? null : id)}>
-                {label}{selected.length > 0 && ` (${selected.length})`}
-                <span className="filter-arrow">▼</span>
-                {isOpen && (
-                    <div className="search-filter-dropdown" onClick={e => e.stopPropagation()}>
-                        {options.map(opt => (
-                            <div key={opt} className="search-filter-option"
-                                onClick={() => toggleFilterItem(selected, setSelected, opt)}>
-                                <span className={`search-filter-checkbox ${selected.includes(opt) ? 'checked' : ''}`}>
-                                    {selected.includes(opt) && '✓'}
-                                </span>
-                                {opt}
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </div>
-        );
-    };
-
-    // Render filters bar based on active tab
-    const renderFilters = () => {
-        if (!searched) return null;
-
-        return (
-            <div className="search-filters" ref={filterRef}>
-                {(activeTab === 'users' || activeTab === 'tags') && (
-                    <>
-                        {renderMultiSelect('institution', t.search.filterInstitution,
-                            getUniqueInstitutions(activeTab === 'users' ? users : tagUsers),
-                            selectedInstitutions, setSelectedInstitutions)}
-                        {renderMultiSelect('title', t.search.filterTitle,
-                            getUniqueTitles(activeTab === 'users' ? users : tagUsers),
-                            selectedTitles, setSelectedTitles)}
-                    </>
-                )}
-                {(activeTab === 'publications' || activeTab === 'tags') && (
-                    <>
-                        {renderMultiSelect('tags', t.search.filterTags,
-                            getUniqueTags(activeTab === 'publications' ? publications : tagPublications),
-                            selectedTags, setSelectedTags)}
-                        <select className="search-filter-select"
-                            value={minRating}
-                            onChange={e => { setMinRating(Number(e.target.value)); setCurrentPage(1); }}>
-                            <option value={0}>{t.search.filterMinRating}: -</option>
-                            {[1, 2, 3, 4, 5].map(n => (
-                                <option key={n} value={n}>≥ {n}.0</option>
-                            ))}
-                        </select>
-                        <select className="search-filter-select"
-                            value={sortBy}
-                            onChange={e => { setSortBy(e.target.value as any); setCurrentPage(1); }}>
-                            <option value="default">{t.search.filterSortBy}</option>
-                            <option value="newest">{t.search.sortNewest}</option>
-                            <option value="oldest">{t.search.sortOldest}</option>
-                            <option value="rating">{t.search.sortHighestRating}</option>
-                            <option value="cited">{t.search.sortMostCited}</option>
-                        </select>
-                    </>
-                )}
-                {hasActiveFilters && (
-                    <button className="search-clear-filters" onClick={resetFilters}>
-                        ✕ {t.search.clearFilters}
-                    </button>
-                )}
-            </div>
-        );
-    };
-
-    // Render active filter chips
-    const renderActiveFilters = () => {
-        if (!hasActiveFilters) return null;
-        return (
-            <div className="search-active-filters">
-                <span className="search-active-filter-label">{t.search.activeFilters}:</span>
-                {selectedInstitutions.map(inst => (
-                    <span key={inst} className="search-active-filter-chip">
-                        {inst}
-                        <span className="remove-filter" onClick={() => setSelectedInstitutions(prev => prev.filter(i => i !== inst))}>✕</span>
-                    </span>
-                ))}
-                {selectedTitles.map(title => (
-                    <span key={title} className="search-active-filter-chip">
-                        {title}
-                        <span className="remove-filter" onClick={() => setSelectedTitles(prev => prev.filter(i => i !== title))}>✕</span>
-                    </span>
-                ))}
-                {selectedTags.map(tag => (
-                    <span key={tag} className="search-active-filter-chip">
-                        {tag}
-                        <span className="remove-filter" onClick={() => setSelectedTags(prev => prev.filter(i => i !== tag))}>✕</span>
-                    </span>
-                ))}
-                {minRating > 0 && (
-                    <span className="search-active-filter-chip">
-                        ≥ {minRating}.0
-                        <span className="remove-filter" onClick={() => setMinRating(0)}>✕</span>
-                    </span>
-                )}
-                {sortBy !== 'default' && (
-                    <span className="search-active-filter-chip">
-                        {sortBy === 'newest' ? t.search.sortNewest : sortBy === 'oldest' ? t.search.sortOldest : sortBy === 'rating' ? t.search.sortHighestRating : t.search.sortMostCited}
-                        <span className="remove-filter" onClick={() => setSortBy('default')}>✕</span>
-                    </span>
-                )}
-            </div>
-        );
-    };
-
-    const renderPagination = (totalItems: number) => {
-        const totalPages = getTotalPages(totalItems);
-        if (totalPages <= 1) return null;
-
-        const startItem = (currentPage - 1) * ITEMS_PER_PAGE + 1;
-        const endItem = Math.min(currentPage * ITEMS_PER_PAGE, totalItems);
-
-        // Build page numbers with ellipsis
-        const pages: (number | string)[] = [];
-        if (totalPages <= 7) {
-            for (let i = 1; i <= totalPages; i++) pages.push(i);
-        } else {
-            pages.push(1);
-            if (currentPage > 3) pages.push('...');
-            for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
-                pages.push(i);
-            }
-            if (currentPage < totalPages - 2) pages.push('...');
-            pages.push(totalPages);
-        }
-
-        return (
-            <div className="search-pagination">
-                <span className="search-pagination-info">
-                    {startItem}-{endItem} / {totalItems}
-                </span>
-                <div className="search-pagination-controls">
-                    <button
-                        className="search-pagination-btn"
-                        onClick={() => handlePageChange(currentPage - 1)}
-                        disabled={currentPage === 1}
-                    >
-                        ‹ {t.search.previous}
-                    </button>
-                    {pages.map((page, idx) =>
-                        typeof page === 'string' ? (
-                            <span key={`ellipsis-${idx}`} className="search-pagination-ellipsis">...</span>
-                        ) : (
-                            <button
-                                key={page}
-                                className={`search-pagination-page ${currentPage === page ? 'active' : ''}`}
-                                onClick={() => handlePageChange(page)}
-                            >
-                                {page}
-                            </button>
-                        )
-                    )}
-                    <button
-                        className="search-pagination-btn"
-                        onClick={() => handlePageChange(currentPage + 1)}
-                        disabled={currentPage === totalPages}
-                    >
-                        {t.search.next} ›
-                    </button>
-                </div>
-            </div>
-        );
-    };
+    const handlePageReset = useCallback(() => setCurrentPage(1), []);
 
     return (
         <div className="search-container">
@@ -459,33 +249,42 @@ const SearchPage: React.FC = () => {
                         onClick={() => handleTabChange('users')}
                     >
                         {t.search.people}
-                        {searched && (
-                            <span className="search-tab-count">{totalUsers}</span>
-                        )}
+                        {searched && <span className="search-tab-count">{totalUsers}</span>}
                     </button>
                     <button
                         className={`search-tab ${activeTab === 'publications' ? 'active' : ''}`}
                         onClick={() => handleTabChange('publications')}
                     >
                         {t.search.publications}
-                        {searched && (
-                            <span className="search-tab-count">{totalPublications}</span>
-                        )}
+                        {searched && <span className="search-tab-count">{totalPublications}</span>}
                     </button>
                     <button
                         className={`search-tab ${activeTab === 'tags' ? 'active' : ''}`}
                         onClick={() => handleTabChange('tags')}
                     >
                         {t.search.tags}
-                        {searched && (
-                            <span className="search-tab-count">{totalTagPublications + totalTagUsers}</span>
-                        )}
+                        {searched && <span className="search-tab-count">{totalTagPublications + totalTagUsers}</span>}
                     </button>
                 </div>
 
                 {/* Filters */}
-                {renderFilters()}
-                {renderActiveFilters()}
+                {searched && (
+                    <SearchFilters
+                        activeTab={activeTab}
+                        filters={filterState}
+                        users={users}
+                        tagUsers={tagUsers}
+                        publications={publications}
+                        tagPublications={tagPublications}
+                        onInstitutionsChange={setSelectedInstitutions}
+                        onTitlesChange={setSelectedTitles}
+                        onTagsChange={setSelectedTags}
+                        onMinRatingChange={setMinRating}
+                        onSortByChange={setSortBy}
+                        onResetFilters={resetFilters}
+                        onPageReset={handlePageReset}
+                    />
+                )}
 
                 {/* Content */}
                 {loading ? (
@@ -511,40 +310,19 @@ const SearchPage: React.FC = () => {
                                     </div>
                                 ) : (
                                     <>
-                                        {paginate(filteredUsers).map((user) => (
-                                            <div
+                                        {filteredUsers.map(user => (
+                                            <SearchUserCard
                                                 key={user.id}
-                                                className="search-user-card"
-                                                onClick={() => navigate(`/profile/${user.id}`)}
-                                            >
-                                                {user.profileImageUrl ? (
-                                                    <img
-                                                        src={getImageUrl(user.profileImageUrl)!}
-                                                        alt={user.fullName}
-                                                        className="search-user-avatar"
-                                                    />
-                                                ) : (
-                                                    <div className="search-user-avatar-placeholder">
-                                                        {getInitials(user.fullName)}
-                                                    </div>
-                                                )}
-                                                <div className="search-user-info">
-                                                    <p className="search-user-name">
-                                                        {user.fullName}
-                                                        {user.isVerified && (
-                                                            <span className="search-user-verified">✓</span>
-                                                        )}
-                                                    </p>
-                                                    <p className="search-user-meta">
-                                                        {[user.title, user.institution]
-                                                            .filter(Boolean)
-                                                            .join(' • ') || 'User'}
-                                                    </p>
-                                                </div>
-                                                <span className="search-user-arrow">›</span>
-                                            </div>
+                                                user={user}
+                                                onClick={handleUserClick}
+                                            />
                                         ))}
-                                        {renderPagination(totalUsers)}
+                                        <SearchPagination
+                                            currentPage={currentPage}
+                                            totalItems={totalUsers}
+                                            itemsPerPage={ITEMS_PER_PAGE}
+                                            onPageChange={handlePageChange}
+                                        />
                                     </>
                                 )}
                             </>
@@ -560,69 +338,20 @@ const SearchPage: React.FC = () => {
                                     </div>
                                 ) : (
                                     <>
-                                        {paginate(filteredPublications).map((pub) => (
-                                            <div
+                                        {filteredPublications.map(pub => (
+                                            <SearchPublicationCard
                                                 key={pub.id}
-                                                className="search-pub-card"
-                                                onClick={() => setSelectedPublication(pub)}
-                                            >
-                                                <h3 className="search-pub-title">{pub.title}</h3>
-                                                {pub.abstract && (
-                                                    <p className="search-pub-abstract">
-                                                        {truncateAbstract(pub.abstract)}
-                                                    </p>
-                                                )}
-                                                <div className="search-pub-footer">
-                                                    <div
-                                                        className="search-pub-author"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            navigate(`/profile/${pub.author.id}`);
-                                                        }}
-                                                    >
-                                                        {pub.author.profileImageUrl ? (
-                                                            <img
-                                                                src={getImageUrl(pub.author.profileImageUrl)!}
-                                                                alt={pub.author.fullName}
-                                                                className="search-pub-author-avatar"
-                                                            />
-                                                        ) : (
-                                                            <div className="search-pub-author-placeholder">
-                                                                {getInitials(pub.author.fullName)}
-                                                            </div>
-                                                        )}
-                                                        <span>{pub.author.fullName}</span>
-                                                    </div>
-                                                    <div className="search-pub-stats">
-                                                        {pub.averageRating > 0 && (
-                                                            <span className="search-pub-stat">
-                                                                ⭐ {pub.averageRating.toFixed(1)}
-                                                            </span>
-                                                        )}
-                                                        {pub.citationCount > 0 && (
-                                                            <span className="search-pub-stat">
-                                                                Citations: {pub.citationCount}
-                                                            </span>
-                                                        )}
-                                                        {pub.saveCount > 0 && (
-                                                            <span className="search-pub-stat">
-                                                                {t.search.saved}: {pub.saveCount}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                                {pub.tags && pub.tags.length > 0 && (
-                                                    <div className="search-pub-tags">
-                                                        {pub.tags.map((tag, i) => (
-                                                            <span key={i} className="search-pub-tag">
-                                                                {tag}
-                                                            </span>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </div>
+                                                publication={pub}
+                                                onPublicationClick={handlePublicationClick}
+                                                onAuthorClick={handleAuthorClick}
+                                            />
                                         ))}
-                                        {renderPagination(totalPublications)}
+                                        <SearchPagination
+                                            currentPage={currentPage}
+                                            totalItems={totalPublications}
+                                            itemsPerPage={ITEMS_PER_PAGE}
+                                            onPageChange={handlePageChange}
+                                        />
                                     </>
                                 )}
                             </>
@@ -631,7 +360,7 @@ const SearchPage: React.FC = () => {
                         {/* Tags Tab */}
                         {activeTab === 'tags' && (
                             <>
-                                {tagTotalCount === 0 ? (
+                                {totalTagPublications + totalTagUsers === 0 ? (
                                     <div className="search-empty">
                                         <div className="search-empty-icon">{t.search.noTagsFound}</div>
                                         <h3>{t.search.noTagsFound}</h3>
@@ -639,67 +368,22 @@ const SearchPage: React.FC = () => {
                                     </div>
                                 ) : (
                                     <>
-                                        {/* Tag Publications */}
                                         {filteredTagPublications.length > 0 && (
                                             <div className="search-tag-section">
-                                                {paginate(filteredTagPublications).map((pub) => (
-                                                    <div
+                                                {filteredTagPublications.map(pub => (
+                                                    <SearchPublicationCard
                                                         key={pub.id}
-                                                        className="search-pub-card"
-                                                        onClick={() => setSelectedPublication(pub)}
-                                                    >
-                                                        <h3 className="search-pub-title">{pub.title}</h3>
-                                                        {pub.abstract && (
-                                                            <p className="search-pub-abstract">
-                                                                {truncateAbstract(pub.abstract)}
-                                                            </p>
-                                                        )}
-                                                        <div className="search-pub-footer">
-                                                            <div
-                                                                className="search-pub-author"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    navigate(`/profile/${pub.author.id}`);
-                                                                }}
-                                                            >
-                                                                {pub.author.profileImageUrl ? (
-                                                                    <img
-                                                                        src={getImageUrl(pub.author.profileImageUrl)!}
-                                                                        alt={pub.author.fullName}
-                                                                        className="search-pub-author-avatar"
-                                                                    />
-                                                                ) : (
-                                                                    <div className="search-pub-author-placeholder">
-                                                                        {getInitials(pub.author.fullName)}
-                                                                    </div>
-                                                                )}
-                                                                <span>{pub.author.fullName}</span>
-                                                            </div>
-                                                            <div className="search-pub-stats">
-                                                                {pub.averageRating > 0 && (
-                                                                    <span className="search-pub-stat">
-                                                                        ⭐ {pub.averageRating.toFixed(1)}
-                                                                    </span>
-                                                                )}
-                                                                {pub.citationCount > 0 && (
-                                                                    <span className="search-pub-stat">
-                                                                        {t.search.citations}: {pub.citationCount}
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                        {pub.tags && pub.tags.length > 0 && (
-                                                            <div className="search-pub-tags">
-                                                                {pub.tags.map((tag, i) => (
-                                                                    <span key={i} className="search-pub-tag">
-                                                                        {tag}
-                                                                    </span>
-                                                                ))}
-                                                            </div>
-                                                        )}
-                                                    </div>
+                                                        publication={pub}
+                                                        onPublicationClick={handlePublicationClick}
+                                                        onAuthorClick={handleAuthorClick}
+                                                    />
                                                 ))}
-                                                {renderPagination(totalTagPublications)}
+                                                <SearchPagination
+                                                    currentPage={currentPage}
+                                                    totalItems={totalTagPublications}
+                                                    itemsPerPage={ITEMS_PER_PAGE}
+                                                    onPageChange={handlePageChange}
+                                                />
                                             </div>
                                         )}
                                     </>
