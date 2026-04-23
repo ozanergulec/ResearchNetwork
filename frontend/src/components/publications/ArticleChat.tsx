@@ -228,7 +228,7 @@ export default function ArticleChat({
         try {
             const history = messages
                 .filter(m => m.content && (m.role === 'user' || m.role === 'assistant'))
-                .slice(-6)
+                .slice(-4)
                 .map(m => ({ role: m.role, content: m.content }));
             const res = await aiApi.askArticleQuestion(publicationId, q, history);
             const assistantMsg: ChatMessage = {

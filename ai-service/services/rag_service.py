@@ -324,12 +324,13 @@ class RagService:
     def _determine_top_k(self, total_chunks: int) -> int:
         """Pick a retrieval ``top_k`` adapted to the article size. Short
         articles use a smaller k (less noise); long ones use a larger k
-        (better coverage). Clamped to [3, 8]."""
+        (better coverage). Clamped to [3, 6] — keeping the ceiling tight
+        avoids blowing up context tokens on long articles."""
         if total_chunks <= 0:
             return settings.RAG_TOP_K
 
-        target = round(total_chunks * 0.3)
-        return max(3, min(8, target))
+        target = round(total_chunks * 0.25)
+        return max(3, min(6, target))
 
     def _search_chunks(
         self,
@@ -407,12 +408,12 @@ class RagService:
         messages: list[dict] = [
             {"role": "system", "content": RAG_SYSTEM_PROMPT}
         ]
-        # Cap the carried history to the last 6 turns (~3 Q&A pairs). Keeps
+        # Cap the carried history to the last 4 turns (~2 Q&A pairs). Keeps
         # the prompt small while giving the model enough context to resolve
         # short follow-ups like "peki amacı ne?".
         if history:
             trimmed = [h for h in history if h.get("role") in ("user", "assistant")]
-            for h in trimmed[-6:]:
+            for h in trimmed[-4:]:
                 messages.append({"role": h["role"], "content": h["content"]})
         messages.append({"role": "user", "content": user_prompt})
 
@@ -421,7 +422,9 @@ class RagService:
                 model=settings.GROQ_MODEL,
                 messages=messages,
                 temperature=0.2 if strict else 0.25,
-                max_tokens=2048,
+                # Typical RAG answers run 200–600 tokens; 1024 gives plenty
+                # of headroom while capping worst-case cost.
+                max_tokens=1024,
                 # A small first-try penalty reduces the odds of the model
                 # echoing the prompt template verbatim. Retry bumps it up.
                 frequency_penalty=0.35 if strict else 0.1,
@@ -447,10 +450,12 @@ class RagService:
     ) -> dict:
         """RAG pipeline: cache check → search → generate → cache save.
 
-        When ``history`` is non-empty, the semantic cache is bypassed (both
-        read and write) because the expected answer depends on prior turns
-        and reusing cached answers would be misleading or pollute future
-        unrelated follow-ups.
+        The cache is checked for every question (even follow-ups) — if the
+        current question text is very similar to a previously cached
+        standalone question for the same publication, we return that
+        cached answer. We still *skip caching* new answers when there's
+        history, to avoid polluting the cache with history-influenced
+        replies.
         """
         history = history or []
         has_history = bool(history)
@@ -467,6 +472,8 @@ class RagService:
             if last_user_msg and last_user_msg.get("content"):
                 retrieval_query = f"{last_user_msg['content']}\n{question}"
 
+        # 2. Embed the question once. Reuse that embedding for retrieval
+        #    when the retrieval query wasn't expanded by history.
         question_embedding = embedding_service.encode(question)
         retrieval_embedding = (
             embedding_service.encode(retrieval_query)
@@ -474,17 +481,19 @@ class RagService:
             else question_embedding
         )
 
-        # 2. Check cache — only for standalone questions.
-        if not has_history:
-            cached_answer = self._check_cache(publication_id, question_embedding)
-            if cached_answer:
-                return {
-                    "answer": cached_answer,
-                    "sources": [],
-                    "from_cache": True,
-                }
+        # 3. Semantic cache check — always run. The cache key is the
+        #    question embedding, so a near-identical repeat of an earlier
+        #    standalone question returns its cached answer regardless of
+        #    history, saving the whole LLM call.
+        cached_answer = self._check_cache(publication_id, question_embedding)
+        if cached_answer:
+            return {
+                "answer": cached_answer,
+                "sources": [],
+                "from_cache": True,
+            }
 
-        # 3. Find relevant chunks using an article-adaptive top_k.
+        # 4. Find relevant chunks using an article-adaptive top_k.
         total_chunks = self._get_publication_chunk_count(publication_id)
         top_k = self._determine_top_k(total_chunks)
         chunks = self._search_chunks(
@@ -497,7 +506,7 @@ class RagService:
                 "from_cache": False,
             }
 
-        # 4. Generate answer with LLM (with one strict retry on contamination)
+        # 5. Generate answer with LLM (with one strict retry on contamination)
         answer = self._generate_answer(question, chunks, history=history)
         if _is_answer_contaminated(answer):
             logger.warning(
@@ -508,9 +517,9 @@ class RagService:
                 question, chunks, history=history, strict=True
             )
 
-        # 5. Save to cache only for standalone questions AND only when the
-        #    answer is clean, so poisoned outputs never pollute future
-        #    semantic-cache hits.
+        # 6. Save to cache only for standalone questions AND only when the
+        #    answer is clean. History-influenced answers aren't cached so
+        #    future standalone repeats keep getting a "canonical" reply.
         if has_history:
             logger.debug(
                 f"Skipping cache save for publication {publication_id} "
@@ -524,7 +533,7 @@ class RagService:
         else:
             self._save_to_cache(publication_id, question, question_embedding, answer)
 
-        # 6. Return results
+        # 7. Return results
         sources = [
             {
                 "chunk_index": c["chunk_index"],
