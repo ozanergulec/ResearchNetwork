@@ -44,6 +44,23 @@ public class ReviewRequest
         CreatedAt = DateTime.UtcNow;
     }
 
+    /// <summary>
+    /// Creates a review request initiated by the publication author (invitation).
+    /// The reviewer only has to accept the invitation to start reviewing.
+    /// </summary>
+    public static ReviewRequest CreateInvitation(Guid publicationId, Guid reviewerId, string? message = null)
+    {
+        return new ReviewRequest
+        {
+            Id = Guid.NewGuid(),
+            PublicationId = publicationId,
+            ReviewerId = reviewerId,
+            Status = ReviewRequestStatus.Invited,
+            Message = message,
+            CreatedAt = DateTime.UtcNow
+        };
+    }
+
     public void Accept()
     {
         Status = ReviewRequestStatus.Accepted;
@@ -51,6 +68,25 @@ public class ReviewRequest
     }
 
     public void Reject()
+    {
+        Status = ReviewRequestStatus.Rejected;
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Reviewer accepts an author-sent invitation → moves directly to Accepted,
+    /// skipping any separate "application → approval" step.
+    /// </summary>
+    public void AcceptInvitation()
+    {
+        Status = ReviewRequestStatus.Accepted;
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Reviewer declines an author-sent invitation.
+    /// </summary>
+    public void DeclineInvitation()
     {
         Status = ReviewRequestStatus.Rejected;
         UpdatedAt = DateTime.UtcNow;

@@ -12,6 +12,8 @@ interface ReviewDetailModalProps {
     onSubmitReview: (requestId: string, pubTitle: string) => void;
     onAccept?: (requestId: string) => void;
     onReject?: (requestId: string) => void;
+    onAcceptInvitation?: (requestId: string) => void;
+    onDeclineInvitation?: (requestId: string) => void;
     onRated?: () => void;
 }
 
@@ -47,7 +49,8 @@ const StarRating: React.FC<{
 };
 
 const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({
-    request, canReview, viewAs = 'reviewer', onClose, onSubmitReview, onAccept, onReject, onRated
+    request, canReview, viewAs = 'reviewer', onClose, onSubmitReview, onAccept, onReject,
+    onAcceptInvitation, onDeclineInvitation, onRated
 }) => {
     const navigate = useNavigate();
     const isAuthorView = viewAs === 'author';
@@ -100,6 +103,7 @@ const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({
     };
 
     const alreadyRated = request.reviewScore !== null && request.reviewScore !== undefined;
+    const isInvitation = liveRequest.status === 'Invited';
 
     return (
         <div className="pr-modal-overlay" onClick={onClose}>
@@ -136,15 +140,17 @@ const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({
 
                 <div className="pr-detail-divider" />
 
-                {/* Application Details */}
+                {/* Details */}
                 <div className="pr-detail-section">
-                    <h4 className="pr-detail-section-title">Application Details</h4>
+                    <h4 className="pr-detail-section-title">
+                        {isInvitation ? 'Invitation Details' : 'Application Details'}
+                    </h4>
                     <div className="pr-detail-row">
                         <span className="pr-detail-label">Status</span>
                         <span>{renderStatus(liveRequest.status)}</span>
                     </div>
                     <div className="pr-detail-row">
-                        <span className="pr-detail-label">Applied</span>
+                        <span className="pr-detail-label">{isInvitation ? 'Invited' : 'Applied'}</span>
                         <span className="pr-detail-value">{formatDate(liveRequest.createdAt)}</span>
                     </div>
                     {liveRequest.updatedAt && (
@@ -155,13 +161,15 @@ const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({
                     )}
                 </div>
 
-                {/* Application Message */}
+                {/* Message */}
                 {liveRequest.message && (
                     <>
                         <div className="pr-detail-divider" />
                         <div className="pr-detail-section">
                             <h4 className="pr-detail-section-title">
-                                {isAuthorView ? 'Application Message' : 'Your Application Message'}
+                                {isInvitation
+                                    ? (isAuthorView ? 'Invitation Message' : 'Invitation from Author')
+                                    : (isAuthorView ? 'Application Message' : 'Your Application Message')}
                             </h4>
                             <div className="pr-detail-message">"{liveRequest.message}"</div>
                         </div>
@@ -242,7 +250,7 @@ const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({
                 {/* Actions */}
                 <div className="pr-detail-divider" />
                 <div className="pr-detail-actions">
-                    {/* Author view: accept/reject pending requests */}
+                    {/* Author view: accept/reject pending applications */}
                     {isAuthorView && liveRequest.status === 'Pending' && onAccept && onReject && (
                         <>
                             <button
@@ -256,6 +264,23 @@ const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({
                                 onClick={() => { onReject(liveRequest.id); onClose(); }}
                             >
                                 Reject
+                            </button>
+                        </>
+                    )}
+                    {/* Reviewer view: accept/decline invitation */}
+                    {!isAuthorView && isInvitation && canReview && onAcceptInvitation && onDeclineInvitation && (
+                        <>
+                            <button
+                                className="pr-btn pr-btn-success"
+                                onClick={() => { onAcceptInvitation(liveRequest.id); onClose(); }}
+                            >
+                                Accept Invitation
+                            </button>
+                            <button
+                                className="pr-btn pr-btn-danger"
+                                onClick={() => { onDeclineInvitation(liveRequest.id); onClose(); }}
+                            >
+                                Decline
                             </button>
                         </>
                     )}

@@ -453,7 +453,8 @@ public class ReviewController : ControllerBase
     // ==================== INVITE REVIEWER ====================
 
     /// <summary>
-    /// Send a review invitation notification to a suggested reviewer
+    /// Author invites a reviewer directly. Creates a ReviewRequest in the "Invited" state —
+    /// the reviewer only needs to accept the invitation to start reviewing (no separate apply step).
     /// </summary>
     [Authorize]
     [HttpPost("publication/{publicationId:guid}/invite-reviewer")]
@@ -465,6 +466,9 @@ public class ReviewController : ControllerBase
         var publication = await _publicationRepository.GetByIdAsync(publicationId);
         if (publication == null) return NotFound("Publication not found.");
         if (publication.AuthorId != userId.Value) return Forbid();
+
+        if (dto.ReviewerId == userId.Value)
+            return BadRequest("You cannot invite yourself.");
 
         var reviewer = await _userRepository.GetByIdBasicAsync(dto.ReviewerId);
         if (reviewer == null) return NotFound("Reviewer not found.");
@@ -488,17 +492,21 @@ public class ReviewController : ControllerBase
             .GetReviewContextForPublicationAsync(publicationId, dto.ReviewerId);
         bool isRecommended = completedReviews > 0;
 
-        string title = isRecommended ? "Recommended: Review Invitation" : "Review Invitation";
-        string message = isRecommended
+        string invitationMessage = isRecommended
             ? $"{author?.FullName} invites you to review \"{publication.Title}\". You are recommended based on your past reviews in this field."
             : $"{author?.FullName} invites you to review \"{publication.Title}\". Your expertise matches the publication's topics.";
 
+        // Create the Invited ReviewRequest so the reviewer can accept it directly.
+        var reviewRequest = ReviewRequest.CreateInvitation(publicationId, dto.ReviewerId, invitationMessage);
+        await _reviewRepository.CreateAsync(reviewRequest);
+
+        string title = isRecommended ? "Recommended: Review Invitation" : "Review Invitation";
         var notification = new Notification(
             dto.ReviewerId,
             title,
-            message,
+            invitationMessage,
             NotificationType.ReviewerSuggested,
-            $"/peer-review?tab=browse&highlight={publicationId}",
+            $"/peer-review?tab=my-applications&highlight={publicationId}",
             userId.Value,
             author?.FullName,
             author?.ProfileImageUrl
@@ -508,6 +516,85 @@ public class ReviewController : ControllerBase
         await PushNotificationAsync(dto.ReviewerId, notification);
 
         return Ok(new { message = "Invitation sent successfully.", isRecommended });
+    }
+
+    // ==================== INVITATION RESPONSE (REVIEWER SIDE) ====================
+
+    /// <summary>
+    /// Reviewer accepts an author-sent invitation. Status goes straight to Accepted,
+    /// so the reviewer can submit a review without an additional approval step.
+    /// </summary>
+    [Authorize]
+    [HttpPut("{requestId:guid}/accept-invitation")]
+    public async Task<ActionResult> AcceptInvitation(Guid requestId)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+
+        var request = await _reviewRepository.GetByIdAsync(requestId);
+        if (request == null) return NotFound("Review request not found.");
+
+        if (request.ReviewerId != userId.Value) return Forbid();
+        if (request.Status != ReviewRequestStatus.Invited)
+            return BadRequest("This request is not a pending invitation.");
+
+        request.AcceptInvitation();
+        await _reviewRepository.UpdateAsync(request);
+
+        var reviewer = await _userRepository.GetByIdBasicAsync(userId.Value);
+        var notification = new Notification(
+            request.Publication.AuthorId,
+            "Review Invitation Accepted",
+            $"{reviewer?.FullName} accepted your invitation to review \"{request.Publication.Title}\".",
+            NotificationType.ReviewAccepted,
+            $"/peer-review?tab=my-publications&highlight={request.PublicationId}",
+            userId.Value,
+            reviewer?.FullName,
+            reviewer?.ProfileImageUrl
+        );
+        await _notificationRepository.AddAsync(notification);
+
+        await PushNotificationAsync(request.Publication.AuthorId, notification);
+
+        return Ok(new { message = "Invitation accepted." });
+    }
+
+    /// <summary>
+    /// Reviewer declines an author-sent invitation.
+    /// </summary>
+    [Authorize]
+    [HttpPut("{requestId:guid}/decline-invitation")]
+    public async Task<ActionResult> DeclineInvitation(Guid requestId)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+
+        var request = await _reviewRepository.GetByIdAsync(requestId);
+        if (request == null) return NotFound("Review request not found.");
+
+        if (request.ReviewerId != userId.Value) return Forbid();
+        if (request.Status != ReviewRequestStatus.Invited)
+            return BadRequest("This request is not a pending invitation.");
+
+        request.DeclineInvitation();
+        await _reviewRepository.UpdateAsync(request);
+
+        var reviewer = await _userRepository.GetByIdBasicAsync(userId.Value);
+        var notification = new Notification(
+            request.Publication.AuthorId,
+            "Review Invitation Declined",
+            $"{reviewer?.FullName} declined your invitation to review \"{request.Publication.Title}\".",
+            NotificationType.General,
+            $"/peer-review?tab=my-publications&highlight={request.PublicationId}",
+            userId.Value,
+            reviewer?.FullName,
+            reviewer?.ProfileImageUrl
+        );
+        await _notificationRepository.AddAsync(notification);
+
+        await PushNotificationAsync(request.Publication.AuthorId, notification);
+
+        return Ok(new { message = "Invitation declined." });
     }
 
     private async Task UpdateReviewerAvgScore(Guid reviewerId)

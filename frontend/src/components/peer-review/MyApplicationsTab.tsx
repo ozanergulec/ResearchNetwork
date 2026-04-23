@@ -8,19 +8,29 @@ interface MyApplicationsTabProps {
     myRequests: ReviewRequest[];
     canReview: boolean;
     onSubmitReview: (requestId: string, pubTitle: string) => void;
+    onAcceptInvitation: (requestId: string) => void;
+    onDeclineInvitation: (requestId: string) => void;
     highlightPubId?: string | null;
 }
 
-const MyApplicationsTab: React.FC<MyApplicationsTabProps> = ({ myRequests, canReview, onSubmitReview, highlightPubId }) => {
+const MyApplicationsTab: React.FC<MyApplicationsTabProps> = ({
+    myRequests,
+    canReview,
+    onSubmitReview,
+    onAcceptInvitation,
+    onDeclineInvitation,
+    highlightPubId
+}) => {
     const navigate = useNavigate();
     const [selectedRequest, setSelectedRequest] = useState<ReviewRequest | null>(null);
     const highlightRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
         if (highlightPubId && highlightRef.current) {
-            setTimeout(() => {
+            const timer = window.setTimeout(() => {
                 highlightRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }, 300);
+            return () => window.clearTimeout(timer);
         }
     }, [highlightPubId, myRequests]);
 
@@ -38,16 +48,22 @@ const MyApplicationsTab: React.FC<MyApplicationsTabProps> = ({ myRequests, canRe
         <>
             {myRequests.map(req => {
                 const isHighlighted = highlightPubId === req.publicationId;
+                const isInvitation = req.status === 'Invited';
                 return (
                     <div
                         key={req.id}
                         ref={isHighlighted ? highlightRef : undefined}
-                        className={`pr-request-card pr-request-card-clickable ${isHighlighted ? 'pr-pub-highlight' : ''}`}
+                        className={`pr-request-card pr-request-card-clickable ${isHighlighted ? 'pr-pub-highlight' : ''} ${isInvitation ? 'pr-request-card-invited' : ''}`}
                         onClick={() => setSelectedRequest(req)}
                     >
                         <div className="pr-request-header">
                             <div>
-                                <div className="pr-request-pub-title">{req.publicationTitle}</div>
+                                <div className="pr-request-pub-title">
+                                    {isInvitation && (
+                                        <span className="pr-invitation-badge">Invitation</span>
+                                    )}
+                                    {req.publicationTitle}
+                                </div>
                                 <div className="pr-pub-author" onClick={(e) => { e.stopPropagation(); navigate(`/profile/${req.author.id}`); }} style={{ cursor: 'pointer', marginTop: '0.25rem' }}>
                                     {renderAvatar(req.author.fullName, req.author.profileImageUrl, 22)}
                                     <span style={{ fontSize: '0.8rem' }}>by {req.author.fullName}</span>
@@ -55,6 +71,22 @@ const MyApplicationsTab: React.FC<MyApplicationsTabProps> = ({ myRequests, canRe
                             </div>
                             <div className="pr-request-actions" onClick={e => e.stopPropagation()}>
                                 {renderStatus(req.status)}
+                                {isInvitation && canReview && (
+                                    <>
+                                        <button
+                                            className="pr-btn pr-btn-success pr-btn-sm"
+                                            onClick={() => onAcceptInvitation(req.id)}
+                                        >
+                                            Accept Invitation
+                                        </button>
+                                        <button
+                                            className="pr-btn pr-btn-outline pr-btn-sm"
+                                            onClick={() => onDeclineInvitation(req.id)}
+                                        >
+                                            Decline
+                                        </button>
+                                    </>
+                                )}
                                 {req.status === 'Accepted' && canReview && (
                                     <button
                                         className="pr-btn pr-btn-primary pr-btn-sm"
@@ -83,6 +115,8 @@ const MyApplicationsTab: React.FC<MyApplicationsTabProps> = ({ myRequests, canRe
                     canReview={canReview}
                     onClose={() => setSelectedRequest(null)}
                     onSubmitReview={onSubmitReview}
+                    onAcceptInvitation={onAcceptInvitation}
+                    onDeclineInvitation={onDeclineInvitation}
                 />
             )}
         </>

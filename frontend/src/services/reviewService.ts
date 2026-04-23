@@ -8,7 +8,7 @@ export interface ReviewRequest {
     publicationTitle: string;
     author: UserSummary;
     reviewer: UserSummary;
-    status: 'Pending' | 'Accepted' | 'Completed' | 'Rejected';
+    status: 'Pending' | 'Accepted' | 'Completed' | 'Rejected' | 'Invited';
     message: string | null;
     reviewComment: string | null;
     verdict: 'Approve' | 'MinorRevision' | 'MajorRevision' | 'Reject' | null;
@@ -117,7 +117,15 @@ export const reviewApi = {
     suggestReviewers: (publicationId: string) =>
         api.get<SuggestedReviewer[]>(`/ai/publications/${publicationId}/suggest-reviewers`),
 
-    // Send review invitation to a suggested reviewer
+    // Send review invitation to a suggested reviewer (creates an Invited ReviewRequest)
     inviteReviewer: (publicationId: string, reviewerId: string) =>
         api.post<{ message: string; isRecommended: boolean }>(`/review/publication/${publicationId}/invite-reviewer`, { reviewerId }),
+
+    // Reviewer accepts an author-sent invitation (status goes straight to Accepted)
+    acceptInvitation: (requestId: string) =>
+        api.put<{ message: string }>(`/review/${requestId}/accept-invitation`),
+
+    // Reviewer declines an author-sent invitation
+    declineInvitation: (requestId: string) =>
+        api.put<{ message: string }>(`/review/${requestId}/decline-invitation`),
 };

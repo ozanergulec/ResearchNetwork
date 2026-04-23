@@ -164,6 +164,33 @@ const PeerReviewPage: React.FC = () => {
         if (activeTab === 'my-applications') fetchMyRequests();
     }, [activeTab, fetchMyRequests]);
 
+    const handleAcceptInvitation = useCallback(async (requestId: string) => {
+        try {
+            await reviewApi.acceptInvitation(requestId);
+            // Locally flip the status to Accepted so the reviewer can submit right away.
+            setMyRequests(prev => prev.map(r =>
+                r.id === requestId
+                    ? { ...r, status: 'Accepted', updatedAt: new Date().toISOString() }
+                    : r
+            ));
+        } catch (err) {
+            console.error('Failed to accept invitation', err);
+        }
+    }, []);
+
+    const handleDeclineInvitation = useCallback(async (requestId: string) => {
+        try {
+            await reviewApi.declineInvitation(requestId);
+            setMyRequests(prev => prev.map(r =>
+                r.id === requestId
+                    ? { ...r, status: 'Rejected', updatedAt: new Date().toISOString() }
+                    : r
+            ));
+        } catch (err) {
+            console.error('Failed to decline invitation', err);
+        }
+    }, []);
+
     return (
         <div className="peer-review-page">
             <Navbar currentPage="peer-review" />
@@ -224,6 +251,8 @@ const PeerReviewPage: React.FC = () => {
                                 myRequests={myRequests}
                                 canReview={canReview}
                                 onSubmitReview={handleOpenSubmit}
+                                onAcceptInvitation={handleAcceptInvitation}
+                                onDeclineInvitation={handleDeclineInvitation}
                                 highlightPubId={highlightPubId}
                             />
                         )}
