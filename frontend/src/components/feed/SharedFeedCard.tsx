@@ -311,7 +311,6 @@ const SharedFeedCard: React.FC<SharedFeedCardProps> = ({ sharedPublication, onDe
                         {/* Stats */}
                         <div className="shared-feed-nested-stats">
                             <span>⭐ {publication.averageRating.toFixed(1)}</span>
-                            <span>📄 {publication.citationCount} citations</span>
                             <span>🔖 {publication.saveCount} saves</span>
                             <span>🔄 {publication.shareCount} shares</span>
                         </div>
