@@ -12,16 +12,26 @@ class SignalRService {
     private listeners: Map<string, Set<EventCallback>> = new Map();
     private started = false;
 
+    private currentToken: string | null = null;
+
     /**
      * Start the SignalR connection if not already connected.
+     * If the token has changed (different user logged in), reconnect.
      */
     async start(): Promise<void> {
-        if (this.started && this.connection?.state === signalR.HubConnectionState.Connected) {
-            return;
-        }
-
         const token = localStorage.getItem('token');
         if (!token) return;
+
+        // If already connected with the same token, skip
+        if (this.started && this.connection?.state === signalR.HubConnectionState.Connected) {
+            if (this.currentToken === token) {
+                return;
+            }
+            // Token changed (different user) — disconnect old connection first
+            await this.stop();
+        }
+
+        this.currentToken = token;
 
         this.connection = new signalR.HubConnectionBuilder()
             .withUrl(`${API_SERVER_URL}/hubs/notifications`, {
@@ -70,6 +80,7 @@ class SignalRService {
             await this.connection.stop();
             this.connection = null;
             this.started = false;
+            this.currentToken = null;
         }
     }
 

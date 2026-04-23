@@ -85,22 +85,30 @@ const NotificationsPage: React.FC = () => {
         fetchNotifications();
     }, []);
 
+    // Dispatch custom event to update Navbar badge immediately
+    const dispatchUnreadCount = useCallback((count: number) => {
+        window.dispatchEvent(new CustomEvent('notificationCountUpdated', { detail: count }));
+    }, []);
+
     const handleMarkAllAsRead = useCallback(async () => {
         try {
             await notificationApi.markAllAsRead();
             setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+            dispatchUnreadCount(0);
         } catch (err) {
             console.error('Failed to mark all as read', err);
         }
-    }, []);
+    }, [dispatchUnreadCount]);
 
     const handleNotificationClick = useCallback(async (notification: NotificationData) => {
         if (!notification.isRead) {
             try {
                 await notificationApi.markAsRead(notification.id);
-                setNotifications(prev =>
-                    prev.map(n => n.id === notification.id ? { ...n, isRead: true } : n)
-                );
+                setNotifications(prev => {
+                    const updated = prev.map(n => n.id === notification.id ? { ...n, isRead: true } : n);
+                    dispatchUnreadCount(updated.filter(n => !n.isRead).length);
+                    return updated;
+                });
             } catch (err) {
                 console.error('Failed to mark as read', err);
             }
@@ -108,17 +116,21 @@ const NotificationsPage: React.FC = () => {
         if (notification.targetUrl) {
             navigate(notification.targetUrl);
         }
-    }, [navigate]);
+    }, [navigate, dispatchUnreadCount]);
 
     const handleDelete = useCallback(async (e: React.MouseEvent, id: string) => {
         e.stopPropagation();
         try {
             await notificationApi.deleteNotification(id);
-            setNotifications(prev => prev.filter(n => n.id !== id));
+            setNotifications(prev => {
+                const updated = prev.filter(n => n.id !== id);
+                dispatchUnreadCount(updated.filter(n => !n.isRead).length);
+                return updated;
+            });
         } catch (err) {
             console.error('Failed to delete notification', err);
         }
-    }, []);
+    }, [dispatchUnreadCount]);
 
     const getTimeAgo = useCallback((dateStr: string): string => {
         const date = new Date(dateStr);

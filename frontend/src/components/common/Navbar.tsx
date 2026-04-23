@@ -34,6 +34,7 @@ const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
     const menuBtnRef = useRef<HTMLButtonElement>(null);
 
     const handleLogout = () => {
+        signalRService.stop();
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         navigate('/login');
@@ -125,9 +126,17 @@ const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
         signalRService.on('UpdateUnreadCount', handleUnreadCount);
         signalRService.on('UpdateMessageUnreadCount', handleMessageUnreadCount);
 
+        // Also listen for direct updates from other components (e.g., NotificationsPage)
+        const handleCustomEvent = (e: Event) => {
+            const count = (e as CustomEvent<number>).detail;
+            setUnreadCount(count);
+        };
+        window.addEventListener('notificationCountUpdated', handleCustomEvent);
+
         return () => {
             signalRService.off('UpdateUnreadCount', handleUnreadCount);
             signalRService.off('UpdateMessageUnreadCount', handleMessageUnreadCount);
+            window.removeEventListener('notificationCountUpdated', handleCustomEvent);
         };
     }, []);
 
