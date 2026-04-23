@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using ResearchNetwork.Application.DTOs;
 using ResearchNetwork.Application.Interfaces;
 using ResearchNetwork.Domain.Entities;
 using ResearchNetwork.Infrastructure.Data;
@@ -16,50 +17,111 @@ public class MessageRepository : IMessageRepository
 
     public async Task<(IEnumerable<Message> Messages, int TotalCount)> GetConversationAsync(Guid userId1, Guid userId2, int page, int pageSize)
     {
-        var query = _context.Messages
-            .Include(m => m.Sender)
-            .Include(m => m.Receiver)
-            .Include(m => m.AttachedPublication)
-                .ThenInclude(p => p != null ? p.Author : null)
+        var baseQuery = _context.Messages
+            .AsNoTracking()
             .Where(m =>
                 (m.SenderId == userId1 && m.ReceiverId == userId2) ||
                 (m.SenderId == userId2 && m.ReceiverId == userId1));
 
-        var totalCount = await query.CountAsync();
+        var totalCount = await baseQuery.CountAsync();
 
-        // En yeni mesajlardan page kadar atla, sonra sırala (eski→yeni)
-        var messages = await query
+        var messages = await baseQuery
+            .Include(m => m.Sender)
+            .Include(m => m.Receiver)
+            .Include(m => m.AttachedPublication)
+                .ThenInclude(p => p!.Author)
             .OrderByDescending(m => m.SentAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .OrderBy(m => m.SentAt)
             .ToListAsync();
+
+        messages.Reverse();
 
         return (messages, totalCount);
     }
 
-    public async Task<IEnumerable<(Guid OtherUserId, Message LastMessage, int UnreadCount)>> GetConversationsAsync(Guid userId)
+    public async Task<IEnumerable<ConversationSummary>> GetConversationsAsync(Guid userId)
     {
-        var messages = await _context.Messages
-            .Include(m => m.Sender)
-            .Include(m => m.Receiver)
+        var stats = await _context.Messages
+            .AsNoTracking()
             .Where(m => m.SenderId == userId || m.ReceiverId == userId)
-            .OrderByDescending(m => m.SentAt)
+            .GroupBy(m => m.SenderId == userId ? m.ReceiverId : m.SenderId)
+            .Select(g => new
+            {
+                OtherUserId = g.Key,
+                UnreadCount = g.Count(x => x.ReceiverId == userId && !x.IsRead),
+                LastMessageAt = g.Max(x => x.SentAt)
+            })
             .ToListAsync();
 
-        var conversations = messages
-            .GroupBy(m => m.SenderId == userId ? m.ReceiverId : m.SenderId)
-            .Select(g =>
+        if (stats.Count == 0)
+            return [];
+
+        var otherUserIds = stats.Select(s => s.OtherUserId).ToHashSet();
+        var latestTimestamps = stats.Select(s => s.LastMessageAt).Distinct().ToList();
+
+        var users = await _context.Users
+            .AsNoTracking()
+            .Where(u => otherUserIds.Contains(u.Id))
+            .Select(u => new
             {
-                var otherUserId = g.Key;
-                var lastMessage = g.First();
-                var unreadCount = g.Count(m => m.ReceiverId == userId && !m.IsRead);
-                return (otherUserId, lastMessage, unreadCount);
+                u.Id,
+                u.FullName,
+                u.ProfileImageUrl,
+                u.IsVerified,
+                u.Title,
+                u.Institution
             })
-            .OrderByDescending(c => c.lastMessage.SentAt)
+            .ToDictionaryAsync(u => u.Id);
+
+        var latestMessageCandidates = await _context.Messages
+            .AsNoTracking()
+            .Where(m =>
+                (m.SenderId == userId || m.ReceiverId == userId) &&
+                latestTimestamps.Contains(m.SentAt))
+            .Select(m => new
+            {
+                m.Id,
+                OtherUserId = m.SenderId == userId ? m.ReceiverId : m.SenderId,
+                m.Content,
+                m.AttachedPublicationId,
+                m.SentAt
+            })
+            .ToListAsync();
+
+        var latestMessagesByConversation = latestMessageCandidates
+            .GroupBy(m => m.OtherUserId)
+            .ToDictionary(
+                g => g.Key,
+                g => g
+                    .OrderByDescending(x => x.SentAt)
+                    .ThenByDescending(x => x.Id)
+                    .First()
+            );
+
+        var result = stats
+            .Where(s => users.ContainsKey(s.OtherUserId) && latestMessagesByConversation.ContainsKey(s.OtherUserId))
+            .Select(s =>
+            {
+                var user = users[s.OtherUserId];
+                var last = latestMessagesByConversation[s.OtherUserId];
+                return new ConversationSummary(
+                    s.OtherUserId,
+                    user.FullName,
+                    user.ProfileImageUrl,
+                    user.IsVerified,
+                    user.Title,
+                    user.Institution,
+                    last.Content ?? string.Empty,
+                    last.AttachedPublicationId != null,
+                    s.LastMessageAt,
+                    s.UnreadCount
+                );
+            })
+            .OrderByDescending(c => c.LastMessageAt)
             .ToList();
 
-        return conversations;
+        return result;
     }
 
     public async Task<Message> SendAsync(Message message)
@@ -71,14 +133,10 @@ public class MessageRepository : IMessageRepository
 
     public async Task MarkConversationAsReadAsync(Guid currentUserId, Guid otherUserId)
     {
-        var unread = await _context.Messages
+        await _context.Messages
             .Where(m => m.SenderId == otherUserId && m.ReceiverId == currentUserId && !m.IsRead)
-            .ToListAsync();
-
-        foreach (var msg in unread)
-            msg.MarkAsRead();
-
-        await _context.SaveChangesAsync();
+            .ExecuteUpdateAsync(setters =>
+                setters.SetProperty(m => m.IsRead, true));
     }
 
     public async Task<int> GetTotalUnreadCountAsync(Guid userId)

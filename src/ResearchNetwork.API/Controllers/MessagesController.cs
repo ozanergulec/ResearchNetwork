@@ -63,28 +63,24 @@ public class MessagesController : ControllerBase
 
         var conversations = await _messageRepository.GetConversationsAsync(userId.Value);
 
-        var result = new List<ConversationDto>();
-        foreach (var (otherUserId, lastMessage, unreadCount) in conversations)
+        var result = conversations.Select(c =>
         {
-            var otherUser = await _userRepository.GetByIdAsync(otherUserId);
-            if (otherUser == null) continue;
-
-            var lastMsgText = lastMessage.AttachedPublicationId.HasValue && string.IsNullOrWhiteSpace(lastMessage.Content)
+            var lastMsgText = c.LastMessageHasAttachment && string.IsNullOrWhiteSpace(c.LastMessage)
                 ? "📎 Publication attached"
-                : lastMessage.Content;
+                : c.LastMessage;
 
-            result.Add(new ConversationDto(
-                otherUser.Id,
-                otherUser.FullName,
-                otherUser.ProfileImageUrl,
-                otherUser.IsVerified,
-                otherUser.Title,
-                otherUser.Institution,
+            return new ConversationDto(
+                c.OtherUserId,
+                c.OtherUserName,
+                c.OtherUserProfileImageUrl,
+                c.OtherUserIsVerified,
+                c.OtherUserTitle,
+                c.OtherUserInstitution,
                 lastMsgText,
-                lastMessage.SentAt,
-                unreadCount
-            ));
-        }
+                c.LastMessageAt,
+                c.UnreadCount
+            );
+        });
 
         return Ok(result);
     }
@@ -104,7 +100,8 @@ public class MessagesController : ControllerBase
 
         var (messages, totalCount) = await _messageRepository.GetConversationAsync(userId.Value, otherUserId, page, pageSize);
 
-        await _messageRepository.MarkConversationAsReadAsync(userId.Value, otherUserId);
+        if (page == 1)
+            await _messageRepository.MarkConversationAsReadAsync(userId.Value, otherUserId);
 
         var dtos = messages.Select(m => new MessageDto(
             m.Id,

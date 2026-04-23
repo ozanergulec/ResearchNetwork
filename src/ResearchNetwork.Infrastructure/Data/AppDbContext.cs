@@ -263,6 +263,8 @@ public class AppDbContext : DbContext
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Content).IsRequired().HasMaxLength(2000);
+            entity.HasIndex(e => new { e.SenderId, e.ReceiverId, e.SentAt });
+            entity.HasIndex(e => new { e.ReceiverId, e.IsRead, e.SentAt });
 
             entity.HasOne(e => e.Sender)
                   .WithMany()

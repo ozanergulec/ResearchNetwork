@@ -10,6 +10,7 @@ import { messageApi, type ConversationData, type MessageData } from '../services
 import { usersApi } from '../services/userService';
 import { publicationsApi, type Publication, type UserSummary } from '../services/publicationService';
 import { searchApi } from '../services/searchService';
+import signalRService from '../services/signalRService';
 import { useTranslation } from '../translations/translations';
 import '../styles/pages/MessagesPage.css';
 
@@ -89,36 +90,18 @@ const MessagesPage: React.FC = () => {
 
     // Refs
     const messagesEndRef = useRef<HTMLDivElement>(null);
-    const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const searchInputRef = useRef<HTMLInputElement>(null);
     const attachPickerRef = useRef<HTMLDivElement>(null);
+    const shouldAutoScrollRef = useRef(true);
+    const publicationsCacheRef = useRef<Map<string, { mine: Publication[]; theirs: Publication[] }>>(new Map());
 
     const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-
-    // --- Init ---
-    useEffect(() => {
-        const token = localStorage.getItem('token');
-        if (!token) { navigate('/login'); return; }
-        fetchConversations();
-        const initUserId = searchParams.get('userId');
-        if (initUserId) setSelectedUserId(initUserId);
-    }, []);
-
-    useEffect(() => {
-        if (selectedUserId) {
-            fetchMessages(selectedUserId);
-            startPolling(selectedUserId);
-        }
-        return () => stopPolling();
-    }, [selectedUserId]);
-
-    useEffect(() => { scrollToBottom(); }, [messages]);
 
     // --- Data fetching ---
     const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
 
-    const fetchConversations = async () => {
+    const fetchConversations = useCallback(async () => {
         try {
             const res = await messageApi.getConversations();
             setConversations(res.data);
@@ -127,7 +110,7 @@ const MessagesPage: React.FC = () => {
         } finally {
             setLoadingConversations(false);
         }
-    };
+    }, []);
 
     const fetchMessages = useCallback(async (userId: string) => {
         setLoadingMessages(true);
@@ -146,9 +129,32 @@ const MessagesPage: React.FC = () => {
         }
     }, []);
 
+    // --- Init ---
+    useEffect(() => {
+        const token = localStorage.getItem('token');
+        if (!token) { navigate('/login'); return; }
+        fetchConversations();
+        const initUserId = searchParams.get('userId');
+        if (initUserId) setSelectedUserId(initUserId);
+    }, [fetchConversations, navigate, searchParams]);
+
+    useEffect(() => {
+        if (selectedUserId) {
+            fetchMessages(selectedUserId);
+        }
+    }, [fetchMessages, selectedUserId]);
+
+    useEffect(() => {
+        if (shouldAutoScrollRef.current) {
+            scrollToBottom();
+        }
+        shouldAutoScrollRef.current = true;
+    }, [messages]);
+
     const loadOlderMessages = async () => {
         if (!selectedUserId || loadingOlder || !hasMore) return;
         setLoadingOlder(true);
+        shouldAutoScrollRef.current = false;
         const nextPage = currentPage + 1;
         const container = chatContainerRef.current;
         const prevScrollHeight = container?.scrollHeight ?? 0;
@@ -167,28 +173,38 @@ const MessagesPage: React.FC = () => {
         }
     };
 
-    const pollMessages = useCallback(async (userId: string) => {
-        try {
-            const res = await messageApi.getConversation(userId, 1, 30);
-            const latestItems = res.data.items;
-            setMessages(prev => {
-                const existingIds = new Set(prev.map(m => m.id));
-                const newMsgs = latestItems.filter(m => !existingIds.has(m.id));
-                if (newMsgs.length === 0) return prev;
-                return [...prev, ...newMsgs];
-            });
+    useEffect(() => {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        const handleReceiveMessage = (msg: MessageData) => {
+            if (!selectedUserId) {
+                fetchConversations();
+                return;
+            }
+
+            const belongsToActiveConversation =
+                (msg.senderId === selectedUserId && msg.receiverId === currentUser.id) ||
+                (msg.receiverId === selectedUserId && msg.senderId === currentUser.id);
+
+            if (belongsToActiveConversation) {
+                setMessages(prev => {
+                    const exists = prev.some(m => m.id === msg.id);
+                    if (exists) return prev;
+                    return [...prev, msg];
+                });
+
+                if (msg.senderId === selectedUserId) {
+                    messageApi.markAsRead(selectedUserId).catch(() => {});
+                }
+            }
+
             fetchConversations();
-        } catch { /* silent */ }
-    }, []);
+        };
 
-    const startPolling = (userId: string) => {
-        stopPolling();
-        pollingRef.current = setInterval(() => pollMessages(userId), 5000);
-    };
-
-    const stopPolling = () => {
-        if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
-    };
+        signalRService.on('ReceiveMessage', handleReceiveMessage);
+        return () => signalRService.off('ReceiveMessage', handleReceiveMessage);
+    }, [selectedUserId, currentUser.id, fetchConversations]);
 
     // --- Handlers ---
     const handleSelectConversation = (userId: string) => setSelectedUserId(userId);
@@ -247,6 +263,12 @@ const MessagesPage: React.FC = () => {
         setShowAttachPicker(true);
         setAttachSearch('');
         setAttachTab('mine');
+        const cached = publicationsCacheRef.current.get(selectedUserId);
+        if (cached) {
+            setMyPublications(cached.mine);
+            setTheirPublications(cached.theirs);
+            return;
+        }
         setLoadingPubs(true);
         try {
             const [myRes, theirRes] = await Promise.all([
@@ -255,6 +277,10 @@ const MessagesPage: React.FC = () => {
             ]);
             setMyPublications(myRes.data.items);
             setTheirPublications(theirRes.data.items);
+            publicationsCacheRef.current.set(selectedUserId, {
+                mine: myRes.data.items,
+                theirs: theirRes.data.items,
+            });
         } catch (err) {
             console.error('Failed to load publications', err);
         } finally {

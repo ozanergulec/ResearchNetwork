@@ -37,4 +37,17 @@ public record ConversationDto(
     int UnreadCount
 );
 
+public record ConversationSummary(
+    Guid OtherUserId,
+    string OtherUserName,
+    string? OtherUserProfileImageUrl,
+    bool OtherUserIsVerified,
+    string? OtherUserTitle,
+    string? OtherUserInstitution,
+    string LastMessage,
+    bool LastMessageHasAttachment,
+    DateTime LastMessageAt,
+    int UnreadCount
+);
+
 public record SendMessageDto(Guid ReceiverId, string Content, Guid? AttachedPublicationId = null);
