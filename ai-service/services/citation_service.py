@@ -179,7 +179,11 @@ class CitationService:
             nums = [int(x) for x in re.findall(r'\d+', content)]
             if not nums or any(not _valid(n) for n in nums):
                 continue
-            if len(nums) == 2 and abs(nums[1] - nums[0]) > 20:
+            # If numbers are explicitly separated (comma, semicolon, asterisk),
+            # they are distinct citations — don't apply the "too far apart" guard.
+            # That guard only protects against accidental ranges like "[13 36]".
+            has_separator = bool(re.search(r'[,;*]', content))
+            if not has_separator and len(nums) == 2 and abs(nums[1] - nums[0]) > 20:
                 continue
             for n in nums:
                 if n not in found:
