@@ -319,24 +319,50 @@
     text-transform: capitalize;
 }
 
-/* Colors for SciCite intents: background / method / result */
+/* Colors for SciBERT intents: Background / Uses / CompareOrContrast / Extends / Motivation / Future */
 .intent-neutral .citation-intent-badge {
     background: rgba(149, 165, 166, 0.15);
     color: #7f8c8d;
 }
 
 .intent-background .citation-intent-badge {
-    background: rgba(148, 163, 184, 0.15);
+    background: rgba(100, 116, 139, 0.13);
     color: #475569;
 }
 
+.intent-uses .citation-intent-badge {
+    background: rgba(139, 92, 246, 0.13);
+    color: #7c3aed;
+}
+
+.intent-compare .citation-intent-badge {
+    background: rgba(245, 158, 11, 0.13);
+    color: #b45309;
+}
+
+.intent-extends .citation-intent-badge {
+    background: rgba(16, 185, 129, 0.13);
+    color: #059669;
+}
+
+.intent-motivation .citation-intent-badge {
+    background: rgba(244, 63, 94, 0.13);
+    color: #e11d48;
+}
+
+.intent-future .citation-intent-badge {
+    background: rgba(6, 182, 212, 0.13);
+    color: #0891b2;
+}
+
+/* Legacy fallbacks for old 3-label data */
 .intent-method .citation-intent-badge {
-    background: rgba(155, 89, 182, 0.15);
-    color: #8e44ad;
+    background: rgba(139, 92, 246, 0.13);
+    color: #7c3aed;
 }
 
 .intent-result .citation-intent-badge {
-    background: rgba(245, 158, 11, 0.15);
+    background: rgba(245, 158, 11, 0.13);
     color: #b45309;
 }
 

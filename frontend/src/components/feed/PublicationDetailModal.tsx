@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { Publication } from '../../services/publicationService';
+import { publicationsApi, type Publication } from '../../services/publicationService';
 import { API_SERVER_URL } from '../../services/apiClient';
 import '../../styles/feed/PublicationDetailModal.css';
 import PublicationCitationGraph from './PublicationCitationGraph';
@@ -261,9 +261,14 @@ const PublicationDetailModal: React.FC<PublicationDetailModalProps> = ({ publica
                                                         .map((citation, idx) => {
                                                         const lowerIntent = citation.intent.toLowerCase();
                                                         let intentClass = 'intent-neutral';
-                                                        if (lowerIntent.includes('method')) intentClass = 'intent-method';
+                                                        if (lowerIntent.includes('background')) intentClass = 'intent-background';
+                                                        else if (lowerIntent.includes('uses')) intentClass = 'intent-uses';
+                                                        else if (lowerIntent.includes('compareorcontrast') || lowerIntent.includes('compare')) intentClass = 'intent-compare';
+                                                        else if (lowerIntent.includes('extends')) intentClass = 'intent-extends';
+                                                        else if (lowerIntent.includes('motivation')) intentClass = 'intent-motivation';
+                                                        else if (lowerIntent.includes('future')) intentClass = 'intent-future';
+                                                        else if (lowerIntent.includes('method')) intentClass = 'intent-method';
                                                         else if (lowerIntent.includes('result')) intentClass = 'intent-result';
-                                                        else if (lowerIntent.includes('background')) intentClass = 'intent-background';
 
                                                         return (
                                                             <li key={idx} className={`pub-detail-citation-item ${intentClass}`}>

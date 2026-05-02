@@ -16,17 +16,25 @@ interface IntentStyle {
     text: string;
 }
 
-// SciCite-fine-tuned SciBERT emits exactly 3 intent labels: background / method / result.
+// Fine-tuned SciBERT emits 6 intent labels.
 const INTENTS: Record<string, IntentStyle> = {
-    background: { label: 'Background', fill: '#f3f4f6', stroke: '#9ca3af', text: '#6b7280' },
-    method:     { label: 'Method',     fill: '#ede9fe', stroke: '#8b5cf6', text: '#6d28d9' },
-    result:     { label: 'Result',     fill: '#fef3c7', stroke: '#f59e0b', text: '#b45309' },
+    background:       { label: 'Background',       fill: '#f1f5f9', stroke: '#64748b', text: '#475569' },
+    uses:             { label: 'Uses',             fill: '#ede9fe', stroke: '#8b5cf6', text: '#6d28d9' },
+    compareorcontrast:{ label: 'CompareOrContrast', fill: '#fef3c7', stroke: '#f59e0b', text: '#b45309' },
+    extends:          { label: 'Extends',          fill: '#d1fae5', stroke: '#10b981', text: '#059669' },
+    motivation:       { label: 'Motivation',       fill: '#ffe4e6', stroke: '#f43f5e', text: '#e11d48' },
+    future:           { label: 'Future',           fill: '#cffafe', stroke: '#06b6d4', text: '#0891b2' },
 };
+
+// Legacy fallbacks for old 3-label data
+const LEGACY_MAP: Record<string, string> = { method: 'uses', result: 'compareorcontrast' };
 
 function getStyle(intent?: string): IntentStyle {
     if (!intent) return { label: 'Cites', fill: '#f3f4f6', stroke: '#9ca3af', text: '#6b7280' };
     const l = intent.toLowerCase();
     for (const [k, v] of Object.entries(INTENTS)) { if (l.includes(k)) return v; }
+    // Legacy fallback
+    for (const [old, mapped] of Object.entries(LEGACY_MAP)) { if (l.includes(old)) return INTENTS[mapped]; }
     return { label: intent, fill: '#f3f4f6', stroke: '#9ca3af', text: '#6b7280' };
 }
 
@@ -294,10 +302,8 @@ const PublicationCitationGraph: React.FC<PublicationCitationGraphProps> = ({ pub
                 {/* Edges */}
                 {layout.edges.map((edge, i) => {
                     const { from, to, style } = edge;
-                    // Calculate control point for curve
                     const mx = (from.x + to.x) / 2;
                     const my = (from.y + to.y) / 2;
-                    // Offset control point perpendicular to the line
                     const dx = to.x - from.x, dy = to.y - from.y;
                     const dist = Math.sqrt(dx * dx + dy * dy);
                     const nx = -dy / dist, ny = dx / dist;
@@ -305,25 +311,25 @@ const PublicationCitationGraph: React.FC<PublicationCitationGraphProps> = ({ pub
                     const cpx = mx + nx * curveOffset;
                     const cpy = my + ny * curveOffset;
 
-                    // Shorten start/end
                     const startOff = 40, endOff = 35;
                     const ux = dx / dist, uy = dy / dist;
                     const sx = from.x + ux * startOff, sy = from.y + uy * startOff;
                     const tx = to.x - ux * endOff, ty = to.y - uy * endOff;
 
-                    // Label position (on the curve midpoint)
                     const labelX = cpx;
                     const labelY = cpy;
 
                     const isHighlighted = hoveredNode === to.id || selectedNode === to.id;
 
-                    // Resolve shared marker id from intent label (falls back to default)
                     const intentKey = Object.keys(INTENTS).find(k => style.label === INTENTS[k].label);
                     const markerId = intentKey ? `arw-${intentKey}${fs ? 'f' : ''}` : `arw-default${fs ? 'f' : ''}`;
 
+                    // Shorten long labels for edge pills
+                    const edgeLabel = style.label === 'CompareOrContrast' ? 'Compare' : style.label;
+                    const pillW = Math.max(64, edgeLabel.length * 7 + 16);
+
                     return (
                         <g key={`e${i}`}>
-                            {/* Edge path */}
                             <path
                                 d={`M${sx},${sy} Q${cpx},${cpy} ${tx},${ty}`}
                                 fill="none"
@@ -332,9 +338,8 @@ const PublicationCitationGraph: React.FC<PublicationCitationGraphProps> = ({ pub
                                 strokeOpacity={isHighlighted ? 1 : 0.5}
                                 markerEnd={`url(#${markerId})`}
                             />
-                            {/* Intent label on edge */}
                             <g transform={`translate(${labelX},${labelY})`}>
-                                <rect x={-32} y={-9} width={64} height={18} rx={9}
+                                <rect x={-pillW / 2} y={-9} width={pillW} height={18} rx={9}
                                     fill="#fff" stroke={style.stroke} strokeWidth={1}
                                     opacity={isHighlighted ? 1 : 0.8}
                                 />
@@ -342,7 +347,7 @@ const PublicationCitationGraph: React.FC<PublicationCitationGraphProps> = ({ pub
                                     fill={style.text} fontSize={labelSize} fontWeight="700"
                                     fontFamily="Inter, system-ui, sans-serif"
                                 >
-                                    {style.label}
+                                    {edgeLabel}
                                 </text>
                             </g>
                         </g>
@@ -368,8 +373,6 @@ const PublicationCitationGraph: React.FC<PublicationCitationGraphProps> = ({ pub
                             onClick={() => handleNodeClick(node.id)}
                             style={{ cursor: 'pointer' }}
                         >
-                            {/* Node rectangle — SVG filter only applied on hover to avoid
-                                per-frame filter graph on 50+ nodes (big perf win). */}
                             <rect
                                 x={x - w / 2} y={y - h / 2} width={w} height={h}
                                 rx={12} fill={style.fill}
@@ -418,47 +421,6 @@ const PublicationCitationGraph: React.FC<PublicationCitationGraphProps> = ({ pub
                                 </>
                             )}
 
-                            {/* Tooltip on hover — foreignObject lets us use real HTML with
-                                proper word-wrap instead of clipped SVG <text>. */}
-                            {highlighted && !isSource && node.sentence && (() => {
-                                const tipW = 300;
-                                const tipH = 140;
-                                // Center horizontally, but clamp so tooltip stays in the
-                                // layout bounds (prevents overflow off-screen).
-                                const base = layout.base;
-                                const minTipX = base.minX + 8;
-                                const maxTipX = base.minX + base.baseW - tipW - 8;
-                                const rawTipX = x - tipW / 2;
-                                const tipX = Math.max(minTipX, Math.min(maxTipX, rawTipX));
-                                // Show above node if node is in lower half (avoids going off-screen).
-                                const showAbove = y > base.minY + base.baseH * 0.55;
-                                const tipY = showAbove ? y - h / 2 - tipH - 10 : y + h / 2 + 10;
-                                return (
-                                    <foreignObject
-                                        x={tipX} y={tipY} width={tipW} height={tipH}
-                                        style={{ pointerEvents: 'none', overflow: 'visible' }}
-                                    >
-                                        <div
-                                            xmlns="http://www.w3.org/1999/xhtml"
-                                            style={{
-                                                background: 'rgba(17, 24, 39, 0.96)',
-                                                color: '#f9fafb',
-                                                padding: '10px 12px',
-                                                borderRadius: 8,
-                                                fontSize: fs ? 12 : 10,
-                                                fontFamily: 'Inter, system-ui, sans-serif',
-                                                lineHeight: 1.45,
-                                                wordBreak: 'break-word',
-                                                boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
-                                                border: `1px solid ${style.stroke}`,
-                                            }}
-                                        >
-                                            <span style={{ fontStyle: 'italic' }}>“{node.sentence}”</span>
-                                        </div>
-                                    </foreignObject>
-                                );
-                            })()}
-
                             {/* Confidence badge */}
                             {!isSource && node.confidence != null && (
                                 <g>
@@ -475,6 +437,45 @@ const PublicationCitationGraph: React.FC<PublicationCitationGraphProps> = ({ pub
                                 </g>
                             )}
                         </g>
+                    );
+                })}
+
+                {/* Tooltips rendered LAST so they always appear on top of all nodes/edges */}
+                {layout.nodes.filter(n => n.type !== 'source' && (hoveredNode === n.id || selectedNode === n.id) && n.sentence).map((node) => {
+                    const { w, h, x, y, style } = node;
+                    const tipW = 300;
+                    const tipH = 140;
+                    const base = layout.base;
+                    const minTipX = base.minX + 8;
+                    const maxTipX = base.minX + base.baseW - tipW - 8;
+                    const rawTipX = x - tipW / 2;
+                    const tipX = Math.max(minTipX, Math.min(maxTipX, rawTipX));
+                    const showAbove = y > base.minY + base.baseH * 0.55;
+                    const tipY = showAbove ? y - h / 2 - tipH - 10 : y + h / 2 + 10;
+                    return (
+                        <foreignObject
+                            key={`tip-${node.id}`}
+                            x={tipX} y={tipY} width={tipW} height={tipH}
+                            style={{ pointerEvents: 'none', overflow: 'visible' }}
+                        >
+                            <div
+                                xmlns="http://www.w3.org/1999/xhtml"
+                                style={{
+                                    background: 'rgba(17, 24, 39, 0.96)',
+                                    color: '#f9fafb',
+                                    padding: '10px 12px',
+                                    borderRadius: 8,
+                                    fontSize: fs ? 12 : 10,
+                                    fontFamily: 'Inter, system-ui, sans-serif',
+                                    lineHeight: 1.45,
+                                    wordBreak: 'break-word',
+                                    boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
+                                    border: `1px solid ${style.stroke}`,
+                                }}
+                            >
+                                <span style={{ fontStyle: 'italic' }}>"{node.sentence}"</span>
+                            </div>
+                        </foreignObject>
                     );
                 })}
             </svg>
@@ -528,9 +529,12 @@ const PublicationCitationGraph: React.FC<PublicationCitationGraphProps> = ({ pub
                             </div>
                         </div>
                         <div className="cg-legend-bar">
-                            <div className="cg-legend-item"><span style={{ background: '#9ca3af' }}></span> Background</div>
-                            <div className="cg-legend-item"><span style={{ background: '#8b5cf6' }}></span> Method</div>
-                            <div className="cg-legend-item"><span style={{ background: '#f59e0b' }}></span> Result</div>
+                            <div className="cg-legend-item"><span style={{ background: '#64748b' }}></span> Background</div>
+                            <div className="cg-legend-item"><span style={{ background: '#8b5cf6' }}></span> Uses</div>
+                            <div className="cg-legend-item"><span style={{ background: '#f59e0b' }}></span> Compare</div>
+                            <div className="cg-legend-item"><span style={{ background: '#10b981' }}></span> Extends</div>
+                            <div className="cg-legend-item"><span style={{ background: '#f43f5e' }}></span> Motivation</div>
+                            <div className="cg-legend-item"><span style={{ background: '#06b6d4' }}></span> Future</div>
                         </div>
                     </div>
                 </div>
