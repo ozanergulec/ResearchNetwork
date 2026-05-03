@@ -365,7 +365,7 @@ const FloatingChat: React.FC = () => {
     );
 
     // --- Guard ---
-    if (!token || isAuthPage || isMessagesPage || isModalOpen) return null;
+    if (!token || isAuthPage || isMessagesPage) return null;
 
     // Single pane logic
     const isShowingChat = activeChatUser !== null;
@@ -380,65 +380,8 @@ const FloatingChat: React.FC = () => {
     };
 
     return (
-        <div className="floating-chat-wrapper single-pane">
-            <div className={`floating-window fc-main-window ${isExpanded ? 'expanded' : 'collapsed'}`}>
-
-                {isShowingChat ? (
-                    <ChatView
-                        activeChatUser={activeChatUser}
-                        isExpanded={isExpanded}
-                        messages={messages}
-                        currentUserId={currentUser.id}
-                        newMessage={newMessage}
-                        sending={sending}
-                        attachedPublication={attachedPublication}
-                        showAttachPicker={showAttachPicker}
-                        attachTab={attachTab}
-                        attachSearch={attachSearch}
-                        loadingPubs={loadingPubs}
-                        activePubs={activePubs}
-                        messagesEndRef={messagesEndRef}
-                        onToggleWindow={toggleWindow}
-                        onGoBack={() => { setActiveChatUser(null); setIsMainExpanded(true); }}
-                        onClose={() => { setActiveChatUser(null); setIsMainExpanded(false); }}
-                        onMessageChange={setNewMessage}
-                        onSendMessage={handleSendMessage}
-                        onKeyDown={handleKeyDown}
-                        onOpenPublicationModal={openPublicationModal}
-                        onRemoveAttachment={() => setAttachedPublication(null)}
-                        onToggleAttachPicker={() => showAttachPicker ? closeAttachPicker() : openAttachPicker()}
-                        onCloseAttachPicker={closeAttachPicker}
-                        onAttachTabChange={setAttachTab}
-                        onAttachSearchChange={setAttachSearch}
-                        onSelectPublication={handleSelectPublication}
-                        textareaRef={textareaRef}
-                        attachPickerRef={attachPickerRef}
-                    />
-                ) : showNewChat ? (
-                    <ContactSearch
-                        isExpanded={isExpanded}
-                        contactSearch={contactSearch}
-                        contacts={contacts}
-                        loadingContacts={loadingContacts}
-                        searchInputRef={searchInputRef}
-                        onToggleExpanded={() => setIsMainExpanded(!isMainExpanded)}
-                        onClose={closeNewChat}
-                        onSearchChange={setContactSearch}
-                        onStartChat={handleStartChat}
-                    />
-                ) : (
-                    <ConversationList
-                        conversations={conversations}
-                        currentUser={currentUser}
-                        totalUnread={totalUnread}
-                        isExpanded={isExpanded}
-                        onToggleWindow={toggleWindow}
-                        onSelectConversation={handleSelectConversation}
-                        onOpenNewChat={openNewChat}
-                    />
-                )}
-            </div>
-
+        <>
+            {/* Modal portals - always rendered, never blocked by isModalOpen */}
             {loadingModal && createPortal(
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
                     <div className="fc-spinner" />
@@ -454,7 +397,70 @@ const FloatingChat: React.FC = () => {
                 </div>,
                 document.body
             )}
-        </div>
+
+            {/* Hide chat widget when another modal is open, but NOT our own */}
+            {!isModalOpen && (
+                <div className="floating-chat-wrapper single-pane">
+                    <div className={`floating-window fc-main-window ${isExpanded ? 'expanded' : 'collapsed'}`}>
+
+                        {isShowingChat ? (
+                            <ChatView
+                                activeChatUser={activeChatUser}
+                                isExpanded={isExpanded}
+                                messages={messages}
+                                currentUserId={currentUser.id}
+                                newMessage={newMessage}
+                                sending={sending}
+                                attachedPublication={attachedPublication}
+                                showAttachPicker={showAttachPicker}
+                                attachTab={attachTab}
+                                attachSearch={attachSearch}
+                                loadingPubs={loadingPubs}
+                                activePubs={activePubs}
+                                messagesEndRef={messagesEndRef}
+                                onToggleWindow={toggleWindow}
+                                onGoBack={() => { setActiveChatUser(null); setIsMainExpanded(true); }}
+                                onClose={() => { setActiveChatUser(null); setIsMainExpanded(false); }}
+                                onMessageChange={setNewMessage}
+                                onSendMessage={handleSendMessage}
+                                onKeyDown={handleKeyDown}
+                                onOpenPublicationModal={openPublicationModal}
+                                onRemoveAttachment={() => setAttachedPublication(null)}
+                                onToggleAttachPicker={() => showAttachPicker ? closeAttachPicker() : openAttachPicker()}
+                                onCloseAttachPicker={closeAttachPicker}
+                                onAttachTabChange={setAttachTab}
+                                onAttachSearchChange={setAttachSearch}
+                                onSelectPublication={handleSelectPublication}
+                                textareaRef={textareaRef}
+                                attachPickerRef={attachPickerRef}
+                            />
+                        ) : showNewChat ? (
+                            <ContactSearch
+                                isExpanded={isExpanded}
+                                contactSearch={contactSearch}
+                                contacts={contacts}
+                                loadingContacts={loadingContacts}
+                                searchInputRef={searchInputRef}
+                                onToggleExpanded={() => setIsMainExpanded(!isMainExpanded)}
+                                onClose={closeNewChat}
+                                onSearchChange={setContactSearch}
+                                onStartChat={handleStartChat}
+                            />
+                        ) : (
+                            <ConversationList
+                                conversations={conversations}
+                                currentUser={currentUser}
+                                totalUnread={totalUnread}
+                                isExpanded={isExpanded}
+                                onToggleWindow={toggleWindow}
+                                onSelectConversation={handleSelectConversation}
+                                onOpenNewChat={openNewChat}
+                            />
+                        )}
+                    </div>
+                </div>
+            )}
+        </>
     );
 };
 
