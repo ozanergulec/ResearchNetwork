@@ -16,7 +16,14 @@ class Settings(BaseSettings):
     RAG_CHUNK_SIZE: int = 500
     RAG_CHUNK_OVERLAP: int = 100
     RAG_TOP_K: int = 5
+    # Retrieval: how many chunks to send to the LLM (clamped in rag_service).
+    RAG_RETRIEVAL_K_MIN: int = 2
+    RAG_RETRIEVAL_K_MAX: int = 4
+    # Truncate each retrieved chunk for the LLM prompt only (full text stays in Chroma).
+    RAG_LLM_CHARS_PER_CHUNK: int = 1000
+    RAG_LLM_MAX_OUTPUT_TOKENS: int = 512
     RAG_CACHE_THRESHOLD: float = 0.92
+    RAG_CACHE_TTL_DAYS: int = 7  # Cache entries older than this are evicted
 
     ALLOWED_ORIGINS: str = "http://localhost:5000,http://localhost:5001,http://localhost:5051"
 

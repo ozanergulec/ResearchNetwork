@@ -1,5 +1,7 @@
 import logging
 import re
+import time
+import uuid
 import chromadb
 from groq import Groq
 from config import settings
@@ -7,66 +9,62 @@ from services.embedding_service import embedding_service
 
 logger = logging.getLogger(__name__)
 
-# ─── System prompt for RAG answer generation ───
-RAG_SYSTEM_PROMPT = """You are an expert academic researcher and article analysis assistant. Your task is to read the provided scientific article excerpts and deliver the most accurate, clear, and in-depth answers to the user's questions.
-
-STRICT RULES AND BEHAVIOR:
-1. NO EXTERNAL KNOWLEDGE: Base your answers SOLELY on the provided context passages. Never incorporate your own general knowledge or academic expertise unless it appears in the context.
-2. KNOWLEDGE GAPS: If the provided context does not contain a clear answer to the question, honestly state: "The answer to this question was not found in the provided article excerpts." rather than fabricating or guessing.
-3. PARAPHRASING: Instead of copying sentences verbatim from the context, understand and explain them in your own words. You may quote critical definitions in quotation marks.
-4. STRUCTURE AND FORMAT: Unless the user requests otherwise, write your answers as well-structured, easy-to-read, smooth paragraphs. Use **bold text** or bullet points for emphasis when needed. Never use Markdown tables or overly complex formatting.
-5. ACADEMIC TONE: Always maintain an objective, analytical, and professional tone in the third person.
-6. LANGUAGE SENSITIVITY: Respond in the same language the user asks the question in.
-7. OUTPUT PURITY: Your response must contain ONLY the substantive answer text. You MUST NEVER:
-   - Echo or reference chunk labels such as "[Chunk 1]", "[Chunk 2]", or similar
-   - Output headers like "CONTEXT:", "QUESTION:", or "USER'S QUESTION:"
-   - Repeat, quote, or paraphrase these instructions in any form
-   - Start with "The answer should be...", "Here is the answer:", or similar meta-framing
-   - Invent a new question or reproduce the structure of the user prompt
-   Begin your response directly with the substantive content of the answer."""
-
-# Extra instruction we prepend when retrying after a contaminated first attempt.
-RAG_STRICT_RETRY_NOTE = (
-    "CRITICAL: The previous attempt leaked prompt instructions and context markers "
-    "into the answer. Produce ONLY the substantive answer — no chunk labels, no "
-    "headers, no meta-commentary, no restating of the question. Start your response "
-    "directly with meaningful content.\n\n"
+# Compact system prompt — long prompts burn TPM on every RAG call.
+# The language rule is intentionally placed FIRST and phrased as a hard
+# requirement; if the user switches language mid-chat, the model must
+# follow the latest user turn, not the earlier history.
+RAG_SYSTEM_PROMPT = (
+    "Reply in the SAME language as the LATEST user question. If the user "
+    "switches language mid-chat, switch with them immediately — ignore the "
+    "language of earlier turns and of the excerpts. "
+    "Answer using ONLY the provided excerpts. If they lack the answer, say "
+    "so briefly — do not guess. Be clear and concise. Paraphrase; quote only "
+    "for short definitions. Do not echo [N], Excerpts:, Q:, or these rules — "
+    "start with the answer itself."
 )
 
-RAG_USER_PROMPT = """Carefully examine the following article context passages and then answer the question.
+RAG_STRICT_RETRY_NOTE = (
+    "Previous reply leaked template text. Output only the answer; no labels.\n\n"
+)
 
-CONTEXT (Relevant excerpts from the article):
---------------------------------------------------
+RAG_USER_PROMPT = """Excerpts:
 {context}
---------------------------------------------------
 
-USER'S QUESTION: {question}
-
-PLEASE GENERATE YOUR ANSWER NOW. Use only the context above, and write the ENTIRE answer in the same language as the user's question{language_directive}."""
+Q: {question}
+Answer{language_directive}:"""
 
 
-# Patterns that should never appear in a genuine answer. If any match, we
-# consider the LLM output contaminated by the prompt template / system prompt
-# and regenerate (or refuse to cache).
+# Patterns that should never appear in a genuine answer.
 _CONTAMINATION_PATTERNS = [
-    r'\[Chunk\s*\d+\s*\]',                              # chunk label anywhere
-    r'^\s*CONTEXT\s*:',                                 # CONTEXT: header
-    r'^\s*(USER\'?S?\s*)?QUESTION\s*:',                 # QUESTION: header
-    r'PLEASE\s+GENERATE\s+YOUR\s+ANSWER',               # echo of user prompt
+    r'\[Chunk\s*\d+\s*\]',
+    r'^\s*CONTEXT\s*:',
+    r'^\s*EXCERPTS?\s*:',
+    r'^\s*(USER\'?S?\s*)?QUESTION\s*:',
+    r'^\s*Q\s*:\s*',
+    r'PLEASE\s+GENERATE\s+YOUR\s+ANSWER',
     r'provided\s+context\s+passages\s+are\s+the\s+only\s+source',
-    r'well[\s-]structured\s+(?:,\s*easy[\s-]to[\s-]read\s*,?\s*smooth\s+)?paragraphs?\s+with\s+\*\*bold',
     r'STRICT\s+RULES\s+AND\s+BEHAVIOR',
     r'NO\s+EXTERNAL\s+KNOWLEDGE\s*:',
     r'LANGUAGE\s+SENSITIVITY\s*:',
     r'OUTPUT\s+PURITY\s*:',
 ]
-
 _CONTAMINATION_REGEX = re.compile('|'.join(_CONTAMINATION_PATTERNS), re.IGNORECASE)
+
+_CACHE_FORMAT_V2 = "v2"
+_CACHE_FORMAT_V3 = "v3"  # adds source chunk indices + language tag
+
+
+def _meta_created_at(meta: dict | None) -> float:
+    if not meta:
+        return 0.0
+    raw = meta.get("created_at", 0)
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def _is_answer_contaminated(answer: str) -> bool:
-    """Return True when the LLM output looks like it leaked the prompt
-    template or system instructions rather than producing a real answer."""
     if not answer:
         return True
     stripped = answer.strip()
@@ -75,23 +73,72 @@ def _is_answer_contaminated(answer: str) -> bool:
     return bool(_CONTAMINATION_REGEX.search(stripped))
 
 
-# Characters unique to Turkish (or very strongly associated with it) — used
-# to give the LLM an explicit reminder to reply in Turkish, since otherwise
-# an English-language article can drag the response back into English even
-# when the question was Turkish.
+# ─────────────────────────── LANGUAGE DETECTION ───────────────────────────
+
+# Turkish-specific characters — strongest signal for TR.
 _TURKISH_CHAR_REGEX = re.compile(r"[ıİğĞşŞçÇöÖüÜ]")
 
+# Common Turkish stopwords / function words (no TR-specific chars, so we
+# need them as a backup signal when a TR question avoids those letters).
+_TURKISH_HINT_REGEX = re.compile(
+    r"\b(?:ve|veya|ama|fakat|ancak|ile|için|gibi|kadar|daha|çok|az|"
+    r"ne|nedir|nasıl|neden|niçin|hangi|kim|kimin|nerede|ne zaman|"
+    r"bu|şu|o|bir|bunlar|şunlar|onlar|var|yok|olan|olur|peki|"
+    r"makale|makalenin|yazar|yazarlar|yöntem|sonuç|özet|amacı|amaç)\b",
+    re.IGNORECASE,
+)
 
-def _language_directive_for(question: str) -> str:
-    """Return an explicit language instruction appended to the user prompt
-    when we can confidently detect the user's language. Returns an empty
-    string when we cannot (model falls back to generic 'same language as
-    the question' rule)."""
-    if not question:
+# English function/content words — detect EN even when there are no
+# unambiguous markers in the user's short follow-up.
+_ENGLISH_HINT_REGEX = re.compile(
+    r"\b(?:what|when|where|why|how|who|which|whose|whom|is|are|was|were|am|"
+    r"do|does|did|can|could|would|should|will|have|has|had|the|this|that|these|those|"
+    r"a|an|any|some|not|no|yes|or|and|but|if|then|about|into|from|with|for|"
+    r"article|paper|author|abstract|method|methods|result|results|solution|problem|"
+    r"explain|describe|summarize|summary|define|definition|compare|list|tell|give)\b",
+    re.IGNORECASE,
+)
+
+
+def _detect_language(text: str) -> str:
+    """Return ``'tr'``, ``'en'``, or ``''`` (unknown) for a single message.
+
+    Strong signals first (TR-specific characters), then function-word hints,
+    then a permissive fallback. The empty string means "could not tell" —
+    callers should treat that as "no explicit directive".
+    """
+    if not text:
         return ""
-    if _TURKISH_CHAR_REGEX.search(question):
-        return " (the user is asking in Turkish, so answer entirely in Turkish)"
+    if _TURKISH_CHAR_REGEX.search(text):
+        return "tr"
+    if _TURKISH_HINT_REGEX.search(text):
+        return "tr"
+    if _ENGLISH_HINT_REGEX.search(text):
+        return "en"
+    # Fallback: latin-only, several words → assume English.
+    words = re.findall(r"[A-Za-z]{2,}", text)
+    if len(words) >= 4:
+        return "en"
     return ""
+
+
+_LANG_NAMES = {"tr": "Turkish", "en": "English"}
+
+
+def _language_directive_for(lang: str) -> str:
+    if lang in _LANG_NAMES:
+        return f" (in {_LANG_NAMES[lang]})"
+    return ""
+
+
+# ─────────────────────────── CHUNK TRUNCATION ───────────────────────────
+
+def _truncate_chunk_for_llm(text: str) -> str:
+    """Cap chunk size for the prompt only; full text stays in Chroma."""
+    limit = settings.RAG_LLM_CHARS_PER_CHUNK
+    if not text or len(text) <= limit:
+        return text
+    return text[: limit - 1].rstrip() + "…"
 
 
 class RagService:
@@ -100,9 +147,12 @@ class RagService:
         self.chunks_collection = None
         self.cache_collection = None
         self.llm_client = None
+        # In-memory cache for total_chunks per publication. Populated on
+        # index/load, invalidated on delete. Avoids a Chroma roundtrip on
+        # every ask_question call just to size top_k.
+        self._chunk_count_cache: dict[str, int] = {}
 
     def initialize(self):
-        # ChromaDB
         logger.info(f"Initializing ChromaDB at: {settings.CHROMA_PERSIST_DIR}")
         self.chroma_client = chromadb.PersistentClient(path=settings.CHROMA_PERSIST_DIR)
 
@@ -110,50 +160,105 @@ class RagService:
             name="article_chunks",
             metadata={"hnsw:space": "cosine"},
         )
-        logger.info(f"ChromaDB 'article_chunks' collection ready (count={self.chunks_collection.count()})")
+        logger.info(
+            f"ChromaDB 'article_chunks' collection ready "
+            f"(count={self.chunks_collection.count()})"
+        )
 
         self.cache_collection = self.chroma_client.get_or_create_collection(
             name="qa_cache",
             metadata={"hnsw:space": "cosine"},
         )
-        logger.info(f"ChromaDB 'qa_cache' collection ready (count={self.cache_collection.count()})")
+        logger.info(
+            f"ChromaDB 'qa_cache' collection ready "
+            f"(count={self.cache_collection.count()})"
+        )
 
-        # Groq (LLM)
+        self._purge_expired_cache()
+
         if settings.GROQ_API_KEY:
             self.llm_client = Groq(api_key=settings.GROQ_API_KEY)
             logger.info(f"Groq RAG client initialized (model: {settings.GROQ_MODEL})")
         else:
             logger.warning("GROQ_API_KEY is not set — RAG answer generation will not work")
 
+    # ─────────────────────────── CACHE TTL ───────────────────────────
+
+    def _purge_expired_cache(self):
+        """Remove cache entries older than RAG_CACHE_TTL_DAYS on startup.
+
+        Uses Chroma's ``$lt`` filter to ask the DB for expired ids only,
+        instead of pulling the whole collection into memory.
+        """
+        try:
+            cutoff = time.time() - (settings.RAG_CACHE_TTL_DAYS * 86400)
+            expired = self.cache_collection.get(
+                where={"created_at": {"$lt": cutoff}},
+                include=[],  # only need ids
+            )
+            if expired and expired.get("ids"):
+                self.cache_collection.delete(ids=expired["ids"])
+                logger.info(
+                    f"Purged {len(expired['ids'])} expired cache entries "
+                    f"(TTL={settings.RAG_CACHE_TTL_DAYS} days)"
+                )
+        except Exception as e:
+            # Filter syntax differs across Chroma versions — fall back to a
+            # full scan so a version mismatch doesn't crash startup.
+            logger.warning(
+                f"Filtered cache purge failed ({e}); falling back to full scan"
+            )
+            self._purge_expired_cache_fallback()
+
+    def _purge_expired_cache_fallback(self):
+        try:
+            total = self.cache_collection.count()
+            if total == 0:
+                return
+            all_entries = self.cache_collection.get(
+                include=["metadatas"], limit=total
+            )
+            if not all_entries or not all_entries["ids"]:
+                return
+            ttl_seconds = settings.RAG_CACHE_TTL_DAYS * 86400
+            now = time.time()
+            expired_ids = [
+                all_entries["ids"][i]
+                for i, meta in enumerate(all_entries["metadatas"])
+                if (ca := _meta_created_at(meta)) == 0 or (now - ca) > ttl_seconds
+            ]
+            if expired_ids:
+                self.cache_collection.delete(ids=expired_ids)
+                logger.info(
+                    f"Purged {len(expired_ids)}/{total} expired cache entries "
+                    f"(fallback path)"
+                )
+        except Exception as e:
+            logger.error(f"Cache purge fallback error: {e}")
+
     # ─────────────────────────── CHUNKING ───────────────────────────
 
     def _chunk_text(self, text: str) -> list[str]:
-        """Split text into word-based chunks with overlap."""
-        # Clean up unnecessary whitespace
+        """Split text into word-based chunks with overlap (500/100 default)."""
         text = re.sub(r"\s+", " ", text).strip()
         words = text.split()
 
         if len(words) <= settings.RAG_CHUNK_SIZE:
-            return [text]
+            return [text] if text else []
 
         chunks = []
         start = 0
         while start < len(words):
             end = start + settings.RAG_CHUNK_SIZE
-            chunk = " ".join(words[start:end])
-            chunks.append(chunk)
-
+            chunks.append(" ".join(words[start:end]))
             if end >= len(words):
                 break
             start += settings.RAG_CHUNK_SIZE - settings.RAG_CHUNK_OVERLAP
-
         return chunks
 
     # ─────────────────────────── INDEX ───────────────────────────
 
     def index_article(self, publication_id: str, pdf_text: str) -> int:
-        """Chunk article text and index it in ChromaDB."""
-        # Delete previous chunks
         self.delete_article(publication_id)
 
         chunks = self._chunk_text(pdf_text)
@@ -161,10 +266,8 @@ class RagService:
             logger.warning(f"No chunks generated for publication {publication_id}")
             return 0
 
-        # Generate embeddings
         embeddings = embedding_service.encode_batch(chunks)
 
-        # Add to ChromaDB
         ids = [f"{publication_id}_chunk_{i}" for i in range(len(chunks))]
         metadatas = [
             {
@@ -182,18 +285,16 @@ class RagService:
             metadatas=metadatas,
         )
 
-        logger.info(
-            f"Indexed {len(chunks)} chunks for publication {publication_id}"
-        )
+        # Warm the in-memory chunk-count cache.
+        self._chunk_count_cache[publication_id] = len(chunks)
+
+        logger.info(f"Indexed {len(chunks)} chunks for publication {publication_id}")
         return len(chunks)
 
     # ─────────────────────────── DELETE ───────────────────────────
 
     def delete_article(self, publication_id: str) -> int:
-        """Delete all chunks and cache entries for an article."""
         deleted = 0
-
-        # Delete chunks
         try:
             existing = self.chunks_collection.get(
                 where={"publication_id": publication_id}
@@ -204,7 +305,6 @@ class RagService:
         except Exception as e:
             logger.error(f"Error deleting chunks for {publication_id}: {e}")
 
-        # Delete cache
         try:
             cached = self.cache_collection.get(
                 where={"publication_id": publication_id}
@@ -214,62 +314,122 @@ class RagService:
         except Exception as e:
             logger.error(f"Error deleting cache for {publication_id}: {e}")
 
+        self._chunk_count_cache.pop(publication_id, None)
         logger.info(f"Deleted {deleted} chunks for publication {publication_id}")
         return deleted
 
     # ─────────────────────────── SEMANTIC CACHE ───────────────────────────
 
     def _check_cache(
-        self, publication_id: str, question_embedding: list[float]
-    ) -> str | None:
-        """Semantic cache check. Returns cached answer if a similar question exists."""
+        self,
+        publication_id: str,
+        question_embedding: list[float],
+        question_lang: str,
+        has_history: bool,
+    ) -> dict | None:
+        """Semantic cache lookup.
+
+        Returns ``{"answer": str, "source_indices": list[int]}`` on hit,
+        ``None`` on miss. We restrict matches to the same publication AND
+        the same detected language, so a Turkish question never serves a
+        cached English answer (and vice versa). Follow-up answers (those
+        produced with chat history) are stored with ``is_followup=True``
+        and are NOT served to fresh, history-less lookups, since the
+        cached reply may have leaned on prior turns.
+        """
         try:
-            cache_count = self.cache_collection.count()
-            if cache_count == 0:
-                return None
+            where_filter: dict = {"publication_id": publication_id}
+            if not has_history:
+                # Fresh question — only match standalone (non-followup) entries.
+                where_filter = {
+                    "$and": [
+                        {"publication_id": publication_id},
+                        {"is_followup": {"$ne": True}},
+                    ]
+                }
 
             results = self.cache_collection.query(
                 query_embeddings=[question_embedding],
-                where={"publication_id": publication_id},
+                where=where_filter,
                 n_results=1,
+                include=["documents", "metadatas", "distances"],
             )
 
-            if (
-                results
-                and results["distances"]
-                and results["distances"][0]
-            ):
-                # ChromaDB cosine distance = 1 - similarity
-                distance = results["distances"][0][0]
-                similarity = 1 - distance
+            if not (results and results.get("distances") and results["distances"][0]):
+                return None
 
-                if similarity >= settings.RAG_CACHE_THRESHOLD:
-                    cached_answer = results["metadatas"][0][0].get("answer", "")
-                    cached_id = results["ids"][0][0] if results.get("ids") else None
+            distance = results["distances"][0][0]
+            similarity = 1 - distance
+            if similarity < settings.RAG_CACHE_THRESHOLD:
+                return None
 
-                    if cached_answer and not _is_answer_contaminated(cached_answer):
-                        logger.info(
-                            f"Cache hit for publication {publication_id} "
-                            f"(similarity={similarity:.4f})"
-                        )
-                        return cached_answer
+            meta = (results["metadatas"][0][0] or {}) if results.get("metadatas") else {}
+            doc_text = (
+                (results["documents"][0][0] or "")
+                if results.get("documents") and results["documents"][0]
+                else ""
+            )
+            cached_id = (
+                results["ids"][0][0] if results.get("ids") and results["ids"][0] else None
+            )
 
-                    # Self-heal: remove poisoned cache entry so a fresh answer
-                    # is generated next time.
-                    if cached_answer and cached_id:
-                        logger.warning(
-                            f"Discarding contaminated cache entry {cached_id} "
-                            f"for publication {publication_id}"
-                        )
-                        try:
-                            self.cache_collection.delete(ids=[cached_id])
-                        except Exception as del_err:
-                            logger.error(
-                                f"Failed to delete contaminated cache entry: {del_err}"
-                            )
+            cache_format = meta.get("cache_format")
+            if cache_format in (_CACHE_FORMAT_V2, _CACHE_FORMAT_V3):
+                cached_answer = doc_text
+            else:
+                cached_answer = meta.get("answer") or ""
+
+            # Language gate — never serve a cached answer of a different
+            # language than the current question, regardless of similarity.
+            cached_lang = meta.get("lang") or ""
+            if question_lang and cached_lang and cached_lang != question_lang:
+                logger.info(
+                    f"Cache match rejected: lang mismatch "
+                    f"(cached={cached_lang}, asked={question_lang})"
+                )
+                return None
+
+            # TTL check
+            created_at = _meta_created_at(meta)
+            ttl_seconds = settings.RAG_CACHE_TTL_DAYS * 86400
+            if created_at and (time.time() - created_at) > ttl_seconds:
+                if cached_id:
+                    try:
+                        self.cache_collection.delete(ids=[cached_id])
+                    except Exception:
+                        pass
+                return None
+
+            if cached_answer and not _is_answer_contaminated(cached_answer):
+                # Recover source indices for UX (no extra Chroma call).
+                indices_str = meta.get("source_indices") or ""
+                source_indices: list[int] = []
+                if indices_str:
+                    for tok in indices_str.split(","):
+                        tok = tok.strip()
+                        if tok.isdigit():
+                            source_indices.append(int(tok))
+
+                logger.info(
+                    f"Cache hit for publication {publication_id} "
+                    f"(similarity={similarity:.4f}, lang={cached_lang or 'unknown'})"
+                )
+                return {"answer": cached_answer, "source_indices": source_indices}
+
+            # Self-heal poisoned entry
+            if cached_answer and cached_id:
+                logger.warning(
+                    f"Discarding contaminated cache entry {cached_id} "
+                    f"for publication {publication_id}"
+                )
+                try:
+                    self.cache_collection.delete(ids=[cached_id])
+                except Exception as del_err:
+                    logger.error(
+                        f"Failed to delete contaminated cache entry: {del_err}"
+                    )
         except Exception as e:
             logger.error(f"Cache check error: {e}")
-
         return None
 
     def _save_to_cache(
@@ -278,34 +438,42 @@ class RagService:
         question: str,
         question_embedding: list[float],
         answer: str,
+        source_indices: list[int],
+        question_lang: str,
+        is_followup: bool,
     ):
-        """Save question-answer pair to cache."""
-        import uuid
-
         try:
             cache_id = str(uuid.uuid4())
             self.cache_collection.add(
                 ids=[cache_id],
                 embeddings=[question_embedding],
-                documents=[question],
+                documents=[answer],
                 metadatas=[
                     {
                         "publication_id": publication_id,
                         "question": question[:500],
-                        "answer": answer[:5000],
+                        "cache_format": _CACHE_FORMAT_V3,
+                        "created_at": time.time(),
+                        "lang": question_lang or "",
+                        "is_followup": bool(is_followup),
+                        "source_indices": ",".join(str(i) for i in source_indices),
                     }
                 ],
             )
-            logger.info(f"Cached Q&A for publication {publication_id}")
+            logger.info(
+                f"Cached Q&A for publication {publication_id} "
+                f"(lang={question_lang or 'unknown'}, followup={is_followup})"
+            )
         except Exception as e:
             logger.error(f"Cache save error: {e}")
 
     # ─────────────────────────── SEMANTIC SEARCH ───────────────────────────
 
     def _get_publication_chunk_count(self, publication_id: str) -> int:
-        """Return the total number of chunks stored for a publication, or 0
-        if the publication isn't indexed. The value was stored in chunk
-        metadata during indexing, so one light lookup is enough."""
+        """Return total_chunks for a publication, using an in-memory cache."""
+        cached = self._chunk_count_cache.get(publication_id)
+        if cached is not None:
+            return cached
         try:
             res = self.chunks_collection.get(
                 where={"publication_id": publication_id},
@@ -314,7 +482,9 @@ class RagService:
             )
             if res and res.get("metadatas") and res["metadatas"]:
                 meta = res["metadatas"][0] or {}
-                return int(meta.get("total_chunks", 0))
+                count = int(meta.get("total_chunks", 0))
+                self._chunk_count_cache[publication_id] = count
+                return count
         except Exception as e:
             logger.warning(
                 f"Could not determine chunk count for {publication_id}: {e}"
@@ -322,15 +492,12 @@ class RagService:
         return 0
 
     def _determine_top_k(self, total_chunks: int) -> int:
-        """Pick a retrieval ``top_k`` adapted to the article size. Short
-        articles use a smaller k (less noise); long ones use a larger k
-        (better coverage). Clamped to [3, 6] — keeping the ceiling tight
-        avoids blowing up context tokens on long articles."""
+        k_min = max(1, settings.RAG_RETRIEVAL_K_MIN)
+        k_max = max(k_min, settings.RAG_RETRIEVAL_K_MAX)
         if total_chunks <= 0:
-            return settings.RAG_TOP_K
-
-        target = round(total_chunks * 0.25)
-        return max(3, min(6, target))
+            return min(settings.RAG_TOP_K, k_max)
+        target = round(total_chunks * 0.2)
+        return max(k_min, min(k_max, target))
 
     def _search_chunks(
         self,
@@ -338,7 +505,6 @@ class RagService:
         query_embedding: list[float],
         top_k: int | None = None,
     ) -> list[dict]:
-        """Find the most relevant chunks in the vector database."""
         n_results = top_k if top_k and top_k > 0 else settings.RAG_TOP_K
         try:
             results = self.chunks_collection.query(
@@ -346,7 +512,6 @@ class RagService:
                 where={"publication_id": publication_id},
                 n_results=n_results,
             )
-
             if not results or not results["documents"] or not results["documents"][0]:
                 return []
 
@@ -354,7 +519,6 @@ class RagService:
             for i in range(len(results["documents"][0])):
                 distance = results["distances"][0][i] if results["distances"] else 0
                 similarity = 1 - distance
-
                 chunks.append(
                     {
                         "chunk_index": results["metadatas"][0][i].get("chunk_index", i),
@@ -362,10 +526,47 @@ class RagService:
                         "score": round(similarity, 4),
                     }
                 )
-
             return chunks
         except Exception as e:
             logger.error(f"Search error: {e}")
+            return []
+
+    def _fetch_chunks_by_indices(
+        self, publication_id: str, indices: list[int]
+    ) -> list[dict]:
+        """Hydrate cached source indices back into source previews.
+
+        Returns the list in the original ``indices`` order. Missing chunks
+        are silently skipped (the article may have been re-indexed).
+        """
+        if not indices:
+            return []
+        try:
+            ids = [f"{publication_id}_chunk_{i}" for i in indices]
+            res = self.chunks_collection.get(
+                ids=ids,
+                include=["documents", "metadatas"],
+            )
+            if not res or not res.get("ids"):
+                return []
+            by_id = {
+                rid: (res["documents"][i], res["metadatas"][i] or {})
+                for i, rid in enumerate(res["ids"])
+            }
+            ordered = []
+            for cid, idx in zip(ids, indices):
+                if cid in by_id:
+                    text, meta = by_id[cid]
+                    ordered.append(
+                        {
+                            "chunk_index": meta.get("chunk_index", idx),
+                            "text": text,
+                            "score": None,  # cached hit — original score not preserved
+                        }
+                    )
+            return ordered
+        except Exception as e:
+            logger.warning(f"Could not hydrate cached source chunks: {e}")
             return []
 
     # ─────────────────────────── LLM ANSWER ───────────────────────────
@@ -374,47 +575,63 @@ class RagService:
         self,
         question: str,
         context_chunks: list[dict],
+        question_lang: str,
         history: list[dict] | None = None,
         strict: bool = False,
     ) -> str:
-        """Generate answer using Groq Llama.
-
-        Parameters
-        ----------
-        history:
-            Optional list of past ``{"role": "user"|"assistant", "content": str}``
-            turns. Used so follow-up questions stay coherent with earlier
-            turns in the same article-chat session.
-        strict:
-            When ``True``, prepend a stricter anti-leak reminder — used when
-            retrying after a contaminated first attempt.
-        """
         if not self.llm_client:
             return "API key not configured. Please check the GROQ_API_KEY setting."
 
         context_parts = []
         for i, chunk in enumerate(context_chunks, 1):
-            context_parts.append(f"[Chunk {i}]:\n{chunk['text']}")
-        context = "\n\n".join(context_parts)
+            body = _truncate_chunk_for_llm(chunk["text"])
+            context_parts.append(f"[{i}] {body}")
+        context = "\n".join(context_parts)
 
         user_prompt = RAG_USER_PROMPT.format(
             context=context,
-            question=question,
-            language_directive=_language_directive_for(question),
+            question=question.strip(),
+            language_directive=_language_directive_for(question_lang),
         )
         if strict:
             user_prompt = RAG_STRICT_RETRY_NOTE + user_prompt
 
-        messages: list[dict] = [
-            {"role": "system", "content": RAG_SYSTEM_PROMPT}
-        ]
-        # Cap the carried history to the last 4 turns (~2 Q&A pairs). Keeps
-        # the prompt small while giving the model enough context to resolve
-        # short follow-ups like "peki amacı ne?".
+        messages: list[dict] = [{"role": "system", "content": RAG_SYSTEM_PROMPT}]
+
+        # History handling — language-aware.
+        # If the latest question's language differs from the previous turn's
+        # language, drop the history entirely. Carrying mismatched-language
+        # history is the single biggest reason the model "forgets" to
+        # switch when the user does.
         if history:
             trimmed = [h for h in history if h.get("role") in ("user", "assistant")]
-            for h in trimmed[-4:]:
-                messages.append({"role": h["role"], "content": h["content"]})
+            if trimmed:
+                # Find the most recent user turn in the history to compare.
+                last_user = next(
+                    (h for h in reversed(trimmed) if h.get("role") == "user"),
+                    None,
+                )
+                last_lang = (
+                    _detect_language((last_user or {}).get("content", ""))
+                    if last_user
+                    else ""
+                )
+
+                if question_lang and last_lang and question_lang != last_lang:
+                    # Language switch — drop history so it doesn't drag the
+                    # model back to the previous language.
+                    logger.info(
+                        f"Language switch detected ({last_lang} → {question_lang}); "
+                        f"dropping {len(trimmed)} history turns from prompt"
+                    )
+                else:
+                    # Same language — keep last 2 turns, tightly truncated.
+                    for h in trimmed[-2:]:
+                        content = (h.get("content") or "").strip()
+                        if len(content) > 600:
+                            content = content[:599].rstrip() + "…"
+                        messages.append({"role": h["role"], "content": content})
+
         messages.append({"role": "user", "content": user_prompt})
 
         try:
@@ -422,17 +639,14 @@ class RagService:
                 model=settings.GROQ_MODEL,
                 messages=messages,
                 temperature=0.2 if strict else 0.25,
-                # Typical RAG answers run 200–600 tokens; 1024 gives plenty
-                # of headroom while capping worst-case cost.
-                max_tokens=1024,
-                # A small first-try penalty reduces the odds of the model
-                # echoing the prompt template verbatim. Retry bumps it up.
+                max_tokens=settings.RAG_LLM_MAX_OUTPUT_TOKENS,
                 frequency_penalty=0.35 if strict else 0.1,
             )
             answer = response.choices[0].message.content.strip()
             logger.info(
                 f"Groq generated answer ({len(answer)} chars, strict={strict}, "
-                f"history_turns={len(history) if history else 0}) "
+                f"lang={question_lang or 'unknown'}, "
+                f"history_used={len(messages) - 2}) "
                 f"for question: {question[:80]}..."
             )
             return answer
@@ -440,7 +654,7 @@ class RagService:
             logger.error(f"Groq API error: {e}")
             return f"An error occurred while generating the answer: {str(e)}"
 
-    # ─────────────────────────── ASK (Ana Pipeline) ───────────────────────────
+    # ─────────────────────────── ASK (Main Pipeline) ───────────────────────────
 
     def ask_question(
         self,
@@ -448,21 +662,18 @@ class RagService:
         question: str,
         history: list[dict] | None = None,
     ) -> dict:
-        """RAG pipeline: cache check → search → generate → cache save.
-
-        The cache is checked for every question (even follow-ups) — if the
-        current question text is very similar to a previously cached
-        standalone question for the same publication, we return that
-        cached answer. We still *skip caching* new answers when there's
-        history, to avoid polluting the cache with history-influenced
-        replies.
-        """
+        """RAG pipeline: cache check → search → generate → cache save."""
         history = history or []
         has_history = bool(history)
 
-        # 1. Build a retrieval query. For follow-ups, prepend the last user
-        #    question so the embedding reflects the broader intent (e.g.
-        #    "peki amacı ne?" alone is too ambiguous on its own).
+        # 1. Detect the language of the CURRENT question. This single value
+        #    drives prompt directives, history handling, and cache gating.
+        question_lang = _detect_language(question)
+
+        # 2. Build retrieval query. For follow-ups, prepend the last user
+        #    message so the embedding has enough context. But only do this
+        #    when the languages match — otherwise we'd embed a mixed-language
+        #    query that hurts recall.
         retrieval_query = question
         if has_history:
             last_user_msg = next(
@@ -470,10 +681,11 @@ class RagService:
                 None,
             )
             if last_user_msg and last_user_msg.get("content"):
-                retrieval_query = f"{last_user_msg['content']}\n{question}"
+                last_lang = _detect_language(last_user_msg["content"])
+                if not question_lang or not last_lang or question_lang == last_lang:
+                    retrieval_query = f"{last_user_msg['content']}\n{question}"
 
-        # 2. Embed the question once. Reuse that embedding for retrieval
-        #    when the retrieval query wasn't expanded by history.
+        # 3. Embed once; reuse when retrieval query wasn't expanded.
         question_embedding = embedding_service.encode(question)
         retrieval_embedding = (
             embedding_service.encode(retrieval_query)
@@ -481,60 +693,79 @@ class RagService:
             else question_embedding
         )
 
-        # 3. Semantic cache check — always run. The cache key is the
-        #    question embedding, so a near-identical repeat of an earlier
-        #    standalone question returns its cached answer regardless of
-        #    history, saving the whole LLM call.
-        cached_answer = self._check_cache(publication_id, question_embedding)
-        if cached_answer:
+        # 4. Semantic cache check (language-gated, follow-up-aware).
+        cached = self._check_cache(
+            publication_id, question_embedding, question_lang, has_history
+        )
+        if cached:
+            sources = self._format_sources(
+                self._fetch_chunks_by_indices(publication_id, cached["source_indices"])
+            )
             return {
-                "answer": cached_answer,
-                "sources": [],
+                "answer": cached["answer"],
+                "sources": sources,
                 "from_cache": True,
             }
 
-        # 4. Find relevant chunks using an article-adaptive top_k.
+        # 5. Find relevant chunks
         total_chunks = self._get_publication_chunk_count(publication_id)
         top_k = self._determine_top_k(total_chunks)
-        chunks = self._search_chunks(
-            publication_id, retrieval_embedding, top_k=top_k
-        )
+        chunks = self._search_chunks(publication_id, retrieval_embedding, top_k=top_k)
         if not chunks:
             return {
-                "answer": "This article has not been indexed yet or no relevant section was found for your question. Please index the article first.",
+                "answer": (
+                    "Bu makale henüz indekslenmemiş veya sorunuzla ilgili bir "
+                    "bölüm bulunamadı. Lütfen önce makaleyi indeksleyin."
+                    if question_lang == "tr"
+                    else "This article has not been indexed yet or no relevant "
+                    "section was found for your question. Please index the "
+                    "article first."
+                ),
                 "sources": [],
                 "from_cache": False,
             }
 
-        # 5. Generate answer with LLM (with one strict retry on contamination)
-        answer = self._generate_answer(question, chunks, history=history)
+        # 6. Generate answer (with one strict retry on contamination)
+        answer = self._generate_answer(
+            question, chunks, question_lang, history=history
+        )
         if _is_answer_contaminated(answer):
             logger.warning(
                 f"Contaminated answer detected for publication {publication_id}; "
                 f"retrying with strict anti-leak prompt"
             )
             answer = self._generate_answer(
-                question, chunks, history=history, strict=True
+                question, chunks, question_lang, history=history, strict=True
             )
 
-        # 6. Save to cache only for standalone questions AND only when the
-        #    answer is clean. History-influenced answers aren't cached so
-        #    future standalone repeats keep getting a "canonical" reply.
-        if has_history:
-            logger.debug(
-                f"Skipping cache save for publication {publication_id} "
-                f"(follow-up question with {len(history)} history turns)"
-            )
-        elif _is_answer_contaminated(answer):
+        # 7. Save to cache (clean answers only)
+        if _is_answer_contaminated(answer):
             logger.error(
                 f"Answer still contaminated after strict retry for publication "
                 f"{publication_id}; skipping cache save"
             )
         else:
-            self._save_to_cache(publication_id, question, question_embedding, answer)
+            source_indices = [int(c["chunk_index"]) for c in chunks]
+            self._save_to_cache(
+                publication_id,
+                question,
+                question_embedding,
+                answer,
+                source_indices,
+                question_lang,
+                is_followup=has_history,
+            )
 
-        # 7. Return results
-        sources = [
+        return {
+            "answer": answer,
+            "sources": self._format_sources(chunks),
+            "from_cache": False,
+        }
+
+    @staticmethod
+    def _format_sources(chunks: list[dict]) -> list[dict]:
+        """Trim source previews to a fixed length for the API response."""
+        return [
             {
                 "chunk_index": c["chunk_index"],
                 "text": c["text"][:300] + "..." if len(c["text"]) > 300 else c["text"],
@@ -543,14 +774,9 @@ class RagService:
             for c in chunks
         ]
 
-        return {
-            "answer": answer,
-            "sources": sources,
-            "from_cache": False,
-        }
-
     def is_article_indexed(self, publication_id: str) -> bool:
-        """Check whether the article has been indexed."""
+        if publication_id in self._chunk_count_cache:
+            return self._chunk_count_cache[publication_id] > 0
         try:
             results = self.chunks_collection.get(
                 where={"publication_id": publication_id},
