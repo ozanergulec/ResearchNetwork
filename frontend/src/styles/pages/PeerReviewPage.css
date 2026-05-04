@@ -174,6 +174,13 @@
     overflow: hidden;
 }
 
+.pr-pub-abstract-full {
+    display: block;
+    overflow: visible;
+    -webkit-line-clamp: unset;
+    line-clamp: unset;
+}
+
 .pr-pub-meta {
     display: flex;
     align-items: center;
@@ -577,6 +584,90 @@
     font-size: 0.78rem;
     color: var(--text-primary);
     opacity: 0.6;
+}
+
+/* Double-blind review styles */
+.pr-toggle-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.pr-blind-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #7c3aed;
+    background: rgba(124, 58, 237, 0.08);
+    border: 1px solid rgba(124, 58, 237, 0.25);
+    border-radius: 99px;
+    padding: 0.15rem 0.5rem;
+    white-space: nowrap;
+}
+
+.pr-blind-badge-inline {
+    font-size: 0.65rem;
+    padding: 0.1rem 0.35rem;
+    vertical-align: middle;
+    margin-left: 0.3rem;
+}
+
+.pr-blind-confirm {
+    background: rgba(124, 58, 237, 0.04);
+    border: 1px solid rgba(124, 58, 237, 0.2);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    margin-top: 0.5rem;
+    width: 100%;
+}
+
+.pr-blind-confirm-label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.pr-blind-confirm-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.pr-blind-confirm-label input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: #7c3aed;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.pr-blind-confirm-hint {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-weight: 400;
+    margin-left: 1.4rem;
+}
+
+.pr-blind-confirm-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+.pr-pub-author-anonymous {
+    opacity: 0.65;
+    cursor: default !important;
+}
+
+.pr-blind-anon-label {
+    font-style: italic;
+    color: var(--text-secondary);
 }
 
 /* Modal Overlay */

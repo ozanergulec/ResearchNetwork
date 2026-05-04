@@ -49,13 +49,19 @@ public class ReviewController : ControllerBase
     private static bool IsEligibleReviewer(string? title) =>
         title != null && ReviewerTitles.Contains(title, StringComparer.OrdinalIgnoreCase);
 
-    private static ReviewRequestDto ToDto(ReviewRequest r)
+    private static readonly UserSummaryDto AnonymousUser = new(
+        Guid.Empty, "Anonymous", null, null, null, null, false
+    );
+
+    // viewAsAuthor=true  → author sees the review list (hide reviewer when blind)
+    // viewAsAuthor=false → reviewer sees their own applications (hide author when blind)
+    private static ReviewRequestDto ToDto(ReviewRequest r, bool viewAsAuthor = false)
     {
-        return new ReviewRequestDto(
-            r.Id,
-            r.PublicationId,
-            r.Publication.Title,
-            new UserSummaryDto(
+        bool isBlindActive = r.Publication.IsDoubleBlind;
+
+        var author = (isBlindActive && !viewAsAuthor)
+            ? AnonymousUser
+            : new UserSummaryDto(
                 r.Publication.Author.Id,
                 r.Publication.Author.FullName,
                 r.Publication.Author.Title,
@@ -63,8 +69,11 @@ public class ReviewController : ControllerBase
                 r.Publication.Author.ProfileImageUrl,
                 r.Publication.Author.CoverImageUrl,
                 r.Publication.Author.IsVerified
-            ),
-            new UserSummaryDto(
+            );
+
+        var reviewer = (isBlindActive && viewAsAuthor)
+            ? AnonymousUser
+            : new UserSummaryDto(
                 r.Reviewer.Id,
                 r.Reviewer.FullName,
                 r.Reviewer.Title,
@@ -72,14 +81,23 @@ public class ReviewController : ControllerBase
                 r.Reviewer.ProfileImageUrl,
                 r.Reviewer.CoverImageUrl,
                 r.Reviewer.IsVerified
-            ),
+            );
+
+        return new ReviewRequestDto(
+            r.Id,
+            r.PublicationId,
+            r.Publication.Title,
+            r.Publication.FileUrl,
+            author,
+            reviewer,
             r.Status.ToString(),
             r.Message,
             r.ReviewComment,
             r.Verdict?.ToString(),
             r.Rating?.Score,
             r.CreatedAt,
-            r.UpdatedAt
+            r.UpdatedAt,
+            r.Publication.IsDoubleBlind
         );
     }
 
@@ -90,7 +108,7 @@ public class ReviewController : ControllerBase
     /// </summary>
     [Authorize]
     [HttpPut("publication/{publicationId:guid}/toggle-search")]
-    public async Task<ActionResult> ToggleReviewSearch(Guid publicationId)
+    public async Task<ActionResult> ToggleReviewSearch(Guid publicationId, [FromBody] ToggleReviewSearchDto? dto = null)
     {
         var userId = GetCurrentUserId();
         if (userId == null) return Unauthorized();
@@ -99,10 +117,20 @@ public class ReviewController : ControllerBase
         if (publication == null) return NotFound("Publication not found.");
         if (publication.AuthorId != userId.Value) return Forbid();
 
-        publication.IsLookingForReviewers = !publication.IsLookingForReviewers;
+        bool wasLooking = publication.IsLookingForReviewers;
+        publication.IsLookingForReviewers = !wasLooking;
+
+        // Only set IsDoubleBlind when enabling review search and a value is provided
+        if (!wasLooking && dto?.IsDoubleBlind.HasValue == true)
+            publication.IsDoubleBlind = dto.IsDoubleBlind!.Value;
+
+        // When disabling review search, reset double-blind too
+        if (wasLooking)
+            publication.IsDoubleBlind = false;
+
         await _publicationRepository.UpdateAsync(publication);
 
-        return Ok(new { isLookingForReviewers = publication.IsLookingForReviewers });
+        return Ok(new { isLookingForReviewers = publication.IsLookingForReviewers, isDoubleBlind = publication.IsDoubleBlind });
     }
 
     // ==================== BROWSE ====================
@@ -175,16 +203,19 @@ public class ReviewController : ControllerBase
         var reviewRequest = new ReviewRequest(publicationId, userId.Value, dto.Message);
         await _reviewRepository.CreateAsync(reviewRequest);
 
-        // Notify the publication author
+        // Notify the publication author (anonymize actor when double-blind)
+        bool applyBlind = publication.IsDoubleBlind;
         var notification = new Notification(
             publication.AuthorId,
             "New Review Application",
-            $"{currentUser.FullName} wants to review your publication \"{publication.Title}\"",
+            applyBlind
+                ? $"A new reviewer applied to review your publication \"{publication.Title}\""
+                : $"{currentUser.FullName} wants to review your publication \"{publication.Title}\"",
             NotificationType.ReviewRequested,
             $"/peer-review?tab=my-publications&highlight={publicationId}",
-            userId.Value,
-            currentUser.FullName,
-            currentUser.ProfileImageUrl
+            applyBlind ? (Guid?)null : userId.Value,
+            applyBlind ? null : currentUser.FullName,
+            applyBlind ? null : currentUser.ProfileImageUrl
         );
         await _notificationRepository.AddAsync(notification);
 
@@ -216,15 +247,16 @@ public class ReviewController : ControllerBase
         await _reviewRepository.UpdateAsync(request);
 
         var author = await _userRepository.GetByIdBasicAsync(userId.Value);
+        bool acceptReviewerBlind = request.Publication.IsDoubleBlind;
         var notification = new Notification(
             request.ReviewerId,
             "Review Application Accepted",
             $"Your review application for \"{request.Publication.Title}\" has been accepted.",
             NotificationType.ReviewAccepted,
             $"/peer-review?tab=my-applications&highlight={request.PublicationId}",
-            userId.Value,
-            author?.FullName,
-            author?.ProfileImageUrl
+            acceptReviewerBlind ? (Guid?)null : userId.Value,
+            acceptReviewerBlind ? null : author?.FullName,
+            acceptReviewerBlind ? null : author?.ProfileImageUrl
         );
         await _notificationRepository.AddAsync(notification);
 
@@ -286,15 +318,18 @@ public class ReviewController : ControllerBase
         request.SubmitReview(dto.ReviewComment, verdict);
         await _reviewRepository.UpdateAsync(request);
 
+        bool submitBlind = request.Publication.IsDoubleBlind;
         var notification = new Notification(
             request.Publication.AuthorId,
             "Review Submitted",
-            $"{currentUser.FullName} has submitted a review for \"{request.Publication.Title}\"",
+            submitBlind
+                ? $"A reviewer has submitted a review for \"{request.Publication.Title}\""
+                : $"{currentUser.FullName} has submitted a review for \"{request.Publication.Title}\"",
             NotificationType.ReviewCompleted,
             $"/peer-review?tab=my-publications&highlight={request.PublicationId}",
-            userId.Value,
-            currentUser.FullName,
-            currentUser.ProfileImageUrl
+            submitBlind ? (Guid?)null : userId.Value,
+            submitBlind ? null : currentUser.FullName,
+            submitBlind ? null : currentUser.ProfileImageUrl
         );
         await _notificationRepository.AddAsync(notification);
 
@@ -334,7 +369,7 @@ public class ReviewController : ControllerBase
         if (userId == null) return Unauthorized();
 
         var requests = await _reviewRepository.GetByReviewerIdAsync(userId.Value);
-        return Ok(requests.Select(ToDto));
+        return Ok(requests.Select(r => ToDto(r, viewAsAuthor: false)));
     }
 
     /// <summary>
@@ -353,7 +388,8 @@ public class ReviewController : ControllerBase
         if (request.ReviewerId != userId.Value && request.Publication.AuthorId != userId.Value)
             return Forbid();
 
-        return Ok(ToDto(request));
+        bool viewAsAuthor = request.Publication.AuthorId == userId.Value;
+        return Ok(ToDto(request, viewAsAuthor));
     }
 
     /// <summary>
@@ -372,7 +408,7 @@ public class ReviewController : ControllerBase
         if (publication.AuthorId != userId.Value) return Forbid();
 
         var requests = await _reviewRepository.GetByPublicationIdAsync(publicationId);
-        return Ok(requests.Select(ToDto));
+        return Ok(requests.Select(r => ToDto(r, viewAsAuthor: true)));
     }
 
     /// <summary>
@@ -492,9 +528,14 @@ public class ReviewController : ControllerBase
             .GetReviewContextForPublicationAsync(publicationId, dto.ReviewerId);
         bool isRecommended = completedReviews > 0;
 
-        string invitationMessage = isRecommended
-            ? $"{author?.FullName} invites you to review \"{publication.Title}\". You are recommended based on your past reviews in this field."
-            : $"{author?.FullName} invites you to review \"{publication.Title}\". Your expertise matches the publication's topics.";
+        bool inviteBlind = publication.IsDoubleBlind;
+        string invitationMessage = inviteBlind
+            ? (isRecommended
+                ? $"You have been invited to review \"{publication.Title}\". You are recommended based on your past reviews in this field."
+                : $"You have been invited to review \"{publication.Title}\". Your expertise matches the publication's topics.")
+            : (isRecommended
+                ? $"{author?.FullName} invites you to review \"{publication.Title}\". You are recommended based on your past reviews in this field."
+                : $"{author?.FullName} invites you to review \"{publication.Title}\". Your expertise matches the publication's topics.");
 
         // Create the Invited ReviewRequest so the reviewer can accept it directly.
         var reviewRequest = ReviewRequest.CreateInvitation(publicationId, dto.ReviewerId, invitationMessage);
@@ -507,9 +548,9 @@ public class ReviewController : ControllerBase
             invitationMessage,
             NotificationType.ReviewerSuggested,
             $"/peer-review?tab=my-applications&highlight={publicationId}",
-            userId.Value,
-            author?.FullName,
-            author?.ProfileImageUrl
+            inviteBlind ? (Guid?)null : userId.Value,
+            inviteBlind ? null : author?.FullName,
+            inviteBlind ? null : author?.ProfileImageUrl
         );
         await _notificationRepository.AddAsync(notification);
 
@@ -542,15 +583,18 @@ public class ReviewController : ControllerBase
         await _reviewRepository.UpdateAsync(request);
 
         var reviewer = await _userRepository.GetByIdBasicAsync(userId.Value);
+        bool acceptBlind = request.Publication.IsDoubleBlind;
         var notification = new Notification(
             request.Publication.AuthorId,
             "Review Invitation Accepted",
-            $"{reviewer?.FullName} accepted your invitation to review \"{request.Publication.Title}\".",
+            acceptBlind
+                ? $"A reviewer accepted your invitation to review \"{request.Publication.Title}\"."
+                : $"{reviewer?.FullName} accepted your invitation to review \"{request.Publication.Title}\".",
             NotificationType.ReviewAccepted,
             $"/peer-review?tab=my-publications&highlight={request.PublicationId}",
-            userId.Value,
-            reviewer?.FullName,
-            reviewer?.ProfileImageUrl
+            acceptBlind ? (Guid?)null : userId.Value,
+            acceptBlind ? null : reviewer?.FullName,
+            acceptBlind ? null : reviewer?.ProfileImageUrl
         );
         await _notificationRepository.AddAsync(notification);
 
@@ -580,15 +624,18 @@ public class ReviewController : ControllerBase
         await _reviewRepository.UpdateAsync(request);
 
         var reviewer = await _userRepository.GetByIdBasicAsync(userId.Value);
+        bool declineBlind = request.Publication.IsDoubleBlind;
         var notification = new Notification(
             request.Publication.AuthorId,
             "Review Invitation Declined",
-            $"{reviewer?.FullName} declined your invitation to review \"{request.Publication.Title}\".",
+            declineBlind
+                ? $"A reviewer declined your invitation to review \"{request.Publication.Title}\"."
+                : $"{reviewer?.FullName} declined your invitation to review \"{request.Publication.Title}\".",
             NotificationType.General,
             $"/peer-review?tab=my-publications&highlight={request.PublicationId}",
-            userId.Value,
-            reviewer?.FullName,
-            reviewer?.ProfileImageUrl
+            declineBlind ? (Guid?)null : userId.Value,
+            declineBlind ? null : reviewer?.FullName,
+            declineBlind ? null : reviewer?.ProfileImageUrl
         );
         await _notificationRepository.AddAsync(notification);
 

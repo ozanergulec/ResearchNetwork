@@ -81,19 +81,22 @@ public class ReviewRepository : IReviewRepository
                 p.Title,
                 p.Abstract,
                 p.PublishedDate,
-                new UserSummaryDto(
-                    p.Author.Id,
-                    p.Author.FullName,
-                    p.Author.Title,
-                    p.Author.Institution,
-                    p.Author.ProfileImageUrl,
-                    p.Author.CoverImageUrl,
-                    p.Author.IsVerified
-                ),
+                p.IsDoubleBlind
+                    ? new UserSummaryDto(Guid.Empty, "Anonymous Author", null, null, null, null, false)
+                    : new UserSummaryDto(
+                        p.Author.Id,
+                        p.Author.FullName,
+                        p.Author.Title,
+                        p.Author.Institution,
+                        p.Author.ProfileImageUrl,
+                        p.Author.CoverImageUrl,
+                        p.Author.IsVerified
+                    ),
                 p.Tags.Select(pt => pt.Tag.Name).ToList(),
                 p.ReviewRequests.Count,
                 p.ReviewRequests.Any(r => r.ReviewerId == userIdForCompare),
-                p.AuthorId == userIdForCompare
+                p.AuthorId == userIdForCompare,
+                p.IsDoubleBlind
             ))
             .ToListAsync();
 
@@ -112,19 +115,22 @@ public class ReviewRepository : IReviewRepository
                 p.Title,
                 p.Abstract,
                 p.PublishedDate,
-                new UserSummaryDto(
-                    p.Author.Id,
-                    p.Author.FullName,
-                    p.Author.Title,
-                    p.Author.Institution,
-                    p.Author.ProfileImageUrl,
-                    p.Author.CoverImageUrl,
-                    p.Author.IsVerified
-                ),
+                p.IsDoubleBlind
+                    ? new UserSummaryDto(Guid.Empty, "Anonymous Author", null, null, null, null, false)
+                    : new UserSummaryDto(
+                        p.Author.Id,
+                        p.Author.FullName,
+                        p.Author.Title,
+                        p.Author.Institution,
+                        p.Author.ProfileImageUrl,
+                        p.Author.CoverImageUrl,
+                        p.Author.IsVerified
+                    ),
                 p.Tags.Select(pt => pt.Tag.Name).ToList(),
                 p.ReviewRequests.Count,
                 p.ReviewRequests.Any(r => r.ReviewerId == userIdForCompare),
-                p.AuthorId == userIdForCompare
+                p.AuthorId == userIdForCompare,
+                p.IsDoubleBlind
             ))
             .FirstOrDefaultAsync();
     }

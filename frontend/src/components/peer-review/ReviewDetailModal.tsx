@@ -56,6 +56,7 @@ const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({
     const isAuthorView = viewAs === 'author';
     const person = isAuthorView ? request.reviewer : request.author;
     const personLabel = isAuthorView ? 'Reviewer' : 'Publication Author';
+    const isPersonAnonymous = person.id === '00000000-0000-0000-0000-000000000000';
 
     // Rating state
     const [ratingScore, setRatingScore] = useState(0);
@@ -125,15 +126,22 @@ const ReviewDetailModal: React.FC<ReviewDetailModalProps> = ({
                 {/* Person */}
                 <div
                     className="pr-detail-author"
-                    onClick={() => { onClose(); navigate(`/profile/${person.id}`); }}
+                    onClick={isPersonAnonymous ? undefined : () => { onClose(); navigate(`/profile/${person.id}`); }}
+                    style={{ cursor: isPersonAnonymous ? 'default' : 'pointer' }}
                 >
                     {renderAvatar(person.fullName, person.profileImageUrl, 36)}
                     <div className="pr-detail-author-info">
-                        <span className="pr-detail-author-name">{person.fullName}</span>
+                        <span className="pr-detail-author-name">
+                            {person.fullName}
+                            {isPersonAnonymous && (
+                                <span className="pr-blind-badge pr-blind-badge-inline" title="Identity hidden — double-blind review" style={{ marginLeft: '0.5rem' }}>🔒</span>
+                            )}
+                        </span>
                         <span className="pr-detail-author-sub">
                             {personLabel}
                             {person.title && ` · ${person.title}`}
                             {person.institution && ` · ${person.institution}`}
+                            {isPersonAnonymous && ' · Identity hidden until review is complete'}
                         </span>
                     </div>
                 </div>

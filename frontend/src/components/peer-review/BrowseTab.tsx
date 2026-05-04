@@ -130,8 +130,9 @@ const BrowseTab: React.FC<BrowseTabProps> = ({
                             <div
                                 key={pub.id}
                                 ref={isHighlighted ? highlightRef : undefined}
-                                className={`pr-pub-card pr-pub-card-clickable ${isHighlighted ? 'pr-pub-highlight' : ''}`}
-                                onClick={() => handleCardClick(pub.id)}
+                                className={`pr-pub-card ${pub.isDoubleBlind ? '' : 'pr-pub-card-clickable'} ${isHighlighted ? 'pr-pub-highlight' : ''}`}
+                                onClick={pub.isDoubleBlind ? undefined : () => handleCardClick(pub.id)}
+                                style={pub.isDoubleBlind ? { cursor: 'default' } : undefined}
                             >
                                 <div className="pr-pub-header">
                                     <div style={{ flex: 1 }}>
@@ -165,12 +166,24 @@ const BrowseTab: React.FC<BrowseTabProps> = ({
                                         ) : null}
                                     </div>
                                 </div>
-                                {pub.abstract && <p className="pr-pub-abstract">{pub.abstract}</p>}
+                                {pub.abstract && (
+                                    <p className={`pr-pub-abstract${pub.isDoubleBlind ? ' pr-pub-abstract-full' : ''}`}>
+                                        {pub.abstract}
+                                    </p>
+                                )}
                                 <div className="pr-pub-meta">
-                                    <div className="pr-pub-author" onClick={(e) => { e.stopPropagation(); navigate(`/profile/${pub.author.id}`); }} style={{ cursor: 'pointer' }}>
-                                        {renderAvatar(pub.author.fullName, pub.author.profileImageUrl)}
-                                        <span>{pub.author.fullName}</span>
-                                    </div>
+                                    {pub.isDoubleBlind ? (
+                                        <div className="pr-pub-author pr-pub-author-anonymous">
+                                            {renderAvatar('Anonymous Author', null)}
+                                            <span className="pr-blind-anon-label">Anonymous Author</span>
+                                            <span className="pr-blind-badge pr-blind-badge-inline" title="Double-blind review">🔒</span>
+                                        </div>
+                                    ) : (
+                                        <div className="pr-pub-author" onClick={(e) => { e.stopPropagation(); navigate(`/profile/${pub.author.id}`); }} style={{ cursor: 'pointer' }}>
+                                            {renderAvatar(pub.author.fullName, pub.author.profileImageUrl)}
+                                            <span>{pub.author.fullName}</span>
+                                        </div>
+                                    )}
                                     {pub.tags.slice(0, 3).map(tag => (
                                         <span key={tag} className="pr-pub-tag">{tag}</span>
                                     ))}

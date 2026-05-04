@@ -6,6 +6,7 @@ export interface ReviewRequest {
     id: string;
     publicationId: string;
     publicationTitle: string;
+    publicationFileUrl: string | null;
     author: UserSummary;
     reviewer: UserSummary;
     status: 'Pending' | 'Accepted' | 'Completed' | 'Rejected' | 'Invited';
@@ -15,6 +16,7 @@ export interface ReviewRequest {
     reviewScore: number | null;
     createdAt: string;
     updatedAt: string | null;
+    isDoubleBlind: boolean;
 }
 
 // Publication looking for reviewers
@@ -28,6 +30,7 @@ export interface ReviewablePublication {
     reviewRequestCount: number;
     hasApplied: boolean;
     isOwner: boolean;
+    isDoubleBlind: boolean;
 }
 
 // My publication for review management
@@ -36,6 +39,7 @@ export interface MyPublicationForReview {
     title: string;
     abstract: string | null;
     isLookingForReviewers: boolean;
+    isDoubleBlind: boolean;
     createdAt: string;
     reviewRequestCount: number;
 }
@@ -57,9 +61,12 @@ export interface SuggestedReviewer {
 
 // Review API
 export const reviewApi = {
-    // Toggle "looking for reviewers" on a publication
-    toggleReviewSearch: (publicationId: string) =>
-        api.put<{ isLookingForReviewers: boolean }>(`/review/publication/${publicationId}/toggle-search`),
+    // Toggle "looking for reviewers" on a publication; pass isDoubleBlind when enabling
+    toggleReviewSearch: (publicationId: string, isDoubleBlind?: boolean) =>
+        api.put<{ isLookingForReviewers: boolean; isDoubleBlind: boolean }>(
+            `/review/publication/${publicationId}/toggle-search`,
+            isDoubleBlind !== undefined ? { isDoubleBlind } : undefined
+        ),
 
     // Get publications looking for reviewers (paginated)
     getLookingForReviewers: (page: number = 1, pageSize: number = 10) =>

@@ -4,6 +4,7 @@ public record ReviewRequestDto(
     Guid Id,
     Guid PublicationId,
     string PublicationTitle,
+    string? PublicationFileUrl,
     UserSummaryDto Author,
     UserSummaryDto Reviewer,
     string Status,
@@ -12,11 +13,16 @@ public record ReviewRequestDto(
     string? Verdict,
     int? ReviewScore,
     DateTime CreatedAt,
-    DateTime? UpdatedAt
+    DateTime? UpdatedAt,
+    bool IsDoubleBlind
 );
 
 public record CreateReviewRequestDto(
     string? Message
+);
+
+public record ToggleReviewSearchDto(
+    bool? IsDoubleBlind
 );
 
 public record SubmitReviewDto(
@@ -59,7 +65,8 @@ public record ReviewablePublicationProjection(
     List<string> Tags,
     int ReviewRequestCount,
     bool HasApplied,
-    bool IsOwner
+    bool IsOwner,
+    bool IsDoubleBlind
 );
 
 public record MyPublicationForReviewProjection(
@@ -67,6 +74,7 @@ public record MyPublicationForReviewProjection(
     string Title,
     string? Abstract,
     bool IsLookingForReviewers,
+    bool IsDoubleBlind,
     DateTime CreatedAt,
     int ReviewRequestCount
 );

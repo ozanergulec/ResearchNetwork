@@ -8,7 +8,7 @@ import { useTranslation } from '../../translations/translations';
 
 interface MyPublicationsTabProps {
     myPublications: MyPublicationForReview[];
-    onToggleSearch: (pubId: string) => void;
+    onToggleSearch: (pubId: string, isDoubleBlind?: boolean) => void;
     highlightPubId?: string | null;
 }
 
@@ -26,6 +26,10 @@ const MyPublicationsTab: React.FC<MyPublicationsTabProps> = ({ myPublications, o
     const [invitedIds, setInvitedIds] = useState<Set<string>>(new Set());
     const [invitingId, setInvitingId] = useState<string | null>(null);
     const highlightRef = useRef<HTMLDivElement | null>(null);
+
+    // Double-blind confirm panel: pubId of publication awaiting confirmation
+    const [blindConfirmPubId, setBlindConfirmPubId] = useState<string | null>(null);
+    const [blindConfirmValue, setBlindConfirmValue] = useState(false);
 
     useEffect(() => {
         if (highlightPubId && highlightRef.current) {
@@ -72,16 +76,25 @@ const MyPublicationsTab: React.FC<MyPublicationsTabProps> = ({ myPublications, o
         }
     };
 
-    const handleToggleAndSuggest = async (pubId: string, isCurrentlyLooking: boolean) => {
-        onToggleSearch(pubId);
-        if (!isCurrentlyLooking) {
-            setTimeout(() => loadSuggestions(pubId), 300);
-        } else {
+    const handleToggleClick = (pubId: string, isCurrentlyLooking: boolean) => {
+        if (isCurrentlyLooking) {
+            // Turning off: no confirmation needed
+            onToggleSearch(pubId);
             if (suggestPubId === pubId) {
                 setSuggestPubId(null);
                 setSuggestedReviewers([]);
             }
+        } else {
+            // Turning on: show double-blind confirm panel
+            setBlindConfirmValue(false);
+            setBlindConfirmPubId(pubId);
         }
+    };
+
+    const handleConfirmEnable = (pubId: string) => {
+        onToggleSearch(pubId, blindConfirmValue);
+        setBlindConfirmPubId(null);
+        setTimeout(() => loadSuggestions(pubId), 300);
     };
 
     const handleInvite = async (pubId: string, reviewerId: string) => {
@@ -160,13 +173,20 @@ const MyPublicationsTab: React.FC<MyPublicationsTabProps> = ({ myPublications, o
                             </div>
                         </div>
                         <div className="pr-my-pub-actions">
-                            <div className="pr-toggle" onClick={() => handleToggleAndSuggest(pub.id, pub.isLookingForReviewers)}>
-                                <div className={`pr-toggle-track ${pub.isLookingForReviewers ? 'active' : ''}`}>
-                                    <div className="pr-toggle-thumb" />
+                            <div className="pr-toggle-group">
+                                <div className="pr-toggle" onClick={() => handleToggleClick(pub.id, pub.isLookingForReviewers)}>
+                                    <div className={`pr-toggle-track ${pub.isLookingForReviewers ? 'active' : ''}`}>
+                                        <div className="pr-toggle-thumb" />
+                                    </div>
+                                    <span className="pr-toggle-label">
+                                        {pub.isLookingForReviewers ? 'Seeking reviewers' : 'Not seeking'}
+                                    </span>
                                 </div>
-                                <span className="pr-toggle-label">
-                                    {pub.isLookingForReviewers ? 'Seeking reviewers' : 'Not seeking'}
-                                </span>
+                                {pub.isLookingForReviewers && pub.isDoubleBlind && (
+                                    <span className="pr-blind-badge" title="Double-blind review: identities are hidden during review">
+                                        🔒 Double-blind
+                                    </span>
+                                )}
                             </div>
                             <button
                                 className={`pr-btn pr-btn-sm ${suggestPubId === pub.id ? 'pr-btn-outline' : 'pr-btn-primary'}`}
@@ -184,6 +204,31 @@ const MyPublicationsTab: React.FC<MyPublicationsTabProps> = ({ myPublications, o
                             )}
                         </div>
                     </div>
+
+                    {/* ===== DOUBLE-BLIND CONFIRM PANEL ===== */}
+                    {blindConfirmPubId === pub.id && (
+                        <div className="pr-blind-confirm">
+                            <label className="pr-blind-confirm-label">
+                                <div className="pr-blind-confirm-row">
+                                    <input
+                                        type="checkbox"
+                                        checked={blindConfirmValue}
+                                        onChange={e => setBlindConfirmValue(e.target.checked)}
+                                    />
+                                    <span>Enable double-blind review</span>
+                                </div>
+                                <span className="pr-blind-confirm-hint">Reviewer and author identities will be hidden during the review process</span>
+                            </label>
+                            <div className="pr-blind-confirm-actions">
+                                <button className="pr-btn pr-btn-primary pr-btn-sm" onClick={() => handleConfirmEnable(pub.id)}>
+                                    Start Review Search
+                                </button>
+                                <button className="pr-btn pr-btn-outline pr-btn-sm" onClick={() => setBlindConfirmPubId(null)}>
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    )}
 
                     {/* ===== INLINE SUGGESTED REVIEWERS ===== */}
                     {suggestPubId === pub.id && (
@@ -310,7 +355,11 @@ const MyPublicationsTab: React.FC<MyPublicationsTabProps> = ({ myPublications, o
                                         onClick={() => setSelectedRequest(req)}
                                     >
                                         <div className="pr-request-header">
-                                            <div className="pr-request-user" onClick={(e) => { e.stopPropagation(); navigate(`/profile/${req.reviewer.id}`); }} style={{ cursor: 'pointer' }}>
+                                            <div
+                                                className="pr-request-user"
+                                                onClick={req.reviewer.id === '00000000-0000-0000-0000-000000000000' ? undefined : (e) => { e.stopPropagation(); navigate(`/profile/${req.reviewer.id}`); }}
+                                                style={{ cursor: req.reviewer.id === '00000000-0000-0000-0000-000000000000' ? 'default' : 'pointer' }}
+                                            >
                                                 {renderAvatar(req.reviewer.fullName, req.reviewer.profileImageUrl, 36)}
                                                 <div className="pr-request-user-info">
                                                     <span className="pr-request-user-name">{req.reviewer.fullName}</span>

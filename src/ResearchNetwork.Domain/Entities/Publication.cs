@@ -59,6 +59,9 @@ public class Publication
     // Whether the author is looking for reviewers
     public bool IsLookingForReviewers { get; set; }
 
+    // Whether this publication uses double-blind peer review (identities hidden during review)
+    public bool IsDoubleBlind { get; set; }
+
     // Yayının Ortalama Puanı
     public double AverageRating { get; private set; }
 
@@ -84,6 +87,7 @@ public class Publication
         CitationCount = 0;
         SaveCount = 0;
         IsLookingForReviewers = false;
+        IsDoubleBlind = false;
         ShareCount = 0;
     }
 

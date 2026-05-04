@@ -124,10 +124,9 @@ const PeerReviewPage: React.FC = () => {
             .catch(() => setCanReview(false));
     }, []);
 
-    const handleToggleSearch = useCallback(async (pubId: string) => {
+    const handleToggleSearch = useCallback(async (pubId: string, isDoubleBlind?: boolean) => {
         try {
-            await reviewApi.toggleReviewSearch(pubId);
-            // Aktif sekmeye göre yeniden yükle
+            await reviewApi.toggleReviewSearch(pubId, isDoubleBlind);
             if (activeTab === 'browse') {
                 fetchBrowse(browsePage);
             } else if (activeTab === 'my-publications') {

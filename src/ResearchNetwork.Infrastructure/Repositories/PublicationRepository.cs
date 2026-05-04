@@ -78,6 +78,7 @@ public class PublicationRepository : IPublicationRepository
                 p.Title,
                 p.Abstract,
                 p.IsLookingForReviewers,
+                p.IsDoubleBlind,
                 p.CreatedAt,
                 p.ReviewRequests.Count
             ))

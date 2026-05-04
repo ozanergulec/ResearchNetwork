@@ -159,6 +159,9 @@ namespace ResearchNetwork.Infrastructure.Migrations
                     b.Property<string>("FileUrl")
                         .HasColumnType("text");
 
+                    b.Property<bool>("IsDoubleBlind")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("IsLookingForReviewers")
                         .HasColumnType("boolean");
 
