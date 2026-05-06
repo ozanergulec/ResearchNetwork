@@ -5,9 +5,13 @@ import { publicationsApi } from '../../services/publicationService';
 import { usersApi } from '../../services/userService';
 import { reviewApi } from '../../services/reviewService';
 import { API_SERVER_URL } from '../../services/apiClient';
+import { RESEARCH_TOPICS } from '../../data/researchTopics';
 import PublicationDetailModal from './PublicationDetailModal';
 import ShareModal from './ShareModal';
 import '../../styles/feed/FeedPublicationCard.css';
+import '../../styles/publications/AddPublicationModal.css';
+
+const MAX_EDIT_TAGS = 6;
 
 interface FeedPublicationCardProps {
     publication: Publication;
@@ -35,8 +39,13 @@ const FeedPublicationCard: React.FC<FeedPublicationCardProps> = ({ publication: 
     const [isEditing, setIsEditing] = useState(false);
     const [editTitle, setEditTitle] = useState(publication.title);
     const [editAbstract, setEditAbstract] = useState(publication.abstract || '');
-    const [editDoi, setEditDoi] = useState(publication.doi || '');
-    const [editTags, setEditTags] = useState(publication.tags.join(', '));
+    const [editTags, setEditTags] = useState<string[]>(publication.tags);
+    const [editTagQuery, setEditTagQuery] = useState('');
+    const [editTagFiltered, setEditTagFiltered] = useState<string[]>([]);
+    const [editTagOpen, setEditTagOpen] = useState(false);
+    const [editTagActiveIdx, setEditTagActiveIdx] = useState(-1);
+    const editTagRef = useRef<HTMLDivElement>(null);
+    const editTagListRef = useRef<HTMLUListElement>(null);
     const [saving, setSaving] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [deleting, setDeleting] = useState(false);
@@ -80,6 +89,25 @@ const FeedPublicationCard: React.FC<FeedPublicationCardProps> = ({ publication: 
         }
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [showMenu]);
+
+    // Close edit tag autocomplete on outside click
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (editTagRef.current && !editTagRef.current.contains(e.target as Node)) {
+                setEditTagOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    // Scroll active edit tag item into view
+    useEffect(() => {
+        if (editTagActiveIdx >= 0 && editTagListRef.current) {
+            const el = editTagListRef.current.children[editTagActiveIdx] as HTMLElement;
+            if (el) el.scrollIntoView({ block: 'nearest' });
+        }
+    }, [editTagActiveIdx]);
 
     const getTimeAgo = (dateString: string): string => {
         const now = new Date();
@@ -193,9 +221,59 @@ const FeedPublicationCard: React.FC<FeedPublicationCardProps> = ({ publication: 
         setShowMenu(false);
         setEditTitle(publication.title);
         setEditAbstract(publication.abstract || '');
-        setEditDoi(publication.doi || '');
-        setEditTags(publication.tags.join(', '));
+        setEditTags(publication.tags);
+        setEditTagQuery('');
+        setEditTagFiltered([]);
+        setEditTagOpen(false);
+        setEditTagActiveIdx(-1);
         setIsEditing(true);
+    };
+
+    const filterEditTopics = (query: string, currentTags: string[]) => {
+        if (query.trim().length === 0) return [];
+        const tagSet = new Set(currentTags.map(t => t.toLowerCase()));
+        return RESEARCH_TOPICS.filter(t =>
+            t.toLowerCase().includes(query.toLowerCase()) && !tagSet.has(t.toLowerCase())
+        ).slice(0, 15);
+    };
+
+    const handleEditTagSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (editTags.length >= MAX_EDIT_TAGS) return;
+        const q = e.target.value;
+        setEditTagQuery(q);
+        const matches = filterEditTopics(q, editTags);
+        setEditTagFiltered(matches);
+        setEditTagOpen(matches.length > 0);
+        setEditTagActiveIdx(-1);
+    };
+
+    const handleEditTagSelect = (topic: string) => {
+        if (editTags.length >= MAX_EDIT_TAGS) return;
+        setEditTags(prev => [...prev, topic]);
+        setEditTagQuery('');
+        setEditTagFiltered([]);
+        setEditTagOpen(false);
+        setEditTagActiveIdx(-1);
+    };
+
+    const handleEditTagRemove = (topic: string) => {
+        setEditTags(prev => prev.filter(t => t !== topic));
+    };
+
+    const handleEditTagKeyDown = (e: React.KeyboardEvent) => {
+        if (!editTagOpen) return;
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setEditTagActiveIdx(prev => (prev < editTagFiltered.length - 1 ? prev + 1 : prev));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setEditTagActiveIdx(prev => (prev > 0 ? prev - 1 : 0));
+        } else if (e.key === 'Enter' && editTagActiveIdx >= 0) {
+            e.preventDefault();
+            handleEditTagSelect(editTagFiltered[editTagActiveIdx]);
+        } else if (e.key === 'Escape') {
+            setEditTagOpen(false);
+        }
     };
 
     const handleEditSave = async (e: React.MouseEvent) => {
@@ -203,17 +281,11 @@ const FeedPublicationCard: React.FC<FeedPublicationCardProps> = ({ publication: 
         if (!editTitle.trim()) return;
         setSaving(true);
         try {
-            const tagsArray = editTags
-                .split(',')
-                .map(t => t.trim())
-                .filter(t => t.length > 0);
-
             const res = await publicationsApi.update(publication.id, {
                 title: editTitle.trim(),
                 abstract: editAbstract.trim() || undefined,
-                doi: editDoi.trim() || undefined,
                 publishedDate: publication.publishedDate || undefined,
-                tags: tagsArray,
+                tags: editTags,
             });
             setPublication(res.data);
             setIsEditing(false);
@@ -381,22 +453,42 @@ const FeedPublicationCard: React.FC<FeedPublicationCardProps> = ({ publication: 
                             />
                         </div>
                         <div className="feed-card-edit-field">
-                            <label>DOI</label>
-                            <input
-                                type="text"
-                                value={editDoi}
-                                onChange={(e) => setEditDoi(e.target.value)}
-                                placeholder="DOI"
-                            />
-                        </div>
-                        <div className="feed-card-edit-field">
-                            <label>Tags (comma separated)</label>
-                            <input
-                                type="text"
-                                value={editTags}
-                                onChange={(e) => setEditTags(e.target.value)}
-                                placeholder="e.g. AI, Machine Learning"
-                            />
+                            <label>Tags ({editTags.length}/{MAX_EDIT_TAGS})</label>
+                            {editTags.length > 0 && (
+                                <div className="pub-tags-chips">
+                                    {editTags.map(tag => (
+                                        <span key={tag} className="pub-tag-chip">
+                                            {tag}
+                                            <button type="button" className="pub-tag-chip-remove" onClick={() => handleEditTagRemove(tag)}>×</button>
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                            <div className="pub-tag-autocomplete-wrapper" ref={editTagRef}>
+                                <input
+                                    type="text"
+                                    value={editTagQuery}
+                                    onChange={handleEditTagSearch}
+                                    onKeyDown={handleEditTagKeyDown}
+                                    placeholder={editTags.length >= MAX_EDIT_TAGS ? `Maximum ${MAX_EDIT_TAGS} tags reached` : 'Search topics (e.g., Machine Learning...)'}
+                                    autoComplete="off"
+                                    disabled={editTags.length >= MAX_EDIT_TAGS}
+                                />
+                                {editTagOpen && editTagFiltered.length > 0 && (
+                                    <ul className="pub-tag-autocomplete-list" ref={editTagListRef}>
+                                        {editTagFiltered.map((topic, idx) => (
+                                            <li
+                                                key={topic}
+                                                className={`pub-tag-autocomplete-item ${idx === editTagActiveIdx ? 'pub-tag-autocomplete-item-active' : ''}`}
+                                                onMouseDown={(e) => { e.preventDefault(); handleEditTagSelect(topic); }}
+                                                onMouseEnter={() => setEditTagActiveIdx(idx)}
+                                            >
+                                                {topic}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
                         </div>
                         <div className="feed-card-edit-actions">
                             <button
