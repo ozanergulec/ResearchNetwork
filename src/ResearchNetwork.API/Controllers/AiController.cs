@@ -1029,7 +1029,7 @@ public class AiController : ControllerBase
             id.ToString(), request.Question, history);
 
         var sources = ragResult.Sources.Select(s => new ArticleChatSource(
-            s.Chunk_index, s.Text, s.Score
+            s.Chunk_index, s.Text, s.Score.HasValue ? (double?)s.Score.Value : null
         )).ToList();
 
         return Ok(new ArticleChatResponse(ragResult.Answer, sources, ragResult.From_cache));

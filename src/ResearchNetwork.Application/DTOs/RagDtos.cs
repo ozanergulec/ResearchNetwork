@@ -11,7 +11,7 @@ public record RagAskRequest(
     string Question,
     List<RagConversationTurn>? History = null);
 
-public record RagSourceChunk(int Chunk_index, string Text, float Score);
+public record RagSourceChunk(int Chunk_index, string Text, float? Score);
 
 public record RagAskResponse(string Answer, List<RagSourceChunk> Sources, bool From_cache);
 
@@ -34,7 +34,7 @@ public record ArticleChatResponse(
 public record ArticleChatSource(
     int ChunkIndex,
     string Text,
-    double Score
+    double? Score
 );
 
 public record ArticleIndexResponse(

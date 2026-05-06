@@ -145,7 +145,7 @@ export const aiApi = {
     ) =>
         api.post<{
             answer: string;
-            sources: Array<{ chunkIndex: number; text: string; score: number }>;
+            sources: Array<{ chunkIndex: number; text: string; score: number | null }>;
             fromCache: boolean;
         }>(`/ai/publications/${publicationId}/rag/ask`, {
             question,

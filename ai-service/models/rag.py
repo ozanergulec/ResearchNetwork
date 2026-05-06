@@ -39,7 +39,9 @@ class AskQuestionRequest(BaseModel):
 class SourceChunk(BaseModel):
     chunk_index: int
     text: str
-    score: float
+    # ``None`` for cached responses where the original retrieval score is
+    # not preserved. Live retrieval always produces a float.
+    score: Optional[float] = None
 
 
 class AskQuestionResponse(BaseModel):

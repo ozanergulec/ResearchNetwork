@@ -7,7 +7,7 @@ interface ChatMessage {
     role: 'user' | 'assistant';
     content: string;
     timestamp: Date;
-    sources?: Array<{ chunkIndex: number; text: string; score: number }>;
+    sources?: Array<{ chunkIndex: number; text: string; score: number | null }>;
     fromCache?: boolean;
 }
 
@@ -40,7 +40,7 @@ interface StoredChatMessage {
     role: 'user' | 'assistant';
     content: string;
     timestamp: string;
-    sources?: Array<{ chunkIndex: number; text: string; score: number }>;
+    sources?: Array<{ chunkIndex: number; text: string; score: number | null }>;
     fromCache?: boolean;
 }
 
