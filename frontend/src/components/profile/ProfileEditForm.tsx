@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import type { UpdateUserData } from '../../services/userService';
 import FormInput from '../common/FormInput';
+import Autocomplete from '../common/Autocomplete';
+import { TURKISH_UNIVERSITIES, TURKISH_DEPARTMENTS } from '../../data/turkishUniversities';
 import '../../styles/profile/ProfileEditForm.css';
 
 interface ProfileEditFormProps {
@@ -43,6 +45,34 @@ const ProfileEditForm: React.FC<ProfileEditFormProps> = ({
                 multiline
                 placeholder="Tell us about your research interests and background..."
             />
+
+            <label className="form-label">
+                Institution
+                <Autocomplete
+                    suggestions={TURKISH_UNIVERSITIES}
+                    value={formData.institution || ''}
+                    onChange={(val) => setFormData({ ...formData, institution: val })}
+                    placeholder="Select your institution"
+                    required
+                    strict
+                    className="profile-autocomplete-input"
+                    invalidMessage="Please select an institution from the list"
+                />
+            </label>
+
+            <label className="form-label">
+                Department
+                <Autocomplete
+                    suggestions={TURKISH_DEPARTMENTS}
+                    value={formData.department || ''}
+                    onChange={(val) => setFormData({ ...formData, department: val })}
+                    placeholder="Select your department"
+                    required
+                    strict
+                    className="profile-autocomplete-input"
+                    invalidMessage="Please select a department from the list"
+                />
+            </label>
 
             <div className="profile-form-actions">
                 <button

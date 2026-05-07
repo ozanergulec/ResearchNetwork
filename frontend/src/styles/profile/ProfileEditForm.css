@@ -66,3 +66,37 @@
         flex-direction: column;
     }
 }
+/* Autocomplete inputs (Institution / Department) - match form-input look */
+.profile-edit-form .autocomplete-wrapper .login-input.profile-autocomplete-input {
+    width: 100%;
+    padding: 0.875rem 1rem;
+    background: #fff;
+    border: 1px solid var(--ui-detail);
+    border-radius: 10px;
+    color: var(--text-primary);
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    box-sizing: border-box;
+}
+
+.profile-edit-form .autocomplete-wrapper .login-input.profile-autocomplete-input::placeholder {
+    color: rgba(42, 31, 29, 0.5);
+}
+
+.profile-edit-form .autocomplete-wrapper .login-input.profile-autocomplete-input:focus {
+    outline: none;
+    border-color: var(--heading-color);
+    box-shadow: 0 0 0 3px rgba(122, 31, 43, 0.1);
+}
+
+.profile-edit-form .autocomplete-wrapper .login-input.profile-autocomplete-input.input-error {
+    border-color: #c0392b;
+    box-shadow: 0 0 0 3px rgba(192, 57, 43, 0.12);
+}
+
+.profile-edit-form .autocomplete-wrapper .input-error-text {
+    display: block;
+    color: #c0392b;
+    font-size: 0.8rem;
+    margin-top: 4px;
+}
