@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import '../../styles/components/Autocomplete.css';
 
 interface AutocompleteProps {
@@ -8,6 +8,10 @@ interface AutocompleteProps {
     placeholder?: string;
     required?: boolean;
     className?: string;
+    /** When true, only values that exactly match an item in `suggestions` are accepted. */
+    strict?: boolean;
+    /** Custom error message shown when strict validation fails. */
+    invalidMessage?: string;
 }
 
 const Autocomplete: React.FC<AutocompleteProps> = ({
@@ -17,18 +21,39 @@ const Autocomplete: React.FC<AutocompleteProps> = ({
     placeholder = '',
     required = false,
     className = '',
+    strict = false,
+    invalidMessage = 'Please select a value from the list',
 }) => {
     const [filtered, setFiltered] = useState<string[]>([]);
     const [isOpen, setIsOpen] = useState(false);
     const [activeIndex, setActiveIndex] = useState(-1);
+    const [touched, setTouched] = useState(false);
     const wrapperRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
     const listRef = useRef<HTMLUListElement>(null);
     const [inputValue, setInputValue] = useState(value);
+
+    const suggestionSet = useMemo(
+        () => new Set(suggestions.map(s => s.toLowerCase())),
+        [suggestions]
+    );
+
+    const isInvalid = strict && touched && inputValue.length > 0 && !suggestionSet.has(inputValue.toLowerCase());
 
     // Sync external value changes
     useEffect(() => {
         setInputValue(value);
     }, [value]);
+
+    // Apply native form validity for strict mode
+    useEffect(() => {
+        if (!inputRef.current) return;
+        if (strict && inputValue.length > 0 && !suggestionSet.has(inputValue.toLowerCase())) {
+            inputRef.current.setCustomValidity(invalidMessage);
+        } else {
+            inputRef.current.setCustomValidity('');
+        }
+    }, [strict, inputValue, suggestionSet, invalidMessage]);
 
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
@@ -76,6 +101,7 @@ const Autocomplete: React.FC<AutocompleteProps> = ({
         setIsOpen(false);
         setFiltered([]);
         setActiveIndex(-1);
+        setTouched(true);
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -101,19 +127,28 @@ const Autocomplete: React.FC<AutocompleteProps> = ({
         }
     };
 
+    const handleBlur = () => {
+        setTouched(true);
+    };
+
     return (
         <div className="autocomplete-wrapper" ref={wrapperRef}>
             <input
+                ref={inputRef}
                 type="text"
                 value={inputValue}
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
                 onFocus={handleFocus}
+                onBlur={handleBlur}
                 placeholder={placeholder}
                 required={required}
-                className={`login-input ${className}`}
+                className={`login-input ${className} ${isInvalid ? 'input-error' : ''}`}
                 autoComplete="off"
             />
+            {isInvalid && (
+                <span className="input-error-text">{invalidMessage}</span>
+            )}
             {isOpen && filtered.length > 0 && (
                 <ul className="autocomplete-list" ref={listRef}>
                     {filtered.map((item, index) => (

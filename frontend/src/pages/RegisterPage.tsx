@@ -124,6 +124,8 @@ const RegisterPage: React.FC = () => {
                         onChange={(val) => setRegisterData({ ...registerData, title: val })}
                         placeholder="Academic Title"
                         required
+                        strict
+                        invalidMessage="Please select a title from the list"
                     />
                     <Autocomplete
                         suggestions={TURKISH_UNIVERSITIES}
@@ -131,6 +133,8 @@ const RegisterPage: React.FC = () => {
                         onChange={(val) => setRegisterData({ ...registerData, institution: val })}
                         placeholder="Institution"
                         required
+                        strict
+                        invalidMessage="Please select an institution from the list"
                     />
                     <Autocomplete
                         suggestions={TURKISH_DEPARTMENTS}
@@ -138,6 +142,8 @@ const RegisterPage: React.FC = () => {
                         onChange={(val) => setRegisterData({ ...registerData, department: val })}
                         placeholder="Department"
                         required
+                        strict
+                        invalidMessage="Please select a department from the list"
                     />
                     <button
                         type="submit"
