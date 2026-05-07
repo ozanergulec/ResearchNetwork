@@ -410,7 +410,7 @@ public class PublicationRepository : IPublicationRepository
 
     // --- Search ---
 
-    public async Task<(IEnumerable<Publication> Items, int TotalCount)> SearchAsync(string query, int page, int pageSize, string? tagFilter = null, int? minRating = null, string? sortBy = null)
+    public async Task<(IEnumerable<Publication> Items, int TotalCount)> SearchAsync(string query, int page, int pageSize, string? tagFilter = null, int? minRating = null, string? sortBy = null, string? authorInstitution = null, string[]? authorTitles = null)
     {
         var lowerQuery = query.ToLower();
         var baseQuery = _context.Publications
@@ -419,7 +419,7 @@ public class PublicationRepository : IPublicationRepository
                      || p.Author.FullName.ToLower().Contains(lowerQuery)
                      || p.Tags.Any(pt => pt.Tag.Name.ToLower().Contains(lowerQuery)));
 
-        baseQuery = ApplyPublicationFilters(baseQuery, tagFilter, minRating);
+        baseQuery = ApplyPublicationFilters(baseQuery, tagFilter, minRating, authorInstitution, authorTitles);
 
         var totalCount = await baseQuery.CountAsync();
 
@@ -436,13 +436,13 @@ public class PublicationRepository : IPublicationRepository
         return (items, totalCount);
     }
 
-    public async Task<(IEnumerable<Publication> Items, int TotalCount)> SearchByTagAsync(string tagName, int page, int pageSize, string? tagFilter = null, int? minRating = null, string? sortBy = null)
+    public async Task<(IEnumerable<Publication> Items, int TotalCount)> SearchByTagAsync(string tagName, int page, int pageSize, string? tagFilter = null, int? minRating = null, string? sortBy = null, string? authorInstitution = null, string[]? authorTitles = null)
     {
         var lowerTag = tagName.ToLower();
         var baseQuery = _context.Publications
             .Where(p => p.Tags.Any(pt => pt.Tag.Name.ToLower().Contains(lowerTag)));
 
-        baseQuery = ApplyPublicationFilters(baseQuery, tagFilter, minRating);
+        baseQuery = ApplyPublicationFilters(baseQuery, tagFilter, minRating, authorInstitution, authorTitles);
 
         var totalCount = await baseQuery.CountAsync();
 
@@ -459,7 +459,7 @@ public class PublicationRepository : IPublicationRepository
         return (items, totalCount);
     }
 
-    private static IQueryable<Publication> ApplyPublicationFilters(IQueryable<Publication> query, string? tagFilter, int? minRating)
+    private static IQueryable<Publication> ApplyPublicationFilters(IQueryable<Publication> query, string? tagFilter, int? minRating, string? authorInstitution = null, string[]? authorTitles = null)
     {
         if (!string.IsNullOrWhiteSpace(tagFilter))
         {
@@ -471,6 +471,17 @@ public class PublicationRepository : IPublicationRepository
         {
             var threshold = minRating.Value;
             query = query.Where(p => p.AverageRating >= threshold);
+        }
+
+        if (!string.IsNullOrWhiteSpace(authorInstitution))
+        {
+            var lowerInst = authorInstitution.ToLower();
+            query = query.Where(p => p.Author.Institution != null && p.Author.Institution.ToLower().Contains(lowerInst));
+        }
+
+        if (authorTitles != null && authorTitles.Length > 0)
+        {
+            query = query.Where(p => p.Author.Title != null && authorTitles.Contains(p.Author.Title));
         }
 
         return query;

@@ -189,7 +189,7 @@ public class SearchController : ControllerBase
         var currentUserId = GetUserIdFromClaims();
 
         // Search publications by tag
-        var (publications, pubTotalCount) = await _publicationRepository.SearchByTagAsync(tag, page, pageSize, tagFilter, minRating, sortBy);
+        var (publications, pubTotalCount) = await _publicationRepository.SearchByTagAsync(tag, page, pageSize, tagFilter, minRating, sortBy, institution, titles);
         var pubDtos = new List<PublicationDto>();
 
         foreach (var p in publications)
