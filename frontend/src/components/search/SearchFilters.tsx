@@ -1,13 +1,13 @@
-import React, { useRef, useEffect } from 'react';
-import type { UserSummary, Publication } from '../../services/publicationService';
+import React, { useRef, useEffect, useState } from 'react';
+import { searchApi } from '../../services/searchService';
 import { useTranslation } from '../../translations/translations';
 
 type SortByType = 'default' | 'newest' | 'oldest' | 'rating' | 'cited';
 
 export interface FilterState {
-    selectedInstitutions: string[];
+    institutionFilter: string;
     selectedTitles: string[];
-    selectedTags: string[];
+    tagTextFilter: string;
     minRating: number;
     sortBy: SortByType;
 }
@@ -15,56 +15,50 @@ export interface FilterState {
 interface SearchFiltersProps {
     activeTab: 'users' | 'publications' | 'tags';
     filters: FilterState;
-    users: UserSummary[];
-    tagUsers: UserSummary[];
-    publications: Publication[];
-    tagPublications: Publication[];
-    onInstitutionsChange: (v: string[]) => void;
+    onInstitutionChange: (v: string) => void;
     onTitlesChange: (v: string[]) => void;
-    onTagsChange: (v: string[]) => void;
+    onTagTextChange: (v: string) => void;
     onMinRatingChange: (v: number) => void;
     onSortByChange: (v: SortByType) => void;
     onResetFilters: () => void;
     onPageReset: () => void;
 }
 
-// Get unique filter options from search results
-const getUniqueInstitutions = (userList: UserSummary[]) =>
-    [...new Set(userList.map(u => u.institution).filter(Boolean))] as string[];
-
-const getUniqueTitles = (userList: UserSummary[]) =>
-    [...new Set(userList.map(u => u.title).filter(Boolean))] as string[];
-
-const getUniqueTags = (pubList: Publication[]) =>
-    [...new Set(pubList.flatMap(p => p.tags || []))];
-
 const SearchFilters: React.FC<SearchFiltersProps> = ({
     activeTab,
     filters,
-    users,
-    tagUsers,
-    publications,
-    tagPublications,
-    onInstitutionsChange,
+    onInstitutionChange,
     onTitlesChange,
-    onTagsChange,
+    onTagTextChange,
     onMinRatingChange,
     onSortByChange,
     onResetFilters,
     onPageReset,
 }) => {
     const t = useTranslation();
-    const [openFilter, setOpenFilter] = React.useState<string | null>(null);
+    const [openFilter, setOpenFilter] = useState<string | null>(null);
+    const [titleOptions, setTitleOptions] = useState<string[]>([]);
     const filterRef = useRef<HTMLDivElement>(null);
 
-    const { selectedInstitutions, selectedTitles, selectedTags, minRating, sortBy } = filters;
+    const { institutionFilter, selectedTitles, tagTextFilter, minRating, sortBy } = filters;
 
     const hasActiveFilters =
-        selectedInstitutions.length > 0 ||
+        institutionFilter.length > 0 ||
         selectedTitles.length > 0 ||
-        selectedTags.length > 0 ||
+        tagTextFilter.length > 0 ||
         minRating > 0 ||
         sortBy !== 'default';
+
+    // Fetch distinct titles from backend once
+    useEffect(() => {
+        let cancelled = false;
+        searchApi.getTitles()
+            .then(res => {
+                if (!cancelled) setTitleOptions(res.data || []);
+            })
+            .catch(err => console.error('Failed to load titles', err));
+        return () => { cancelled = true; };
+    }, []);
 
     // Close filter dropdown on outside click
     useEffect(() => {
@@ -77,37 +71,35 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const toggleItem = (list: string[], setList: (v: string[]) => void, item: string) => {
-        setList(list.includes(item) ? list.filter(i => i !== item) : [...list, item]);
+    const toggleTitle = (item: string) => {
+        const next = selectedTitles.includes(item)
+            ? selectedTitles.filter(i => i !== item)
+            : [...selectedTitles, item];
+        onTitlesChange(next);
         onPageReset();
     };
 
-    const renderMultiSelect = (
-        id: string,
-        label: string,
-        options: string[],
-        selected: string[],
-        setSelected: (v: string[]) => void
-    ) => {
-        if (options.length === 0) return null;
-        const isOpen = openFilter === id;
+    const renderTitleMultiSelect = () => {
+        const isOpen = openFilter === 'title';
         return (
             <div
-                className={`search-filter-chip ${selected.length > 0 ? 'active' : ''} ${isOpen ? 'open' : ''}`}
-                onClick={() => setOpenFilter(isOpen ? null : id)}
+                className={`search-filter-chip ${selectedTitles.length > 0 ? 'active' : ''} ${isOpen ? 'open' : ''}`}
+                onClick={() => setOpenFilter(isOpen ? null : 'title')}
             >
-                {label}{selected.length > 0 && ` (${selected.length})`}
+                {t.search.filterTitle}{selectedTitles.length > 0 && ` (${selectedTitles.length})`}
                 <span className="filter-arrow">▼</span>
                 {isOpen && (
                     <div className="search-filter-dropdown" onClick={e => e.stopPropagation()}>
-                        {options.map(opt => (
+                        {titleOptions.length === 0 ? (
+                            <div className="search-filter-option" style={{ opacity: 0.6 }}>—</div>
+                        ) : titleOptions.map(opt => (
                             <div
                                 key={opt}
                                 className="search-filter-option"
-                                onClick={() => toggleItem(selected, setSelected, opt)}
+                                onClick={() => toggleTitle(opt)}
                             >
-                                <span className={`search-filter-checkbox ${selected.includes(opt) ? 'checked' : ''}`}>
-                                    {selected.includes(opt) && '✓'}
+                                <span className={`search-filter-checkbox ${selectedTitles.includes(opt) ? 'checked' : ''}`}>
+                                    {selectedTitles.includes(opt) && '✓'}
                                 </span>
                                 {opt}
                             </div>
@@ -123,31 +115,25 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({
             <div className="search-filters" ref={filterRef}>
                 {(activeTab === 'users' || activeTab === 'tags') && (
                     <>
-                        {renderMultiSelect(
-                            'institution',
-                            t.search.filterInstitution,
-                            getUniqueInstitutions(activeTab === 'users' ? users : tagUsers),
-                            selectedInstitutions,
-                            onInstitutionsChange
-                        )}
-                        {renderMultiSelect(
-                            'title',
-                            t.search.filterTitle,
-                            getUniqueTitles(activeTab === 'users' ? users : tagUsers),
-                            selectedTitles,
-                            onTitlesChange
-                        )}
+                        <input
+                            type="text"
+                            className="search-filter-input"
+                            placeholder={t.search.filterInstitution}
+                            value={institutionFilter}
+                            onChange={e => { onInstitutionChange(e.target.value); onPageReset(); }}
+                        />
+                        {renderTitleMultiSelect()}
                     </>
                 )}
                 {(activeTab === 'publications' || activeTab === 'tags') && (
                     <>
-                        {renderMultiSelect(
-                            'tags',
-                            t.search.filterTags,
-                            getUniqueTags(activeTab === 'publications' ? publications : tagPublications),
-                            selectedTags,
-                            onTagsChange
-                        )}
+                        <input
+                            type="text"
+                            className="search-filter-input"
+                            placeholder={t.search.filterTags}
+                            value={tagTextFilter}
+                            onChange={e => { onTagTextChange(e.target.value); onPageReset(); }}
+                        />
                         <select
                             className="search-filter-select"
                             value={minRating}
@@ -182,24 +168,24 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({
             {hasActiveFilters && (
                 <div className="search-active-filters">
                     <span className="search-active-filter-label">{t.search.activeFilters}:</span>
-                    {selectedInstitutions.map(inst => (
-                        <span key={inst} className="search-active-filter-chip">
-                            {inst}
-                            <span className="remove-filter" onClick={() => onInstitutionsChange(selectedInstitutions.filter(i => i !== inst))}>✕</span>
+                    {institutionFilter && (
+                        <span className="search-active-filter-chip">
+                            {t.search.filterInstitution}: {institutionFilter}
+                            <span className="remove-filter" onClick={() => onInstitutionChange('')}>✕</span>
                         </span>
-                    ))}
+                    )}
                     {selectedTitles.map(title => (
                         <span key={title} className="search-active-filter-chip">
                             {title}
                             <span className="remove-filter" onClick={() => onTitlesChange(selectedTitles.filter(i => i !== title))}>✕</span>
                         </span>
                     ))}
-                    {selectedTags.map(tag => (
-                        <span key={tag} className="search-active-filter-chip">
-                            {tag}
-                            <span className="remove-filter" onClick={() => onTagsChange(selectedTags.filter(i => i !== tag))}>✕</span>
+                    {tagTextFilter && (
+                        <span className="search-active-filter-chip">
+                            {t.search.filterTags}: {tagTextFilter}
+                            <span className="remove-filter" onClick={() => onTagTextChange('')}>✕</span>
                         </span>
-                    ))}
+                    )}
                     {minRating > 0 && (
                         <span className="search-active-filter-chip">
                             ≥ {minRating}.0

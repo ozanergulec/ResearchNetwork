@@ -25,7 +25,9 @@ public class SearchController : ControllerBase
     public async Task<ActionResult<PagedResult<UserSummaryDto>>> SearchUsers(
         [FromQuery] string q,
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 10)
+        [FromQuery] int pageSize = 10,
+        [FromQuery] string? institution = null,
+        [FromQuery(Name = "title")] string[]? titles = null)
     {
         if (string.IsNullOrWhiteSpace(q) || q.Length < 2)
         {
@@ -34,7 +36,7 @@ public class SearchController : ControllerBase
         }
 
         var currentUserId = GetUserIdFromClaims();
-        var (users, totalCount) = await _userRepository.SearchAsync(q, page, pageSize);
+        var (users, totalCount) = await _userRepository.SearchAsync(q, page, pageSize, institution, titles);
 
         // Filter by privacy level
         var filteredUsers = new List<UserSummaryDto>();
@@ -75,7 +77,10 @@ public class SearchController : ControllerBase
     public async Task<ActionResult<PagedResult<PublicationDto>>> SearchPublications(
         [FromQuery] string q,
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 10)
+        [FromQuery] int pageSize = 10,
+        [FromQuery] string? tag = null,
+        [FromQuery] int? minRating = null,
+        [FromQuery] string? sortBy = null)
     {
         if (string.IsNullOrWhiteSpace(q) || q.Length < 2)
         {
@@ -84,7 +89,7 @@ public class SearchController : ControllerBase
         }
 
         var currentUserId = GetUserIdFromClaims();
-        var (publications, totalCount) = await _publicationRepository.SearchAsync(q, page, pageSize);
+        var (publications, totalCount) = await _publicationRepository.SearchAsync(q, page, pageSize, tag, minRating, sortBy);
         var dtos = new List<PublicationDto>();
 
         foreach (var p in publications)
@@ -163,7 +168,12 @@ public class SearchController : ControllerBase
     public async Task<ActionResult> SearchByTag(
         [FromQuery] string tag,
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 10)
+        [FromQuery] int pageSize = 10,
+        [FromQuery] string? institution = null,
+        [FromQuery(Name = "title")] string[]? titles = null,
+        [FromQuery] string? tagFilter = null,
+        [FromQuery] int? minRating = null,
+        [FromQuery] string? sortBy = null)
     {
         if (string.IsNullOrWhiteSpace(tag) || tag.Length < 2)
         {
@@ -179,7 +189,7 @@ public class SearchController : ControllerBase
         var currentUserId = GetUserIdFromClaims();
 
         // Search publications by tag
-        var (publications, pubTotalCount) = await _publicationRepository.SearchByTagAsync(tag, page, pageSize);
+        var (publications, pubTotalCount) = await _publicationRepository.SearchByTagAsync(tag, page, pageSize, tagFilter, minRating, sortBy);
         var pubDtos = new List<PublicationDto>();
 
         foreach (var p in publications)
@@ -244,7 +254,7 @@ public class SearchController : ControllerBase
         }
 
         // Search users by tag
-        var (users, userTotalCount) = await _userRepository.SearchByTagAsync(tag, page, pageSize);
+        var (users, userTotalCount) = await _userRepository.SearchByTagAsync(tag, page, pageSize, institution, titles);
         var userDtos = new List<UserSummaryDto>();
         foreach (var u in users)
         {
@@ -275,6 +285,13 @@ public class SearchController : ControllerBase
             users = new PagedResult<UserSummaryDto>(
                 userDtos, userTotalCount, page, pageSize, page * pageSize < userTotalCount)
         });
+    }
+
+    [HttpGet("titles")]
+    public async Task<ActionResult<IEnumerable<string>>> GetTitles()
+    {
+        var titles = await _userRepository.GetDistinctTitlesAsync();
+        return Ok(titles);
     }
 
     private Guid? GetUserIdFromClaims()

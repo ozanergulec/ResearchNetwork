@@ -40,8 +40,8 @@ public interface IPublicationRepository
     Task<(IEnumerable<PublicationShare> Items, int TotalCount)> GetAllSharesForFeedAsync(int page, int pageSize);
 
     // Search
-    Task<(IEnumerable<Publication> Items, int TotalCount)> SearchAsync(string query, int page, int pageSize);
-    Task<(IEnumerable<Publication> Items, int TotalCount)> SearchByTagAsync(string tagName, int page, int pageSize);
+    Task<(IEnumerable<Publication> Items, int TotalCount)> SearchAsync(string query, int page, int pageSize, string? tagFilter = null, int? minRating = null, string? sortBy = null);
+    Task<(IEnumerable<Publication> Items, int TotalCount)> SearchByTagAsync(string tagName, int page, int pageSize, string? tagFilter = null, int? minRating = null, string? sortBy = null);
 
     // Embedding
     Task<PublicationEmbedding?> GetEmbeddingAsync(Guid publicationId);

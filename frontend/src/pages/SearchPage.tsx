@@ -39,9 +39,9 @@ const SearchPage: React.FC = () => {
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // Filter state
-    const [selectedInstitutions, setSelectedInstitutions] = useState<string[]>([]);
+    const [institutionFilter, setInstitutionFilter] = useState('');
     const [selectedTitles, setSelectedTitles] = useState<string[]>([]);
-    const [selectedTags, setSelectedTags] = useState<string[]>([]);
+    const [tagTextFilter, setTagTextFilter] = useState('');
     const [minRating, setMinRating] = useState(0);
     const [sortBy, setSortBy] = useState<SortByType>('default');
 
@@ -53,14 +53,26 @@ const SearchPage: React.FC = () => {
     }, [navigate]);
 
     const resetFilters = useCallback(() => {
-        setSelectedInstitutions([]);
+        setInstitutionFilter('');
         setSelectedTitles([]);
-        setSelectedTags([]);
+        setTagTextFilter('');
         setMinRating(0);
         setSortBy('default');
     }, []);
 
-    const performSearch = useCallback(async (searchQuery: string, page: number = 1, fetchAll: boolean = true, targetTab?: TabType) => {
+    const performSearch = useCallback(async (
+        searchQuery: string,
+        page: number = 1,
+        fetchAll: boolean = true,
+        targetTab?: TabType,
+        overrideFilters?: {
+            institution?: string;
+            titles?: string[];
+            tagText?: string;
+            minRating?: number;
+            sortBy?: SortByType;
+        }
+    ) => {
         if (searchQuery.trim().length < 2) {
             setUsers([]);
             setPublications([]);
@@ -77,6 +89,13 @@ const SearchPage: React.FC = () => {
         setLoading(true);
         try {
             const currentTab = targetTab || activeTab;
+            const f = {
+                institution: overrideFilters?.institution ?? institutionFilter,
+                titles: overrideFilters?.titles ?? selectedTitles,
+                tagText: overrideFilters?.tagText ?? tagTextFilter,
+                minRating: overrideFilters?.minRating ?? minRating,
+                sortBy: overrideFilters?.sortBy ?? sortBy,
+            };
 
             if (fetchAll) {
                 const [usersRes, pubsRes, tagRes] = await Promise.all([
@@ -98,15 +117,28 @@ const SearchPage: React.FC = () => {
                 setTotalTagUsers(tagRes.data.users?.totalCount || 0);
             } else {
                 if (currentTab === 'users') {
-                    const res = await searchApi.searchUsers(searchQuery, page, ITEMS_PER_PAGE);
+                    const res = await searchApi.searchUsers(searchQuery, page, ITEMS_PER_PAGE, {
+                        institution: f.institution || undefined,
+                        titles: f.titles.length ? f.titles : undefined,
+                    });
                     setUsers(res.data.items || []);
                     setTotalUsers(res.data.totalCount || 0);
                 } else if (currentTab === 'publications') {
-                    const res = await searchApi.searchPublications(searchQuery, page, ITEMS_PER_PAGE);
+                    const res = await searchApi.searchPublications(searchQuery, page, ITEMS_PER_PAGE, {
+                        tag: f.tagText || undefined,
+                        minRating: f.minRating > 0 ? f.minRating : undefined,
+                        sortBy: f.sortBy !== 'default' ? f.sortBy : undefined,
+                    });
                     setPublications(res.data.items || []);
                     setTotalPublications(res.data.totalCount || 0);
                 } else if (currentTab === 'tags') {
-                    const res = await searchApi.searchByTag(searchQuery, page, ITEMS_PER_PAGE);
+                    const res = await searchApi.searchByTag(searchQuery, page, ITEMS_PER_PAGE, {
+                        institution: f.institution || undefined,
+                        titles: f.titles.length ? f.titles : undefined,
+                        tagFilter: f.tagText || undefined,
+                        minRating: f.minRating > 0 ? f.minRating : undefined,
+                        sortBy: f.sortBy !== 'default' ? f.sortBy : undefined,
+                    });
                     setTagPublications(res.data.publications?.items || []);
                     setTotalTagPublications(res.data.publications?.totalCount || 0);
                     setTagUsers(res.data.users?.items || []);
@@ -122,7 +154,7 @@ const SearchPage: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, [activeTab, resetFilters]);
+    }, [activeTab, resetFilters, institutionFilter, selectedTitles, tagTextFilter, minRating, sortBy]);
 
     // Handle q param from navbar "View All" navigation
     const [searchParams] = useSearchParams();
@@ -171,53 +203,44 @@ const SearchPage: React.FC = () => {
         setSelectedPublication(pub);
     }, []);
 
-    // Filter logic
-    const filterUsers = useCallback((userList: UserSummary[]) => {
-        let filtered = [...userList];
-        if (selectedInstitutions.length > 0) {
-            filtered = filtered.filter(u => u.institution && selectedInstitutions.includes(u.institution));
-        }
-        if (selectedTitles.length > 0) {
-            filtered = filtered.filter(u => u.title && selectedTitles.includes(u.title));
-        }
-        return filtered;
-    }, [selectedInstitutions, selectedTitles]);
-
-    const filterPublications = useCallback((pubList: Publication[]) => {
-        let filtered = [...pubList];
-        if (selectedTags.length > 0) {
-            filtered = filtered.filter(p => p.tags && p.tags.some(tag => selectedTags.includes(tag)));
-        }
-        if (minRating > 0) {
-            filtered = filtered.filter(p => p.averageRating >= minRating);
-        }
-        if (sortBy === 'newest') {
-            filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        } else if (sortBy === 'oldest') {
-            filtered.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-        } else if (sortBy === 'rating') {
-            filtered.sort((a, b) => b.averageRating - a.averageRating);
-        } else if (sortBy === 'cited') {
-            filtered.sort((a, b) => b.citationCount - a.citationCount);
-        }
-        return filtered;
-    }, [selectedTags, minRating, sortBy]);
-
-    const filteredUsers = useMemo(() => filterUsers(users), [filterUsers, users]);
-    const filteredPublications = useMemo(() => filterPublications(publications), [filterPublications, publications]);
-    const filteredTagPublications = useMemo(() => filterPublications(tagPublications), [filterPublications, tagPublications]);
+    // Filter logic - users/publications client-side filtering removed; backend handles filtering.
+    // Local data is kept as-is from server.
+    const filteredUsers = users;
+    const filteredPublications = publications;
+    const filteredTagPublications = tagPublications;
+    const filteredTagUsers = tagUsers;
 
     const filterState: FilterState = useMemo(() => ({
-        selectedInstitutions,
+        institutionFilter,
         selectedTitles,
-        selectedTags,
+        tagTextFilter,
         minRating,
         sortBy,
-    }), [selectedInstitutions, selectedTitles, selectedTags, minRating, sortBy]);
+    }), [institutionFilter, selectedTitles, tagTextFilter, minRating, sortBy]);
 
-    const hasActiveFilters = selectedInstitutions.length > 0 || selectedTitles.length > 0 || selectedTags.length > 0 || minRating > 0 || sortBy !== 'default';
+    const hasActiveFilters = institutionFilter.length > 0 || selectedTitles.length > 0 || tagTextFilter.length > 0 || minRating > 0 || sortBy !== 'default';
 
     const handlePageReset = useCallback(() => setCurrentPage(1), []);
+
+    // Debounced filter-driven refetch (backend filtering)
+    const filterDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const isInitialFilterMount = useRef(true);
+    useEffect(() => {
+        if (isInitialFilterMount.current) {
+            isInitialFilterMount.current = false;
+            return;
+        }
+        if (!searched || query.trim().length < 2) return;
+
+        if (filterDebounceRef.current) clearTimeout(filterDebounceRef.current);
+        filterDebounceRef.current = setTimeout(() => {
+            performSearch(query, 1, false, activeTab);
+        }, 400);
+
+        return () => {
+            if (filterDebounceRef.current) clearTimeout(filterDebounceRef.current);
+        };
+    }, [institutionFilter, selectedTitles, tagTextFilter, minRating, sortBy, activeTab, searched, query, performSearch]);
 
     return (
         <div className="search-container">
@@ -272,13 +295,9 @@ const SearchPage: React.FC = () => {
                     <SearchFilters
                         activeTab={activeTab}
                         filters={filterState}
-                        users={users}
-                        tagUsers={tagUsers}
-                        publications={publications}
-                        tagPublications={tagPublications}
-                        onInstitutionsChange={setSelectedInstitutions}
+                        onInstitutionChange={setInstitutionFilter}
                         onTitlesChange={setSelectedTitles}
-                        onTagsChange={setSelectedTags}
+                        onTagTextChange={setTagTextFilter}
                         onMinRatingChange={setMinRating}
                         onSortByChange={setSortBy}
                         onResetFilters={resetFilters}
@@ -368,8 +387,21 @@ const SearchPage: React.FC = () => {
                                     </div>
                                 ) : (
                                     <>
+                                        {filteredTagUsers.length > 0 && (
+                                            <div className="search-tag-section">
+                                                <h3 className="search-tag-section-title">{t.search.peopleWithTag}</h3>
+                                                {filteredTagUsers.map(user => (
+                                                    <SearchUserCard
+                                                        key={user.id}
+                                                        user={user}
+                                                        onClick={handleUserClick}
+                                                    />
+                                                ))}
+                                            </div>
+                                        )}
                                         {filteredTagPublications.length > 0 && (
                                             <div className="search-tag-section">
+                                                <h3 className="search-tag-section-title">{t.search.pubsWithTag}</h3>
                                                 {filteredTagPublications.map(pub => (
                                                     <SearchPublicationCard
                                                         key={pub.id}

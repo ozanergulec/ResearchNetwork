@@ -206,7 +206,7 @@ public class UserRepository : IUserRepository
 
     // --- Search ---
 
-    public async Task<(IEnumerable<User> Items, int TotalCount)> SearchAsync(string query, int page, int pageSize)
+    public async Task<(IEnumerable<User> Items, int TotalCount)> SearchAsync(string query, int page, int pageSize, string? institution = null, string[]? titles = null)
     {
         var lowerQuery = query.ToLower();
         var baseQuery = _context.Users
@@ -214,6 +214,17 @@ public class UserRepository : IUserRepository
                      || (u.Institution != null && u.Institution.ToLower().Contains(lowerQuery))
                      || (u.Title != null && u.Title.ToLower().Contains(lowerQuery))
                      || u.Tags.Any(ut => ut.Tag.Name.ToLower().Contains(lowerQuery)));
+
+        if (!string.IsNullOrWhiteSpace(institution))
+        {
+            var lowerInst = institution.ToLower();
+            baseQuery = baseQuery.Where(u => u.Institution != null && u.Institution.ToLower().Contains(lowerInst));
+        }
+
+        if (titles != null && titles.Length > 0)
+        {
+            baseQuery = baseQuery.Where(u => u.Title != null && titles.Contains(u.Title));
+        }
 
         var totalCount = await baseQuery.CountAsync();
 
@@ -228,11 +239,22 @@ public class UserRepository : IUserRepository
         return (items, totalCount);
     }
 
-    public async Task<(IEnumerable<User> Items, int TotalCount)> SearchByTagAsync(string tagName, int page, int pageSize)
+    public async Task<(IEnumerable<User> Items, int TotalCount)> SearchByTagAsync(string tagName, int page, int pageSize, string? institution = null, string[]? titles = null)
     {
         var lowerTag = tagName.ToLower();
         var baseQuery = _context.Users
             .Where(u => u.Tags.Any(ut => ut.Tag.Name.ToLower().Contains(lowerTag)));
+
+        if (!string.IsNullOrWhiteSpace(institution))
+        {
+            var lowerInst = institution.ToLower();
+            baseQuery = baseQuery.Where(u => u.Institution != null && u.Institution.ToLower().Contains(lowerInst));
+        }
+
+        if (titles != null && titles.Length > 0)
+        {
+            baseQuery = baseQuery.Where(u => u.Title != null && titles.Contains(u.Title));
+        }
 
         var totalCount = await baseQuery.CountAsync();
 
@@ -245,5 +267,15 @@ public class UserRepository : IUserRepository
             .ToListAsync();
 
         return (items, totalCount);
+    }
+
+    public async Task<IEnumerable<string>> GetDistinctTitlesAsync()
+    {
+        return await _context.Users
+            .Where(u => u.Title != null && u.Title != "")
+            .Select(u => u.Title!)
+            .Distinct()
+            .OrderBy(t => t)
+            .ToListAsync();
     }
 }

@@ -239,6 +239,29 @@
     color: var(--heading-color);
 }
 
+.search-filter-input {
+    padding: 6px 14px;
+    border: 1.5px solid var(--ui-detail);
+    background: #fff;
+    color: var(--text-primary);
+    font-size: 0.82rem;
+    font-weight: 500;
+    border-radius: 20px;
+    outline: none;
+    transition: all 0.2s ease;
+    min-width: 160px;
+}
+
+.search-filter-input::placeholder {
+    color: var(--text-secondary, #888);
+    font-weight: 400;
+}
+
+.search-filter-input:hover,
+.search-filter-input:focus {
+    border-color: var(--heading-color);
+}
+
 .search-clear-filters {
     padding: 6px 14px;
     border: none;
@@ -581,6 +604,15 @@
     color: var(--heading-color);
     margin: 0;
     flex: 1;
+}
+
+.search-tag-section-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--heading-color);
+    margin: 0 0 0.5rem 0;
+    padding: 0.5rem 0;
+    border-bottom: 2px solid var(--ui-detail);
 }
 
 .search-tag-section-icon {

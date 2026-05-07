@@ -410,7 +410,7 @@ public class PublicationRepository : IPublicationRepository
 
     // --- Search ---
 
-    public async Task<(IEnumerable<Publication> Items, int TotalCount)> SearchAsync(string query, int page, int pageSize)
+    public async Task<(IEnumerable<Publication> Items, int TotalCount)> SearchAsync(string query, int page, int pageSize, string? tagFilter = null, int? minRating = null, string? sortBy = null)
     {
         var lowerQuery = query.ToLower();
         var baseQuery = _context.Publications
@@ -419,13 +419,16 @@ public class PublicationRepository : IPublicationRepository
                      || p.Author.FullName.ToLower().Contains(lowerQuery)
                      || p.Tags.Any(pt => pt.Tag.Name.ToLower().Contains(lowerQuery)));
 
+        baseQuery = ApplyPublicationFilters(baseQuery, tagFilter, minRating);
+
         var totalCount = await baseQuery.CountAsync();
 
-        var items = await baseQuery
+        var ordered = ApplyPublicationSort(baseQuery, sortBy);
+
+        var items = await ordered
             .Include(p => p.Author)
             .Include(p => p.Tags)
                 .ThenInclude(pt => pt.Tag)
-            .OrderByDescending(p => p.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
@@ -433,24 +436,56 @@ public class PublicationRepository : IPublicationRepository
         return (items, totalCount);
     }
 
-    public async Task<(IEnumerable<Publication> Items, int TotalCount)> SearchByTagAsync(string tagName, int page, int pageSize)
+    public async Task<(IEnumerable<Publication> Items, int TotalCount)> SearchByTagAsync(string tagName, int page, int pageSize, string? tagFilter = null, int? minRating = null, string? sortBy = null)
     {
         var lowerTag = tagName.ToLower();
         var baseQuery = _context.Publications
             .Where(p => p.Tags.Any(pt => pt.Tag.Name.ToLower().Contains(lowerTag)));
 
+        baseQuery = ApplyPublicationFilters(baseQuery, tagFilter, minRating);
+
         var totalCount = await baseQuery.CountAsync();
 
-        var items = await baseQuery
+        var ordered = ApplyPublicationSort(baseQuery, sortBy);
+
+        var items = await ordered
             .Include(p => p.Author)
             .Include(p => p.Tags)
                 .ThenInclude(pt => pt.Tag)
-            .OrderByDescending(p => p.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
 
         return (items, totalCount);
+    }
+
+    private static IQueryable<Publication> ApplyPublicationFilters(IQueryable<Publication> query, string? tagFilter, int? minRating)
+    {
+        if (!string.IsNullOrWhiteSpace(tagFilter))
+        {
+            var lowerTagFilter = tagFilter.ToLower();
+            query = query.Where(p => p.Tags.Any(pt => pt.Tag.Name.ToLower().Contains(lowerTagFilter)));
+        }
+
+        if (minRating.HasValue && minRating.Value > 0)
+        {
+            var threshold = minRating.Value;
+            query = query.Where(p => p.AverageRating >= threshold);
+        }
+
+        return query;
+    }
+
+    private static IQueryable<Publication> ApplyPublicationSort(IQueryable<Publication> query, string? sortBy)
+    {
+        return sortBy switch
+        {
+            "newest" => query.OrderByDescending(p => p.PublishedDate ?? p.CreatedAt),
+            "oldest" => query.OrderBy(p => p.PublishedDate ?? p.CreatedAt),
+            "rating" => query.OrderByDescending(p => p.AverageRating),
+            "cited" => query.OrderByDescending(p => p.CitationCount),
+            _ => query.OrderByDescending(p => p.CreatedAt),
+        };
     }
 
     // Citation Analysis
